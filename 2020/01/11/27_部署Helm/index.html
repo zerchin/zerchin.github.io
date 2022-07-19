@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.zerchin.xyz","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="https:&#x2F;&#x2F;github.com&#x2F;helm&#x2F;helm&#x2F;blob&#x2F;master&#x2F;docs&#x2F;charts.md 什么是Helm">
+<meta property="og:type" content="article">
+<meta property="og:title" content="k8s学习（27）：部署Helm">
+<meta property="og:url" content="http://blog.zerchin.xyz/2020/01/11/27_%E9%83%A8%E7%BD%B2Helm/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="https:&#x2F;&#x2F;github.com&#x2F;helm&#x2F;helm&#x2F;blob&#x2F;master&#x2F;docs&#x2F;charts.md 什么是Helm">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://blog.zerchin.xyz/assets/image-20200205181419004.png">
+<meta property="article:published_time" content="2020-01-11T18:00:21.000Z">
+<meta property="article:modified_time" content="2022-07-19T08:23:02.043Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="kubernetes">
+<meta property="article:tag" content="helm">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://blog.zerchin.xyz/assets/image-20200205181419004.png">
+
+
+<link rel="canonical" href="http://blog.zerchin.xyz/2020/01/11/27_%E9%83%A8%E7%BD%B2Helm/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>k8s学习（27）：部署Helm | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">42</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">26</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">86</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%80%E4%B9%88%E6%98%AFHelm"><span class="nav-number">1.</span> <span class="nav-text">什么是Helm</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Helm%E9%83%A8%E7%BD%B2"><span class="nav-number">2.</span> <span class="nav-text">Helm部署</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Helm-%E8%87%AA%E5%AE%9A%E4%B9%89%E6%A8%A1%E6%9D%BF"><span class="nav-number">3.</span> <span class="nav-text">Helm 自定义模板</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%AF%E4%BF%AE%E6%94%B9%E7%9A%84helm"><span class="nav-number">3.1.</span> <span class="nav-text">可修改的helm</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Debug"><span class="nav-number">4.</span> <span class="nav-text">Debug</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">86</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">42</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://blog.zerchin.xyz/2020/01/11/27_%E9%83%A8%E7%BD%B2Helm/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          k8s学习（27）：部署Helm
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2020-01-11 18:00:21" itemprop="dateCreated datePublished" datetime="2020-01-11T18:00:21+00:00">2020-01-11</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">更新于</span>
+        <time title="修改时间：2022-07-19 08:23:02" itemprop="dateModified" datetime="2022-07-19T08:23:02+00:00">2022-07-19</time>
+      </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/kubernetes%E6%95%99%E7%A8%8B/" itemprop="url" rel="index"><span itemprop="name">kubernetes教程</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><a target="_blank" rel="noopener" href="https://github.com/helm/helm/blob/master/docs/charts.md">https://github.com/helm/helm/blob/master/docs/charts.md</a></p>
+<h2 id="什么是Helm"><a href="#什么是Helm" class="headerlink" title="什么是Helm"></a>什么是Helm</h2><p>在没使用Helm之前，向kubernetes部署应用，我们要依次部署deployment、svc等，步骤较繁琐，况且随着很多项目微服务化，复杂的应用在容器中部署以及管理显得较为复杂，helm通过打包的方式，<strong>支持发布的版本管理和控制</strong>，很大程度上简化了kubernetes应用的部署和管理</p>
+<p>Helm本质就是让k8s的应用管理（deployment，service等）可配置，能动态生成。通过动态生成k8s清单文件（deploy.yaml，svc.yaml）。然后调用kubectl自动执行k8s资源部署</p>
+<p>Helm是官方提供的类似于YUM的包管理器，是部署环境的流程封装。Helm有两个重要的概念：chart和release</p>
+<ul>
+<li><strong>chart是创建一个应用的信息集合，包括各种kubernetes对象的配置模板、参数定义、依赖关系、文档说明等。chart是应用部署的自包含逻辑单元。可以将chart想象成apt、yum中的软件安装包</strong></li>
+<li><strong>release是chart的运行实例，代表了一个正在运行的应用。当chart被安装到kubernetes集群，就生成一个release。chart能够多次安装到同一个集群，每次安装都是一个release</strong></li>
+</ul>
+<p>Helm包含两个组件：Helm客户端和Tiller服务器，如下图所示</p>
+<p><img src="/assets/image-20200205181419004.png" alt="image-20200205181419004"></p>
+<p>Helm客户端负责chart和release的创建和管理以及和TIller的交互</p>
+<p>Tiller服务器运行在kubernetes集群中，它会处理Helm客户端的请求，与kubernetes API Server交互</p>
+<h2 id="Helm部署"><a href="#Helm部署" class="headerlink" title="Helm部署"></a>Helm部署</h2><p>越来越多的公司和团队开始使用Helm这个kubernetes的包管理器，我们也将使用Helm安装kubernetes的常用组件。Helm由客户端helm命令行工具和服务端tiller组成，Helm的安装十分简单。下载helm命令行工具到master节点node1的/usr/local/bin下，这里下载的2.13.1版本：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">ntpdate ntp1.aliyun.com</span><br><span class="line"><span class="meta">#</span><span class="bash"><span class="comment"># k8s1.15版本用的2.13.1没问题，k8s1.17版本用2.13报错，用2.16不报错</span></span></span><br><span class="line">wget https://storage.googleapis.com/kubernetes-helm/helm-v2.13.1-linux-amd64.tar.gz</span><br><span class="line">tar -zxvf helm-v2.13.1-amd64.tar.gz</span><br><span class="line">cd linux-amd64</span><br><span class="line">cp helm /usr/local/bin/</span><br></pre></td></tr></table></figure>
+
+<p>为了安装服务端tiller，还需要在这台机器上配置好kubectl工具和kubeconfig文件，确保kubectl工具可以在这台机器上访问apiserver且正常使用。这里的node1节点以及配置好了kubectl</p>
+<p>因为kubernetes APIServer开启了RBAC访问控制，所以需要创建tiller使用的serviceaccount:tiller并分配合适的角色给它。详细内容可以查看helm文档中的<a target="_blank" rel="noopener" href="https://docs.helm.sh/using_helm/#role-based-access-control">Role-based Access Control</a>。这里简单起见直接分配cluster-admin这个集群内置的ClusterRole给它。创建rbac-config.yaml文件：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">ServiceAccount</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">tiller</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">kube-system</span></span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">rbac.authorization.k8s.io/v1beta1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">ClusterRoleBinding</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">tiller</span></span><br><span class="line"><span class="attr">roleRef:</span></span><br><span class="line">  <span class="attr">apiGroup:</span> <span class="string">rbac.authorization.k8s.io</span></span><br><span class="line">  <span class="attr">kind:</span> <span class="string">ClusterRole</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">cluster-admin</span></span><br><span class="line"><span class="attr">subjects:</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">kind:</span> <span class="string">ServiceAccount</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">tiller</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">kube-system</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s-master helm]# kubectl create-f rbac-config.yaml</span><br><span class="line">serviceaccount/tiller created</span><br><span class="line">clusterrolebinding.rbac.authorization.k8s.io/tiller created</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">## 或者直接使用命令行创建rbac</span></span><br><span class="line">kubectl -n kube-system create serviceaccount tiller</span><br><span class="line">kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller</span><br></pre></td></tr></table></figure>
+
+
+
+<figure class="highlight powershell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">[<span class="type">root</span>@<span class="type">k8s</span>-<span class="type">master</span> <span class="type">helm</span>]<span class="comment"># helm init --service-account tiller --skip-refresh</span></span><br><span class="line">Creating /root/.helm </span><br><span class="line">Creating /root/.helm/repository </span><br><span class="line">Creating /root/.helm/repository/cache </span><br><span class="line">Creating /root/.helm/repository/local </span><br><span class="line">Creating /root/.helm/plugins </span><br><span class="line">Creating /root/.helm/starters </span><br><span class="line">Creating /root/.helm/cache/archive </span><br><span class="line">Creating /root/.helm/repository/repositories.yaml </span><br><span class="line">Adding stable repo with URL: https://kubernetes<span class="literal">-charts</span>.storage.googleapis.com </span><br><span class="line">Adding local repo with URL: http://<span class="number">127.0</span>.<span class="number">0.1</span>:<span class="number">8879</span>/charts </span><br><span class="line"><span class="variable">$HELM_HOME</span> has been configured at /root/.helm.</span><br><span class="line"></span><br><span class="line">Tiller (the Helm server<span class="literal">-side</span> component) has been installed into your Kubernetes Cluster.</span><br><span class="line"></span><br><span class="line">Please note: by default, Tiller is deployed with an insecure <span class="string">&#x27;allow unauthenticated users&#x27;</span> policy.</span><br><span class="line">To prevent this, run `helm init` with the -<span class="literal">-tiller</span><span class="literal">-tls</span><span class="literal">-verify</span> flag.</span><br><span class="line"><span class="keyword">For</span> more information on securing your installation see: https://docs.helm.sh/using_helm/<span class="comment">#securing-your-helm-installation</span></span><br><span class="line">Happy Helming!</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight powershell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">[<span class="type">root</span>@<span class="type">k8s</span>-<span class="type">master</span> <span class="type">helm</span>]<span class="comment"># kubectl get pods -n kube-system -l app=helm</span></span><br><span class="line">NAME                                 READY   STATUS             RESTARTS   AGE</span><br><span class="line">tiller<span class="literal">-deploy</span><span class="literal">-58565b5464</span><span class="literal">-57xjr</span>       <span class="number">0</span>/<span class="number">1</span>     ImagePullBackOff   <span class="number">0</span>          <span class="number">72</span>s</span><br><span class="line"></span><br><span class="line"><span class="comment">## 镜像下载失败，查看是哪个镜像</span></span><br><span class="line">[<span class="type">root</span>@<span class="type">k8s</span>-<span class="type">master</span> <span class="type">helm</span>]<span class="comment"># kubectl describe pod tiller-deploy-58565b5464-57xjr -n kube-system</span></span><br><span class="line">...</span><br><span class="line">...省略</span><br><span class="line">...</span><br><span class="line">  Normal   BackOff    <span class="number">72</span>s (x6 over <span class="number">3</span>m37s)  kubelet, k8s<span class="literal">-node02</span>  Back<span class="literal">-off</span> pulling image <span class="string">&quot;gcr.io/kubernetes-helm/tiller:v2.13.1&quot;</span></span><br><span class="line">  Warning  Failed     <span class="number">61</span>s (x7 over <span class="number">3</span>m37s)  kubelet, k8s<span class="literal">-node02</span>  Error: ImagePullBackOff</span><br><span class="line"></span><br><span class="line"><span class="comment">## 下载阿里docker镜像，参考https://www.jianshu.com/p/423a2b19272a</span></span><br><span class="line">[<span class="type">root</span>@<span class="type">k8s</span>-<span class="type">node02</span> <span class="type">test</span>]<span class="comment"># docker pull registry.cn-hangzhou.aliyuncs.com/google_containers/tiller:v2.13.1</span></span><br><span class="line">v2.<span class="number">13.1</span>: Pulling from google_containers/tiller</span><br><span class="line"><span class="number">5</span>d20c808ce19: Pull complete </span><br><span class="line"><span class="number">43339</span>c468bb6: Pull complete </span><br><span class="line">d6d696e230df: Pull complete </span><br><span class="line"><span class="number">9</span>cf2c942cf64: Pull complete </span><br><span class="line">Digest: sha256:d52b34a9f9aeec1cf74155ca51fcbb5d872a705914565c782be4531790a4ee0e</span><br><span class="line">Status: Downloaded newer image <span class="keyword">for</span> registry.cn<span class="literal">-hangzhou</span>.aliyuncs.com/google_containers/tiller:v2.<span class="number">13.1</span></span><br><span class="line">registry.cn<span class="literal">-hangzhou</span>.aliyuncs.com/google_containers/tiller:v2.<span class="number">13.1</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">## 修改tag</span></span><br><span class="line">docker tag registry.cn<span class="literal">-hangzhou</span>.aliyuncs.com/google_containers/tiller:v2.<span class="number">13.1</span> gcr.io/kubernetes<span class="literal">-helm</span>/tiller:v2.<span class="number">13.1</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight powershell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[<span class="type">root</span>@<span class="type">k8s</span>-<span class="type">master</span> <span class="type">helm</span>]<span class="comment"># helm version</span></span><br><span class="line">Client: &amp;version.Version&#123;SemVer:<span class="string">&quot;v2.13.1&quot;</span>, GitCommit:<span class="string">&quot;618447cbf203d147601b4b9bd7f8c37a5d39fbb4&quot;</span>, GitTreeState:<span class="string">&quot;clean&quot;</span>&#125;</span><br><span class="line">Server: &amp;version.Version&#123;SemVer:<span class="string">&quot;v2.13.1&quot;</span>, GitCommit:<span class="string">&quot;618447cbf203d147601b4b9bd7f8c37a5d39fbb4&quot;</span>, GitTreeState:<span class="string">&quot;clean&quot;</span>&#125;</span><br></pre></td></tr></table></figure>
+
+<p>tiller默认被部署在k8s集群中的kube-system这个namespace下</p>
+<h2 id="Helm-自定义模板"><a href="#Helm-自定义模板" class="headerlink" title="Helm 自定义模板"></a>Helm 自定义模板</h2><p>Helm官网已经有为使用者打包好的模板，地址：<a target="_blank" rel="noopener" href="https://hub.helm.sh/">https://hub.helm.sh/</a></p>
+<p>也可以自己制作模板</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 创建文件夹</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> mkdir ./hello-world</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> <span class="built_in">cd</span> /hello-world</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> 创建自描述文件 Chart.yaml，这个文件必须有name和version定义</span></span><br><span class="line"><span class="meta">$</span><span class="bash"> cat &lt;&lt; <span class="string">EOF &gt; ./Chart.yaml</span></span></span><br><span class="line">name: hello-world</span><br><span class="line">version: 1.0.0</span><br><span class="line">EOF</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 创建模板文件，用于生成kubernetes资源清单(manifests)</span></span><br><span class="line"><span class="string">$</span> <span class="string">mkdir</span> <span class="string">./templates</span></span><br><span class="line"><span class="string">$</span> <span class="string">cat</span> <span class="string">&lt;&lt;</span> <span class="string">EOF</span> <span class="string">&gt;</span> <span class="string">./templates/deployment.yaml</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">extensions/v1beta1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">hello-world</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">hello-world</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">hello-world</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">hub.test.com/library/myapp:v1</span></span><br><span class="line">        <span class="attr">ports:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">containerPort:</span> <span class="number">80</span></span><br><span class="line">          <span class="attr">protocol:</span> <span class="string">TCP</span></span><br><span class="line"><span class="string">EOF</span></span><br><span class="line"><span class="string">$</span> <span class="string">cat</span> <span class="string">&lt;&lt;</span> <span class="string">EOF</span> <span class="string">&gt;</span> <span class="string">./templates/service.yaml</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Service</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">hello-world</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">hello-world</span></span><br><span class="line">  <span class="attr">ports:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">port:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">targetPort:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">protocol:</span> <span class="string">TCP</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">NodePort</span></span><br></pre></td></tr></table></figure>
+
+<p>这里可以有很多个yaml，全部都会执行</p>
+<figure class="highlight powershell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 使用命令 helm install RELATIVE_PATH_TO_CHART 创建一次Release</span></span><br><span class="line">[<span class="type">root</span>@<span class="type">k8s</span>-<span class="type">master</span> <span class="type">hello</span>-<span class="type">world</span>]<span class="comment"># helm install .</span></span><br><span class="line">NAME:   ho<span class="built_in">ping-alpaca</span></span><br><span class="line">LAST DEPLOYED: Thu Feb  <span class="number">6</span> <span class="number">01</span>:<span class="number">00</span>:<span class="number">06</span> <span class="number">2020</span></span><br><span class="line">NAMESPACE: default</span><br><span class="line">STATUS: DEPLOYED</span><br><span class="line"></span><br><span class="line">RESOURCES:</span><br><span class="line">==&gt; v1/Pod(related)</span><br><span class="line">NAME                         READY  STATUS             RESTARTS  AGE</span><br><span class="line">hello<span class="literal">-world</span><span class="literal">-f75c8749b</span><span class="literal">-kg78f</span>  <span class="number">0</span>/<span class="number">1</span>    ContainerCreating  <span class="number">0</span>         <span class="number">0</span>s</span><br><span class="line">hello<span class="literal">-world</span><span class="literal">-f75c8749b</span><span class="literal">-vhgjc</span>  <span class="number">0</span>/<span class="number">1</span>    ContainerCreating  <span class="number">0</span>         <span class="number">0</span>s</span><br><span class="line"></span><br><span class="line">==&gt; v1/Service</span><br><span class="line">NAME         <span class="built_in">TYPE</span>      CLUSTER<span class="literal">-IP</span>      EXTERNAL<span class="literal">-IP</span>  PORT(S)       AGE</span><br><span class="line">hello<span class="literal">-world</span>  NodePort  <span class="number">10.106</span>.<span class="number">106.148</span>  &lt;none&gt;       <span class="number">80</span>:<span class="number">32202</span>/TCP  <span class="number">0</span>s</span><br><span class="line"></span><br><span class="line">==&gt; v1beta1/Deployment</span><br><span class="line">NAME         READY  UP<span class="literal">-TO</span><span class="literal">-DATE</span>  AVAILABLE  AGE</span><br><span class="line">hello<span class="literal">-world</span>  <span class="number">0</span>/<span class="number">2</span>    <span class="number">0</span>           <span class="number">0</span>          <span class="number">0</span>s</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight powershell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 列出已经部署的Release</span></span><br><span class="line">[<span class="type">root</span>@<span class="type">k8s</span>-<span class="type">master</span> <span class="type">hello</span>-<span class="type">world</span>]<span class="comment"># helm ls</span></span><br><span class="line">NAME         	REVISION	UPDATED                 	STATUS  	CHART            	APP VERSION	NAMESPACE</span><br><span class="line">ho<span class="built_in">ping-alpaca</span>	<span class="number">1</span>       	Thu Feb  <span class="number">6</span> <span class="number">01</span>:<span class="number">00</span>:<span class="number">06</span> <span class="number">2020</span>	DEPLOYED	hello<span class="literal">-world</span><span class="literal">-1</span>.<span class="number">0.0</span>	           	default  </span><br><span class="line"></span><br><span class="line"><span class="comment"># 查询一个特定的Release的状态</span></span><br><span class="line">[<span class="type">root</span>@<span class="type">k8s</span>-<span class="type">master</span> <span class="type">hello</span>-<span class="type">world</span>]<span class="comment"># helm status hoping-alpaca</span></span><br><span class="line">LAST DEPLOYED: Thu Feb  <span class="number">6</span> <span class="number">01</span>:<span class="number">00</span>:<span class="number">06</span> <span class="number">2020</span></span><br><span class="line">NAMESPACE: default</span><br><span class="line">STATUS: DEPLOYED</span><br><span class="line"></span><br><span class="line">RESOURCES:</span><br><span class="line">==&gt; v1/Pod(related)</span><br><span class="line">NAME                         READY  STATUS   RESTARTS  AGE</span><br><span class="line">hello<span class="literal">-world</span><span class="literal">-f75c8749b</span><span class="literal">-kg78f</span>  <span class="number">1</span>/<span class="number">1</span>    Running  <span class="number">0</span>         <span class="number">50</span>s</span><br><span class="line">hello<span class="literal">-world</span><span class="literal">-f75c8749b</span><span class="literal">-vhgjc</span>  <span class="number">1</span>/<span class="number">1</span>    Running  <span class="number">0</span>         <span class="number">50</span>s</span><br><span class="line"></span><br><span class="line">==&gt; v1/Service</span><br><span class="line">NAME         <span class="built_in">TYPE</span>      CLUSTER<span class="literal">-IP</span>      EXTERNAL<span class="literal">-IP</span>  PORT(S)       AGE</span><br><span class="line">hello<span class="literal">-world</span>  NodePort  <span class="number">10.106</span>.<span class="number">106.148</span>  &lt;none&gt;       <span class="number">80</span>:<span class="number">32202</span>/TCP  <span class="number">50</span>s</span><br><span class="line"></span><br><span class="line">==&gt; v1beta1/Deployment</span><br><span class="line">NAME         READY  UP<span class="literal">-TO</span><span class="literal">-DATE</span>  AVAILABLE  AGE</span><br><span class="line">hello<span class="literal">-world</span>  <span class="number">2</span>/<span class="number">2</span>    <span class="number">2</span>           <span class="number">2</span>          <span class="number">50</span>s</span><br><span class="line"></span><br><span class="line"><span class="comment"># 移除所有与这个Release相关的kubernetes资源</span></span><br><span class="line"><span class="variable">$</span> helm delete ho<span class="built_in">ping-alpaca</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># helm rollback RELEASE_NAME  REVISION_NUMBER</span></span><br><span class="line"><span class="variable">$</span> helm rollback ho<span class="built_in">ping-alpaca</span> <span class="number">1</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 使用helm delete --purge RELEASE_NAME 移除所有指定Release相关的kubernetes资源和所有这个Release的记录</span></span><br><span class="line"><span class="variable">$</span> helm  delete -<span class="literal">-purge</span> ho<span class="built_in">ping-alpaca</span></span><br><span class="line"><span class="variable">$</span> helm <span class="built_in">ls</span> -<span class="literal">-deleted</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 修改了yaml，更新此应用</span></span><br><span class="line">helm upgrade ho<span class="built_in">ping-alpaca</span> .</span><br></pre></td></tr></table></figure>
+
+<p>知识点：</p>
+<p>1 可以将关键点做成values</p>
+<p>2 删除helm不会真的删除，（可通过<code>helm list --deleted</code>查看），无法再创建同名helm，后期可以rollback</p>
+<p>3 真正删除需要加–purge</p>
+<h3 id="可修改的helm"><a href="#可修改的helm" class="headerlink" title="可修改的helm"></a>可修改的helm</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 配置体现在配置文件 values.yaml</span></span><br><span class="line"><span class="string">$</span> <span class="string">cat</span> <span class="string">&lt;&lt;</span> <span class="string">EOF</span> <span class="string">&gt;</span> <span class="string">./values.yaml</span></span><br><span class="line"><span class="attr">image:</span></span><br><span class="line">  <span class="attr">repository:</span> <span class="string">gcr.io/google-samples/node-hello</span></span><br><span class="line">  <span class="attr">tag:</span> <span class="string">&#x27;1.0&#x27;</span></span><br><span class="line"><span class="string">EOF</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 这个文件中定义的值，在模板文件中可以通过 .Values对象访问到</span></span><br><span class="line"><span class="string">$</span> <span class="string">cat</span> <span class="string">&lt;&lt;</span> <span class="string">EOF</span> <span class="string">&gt;</span> <span class="string">./templates/deployment.yaml</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">extensions/v1beta1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">hello-world</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">hello-world</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">hello-world</span></span><br><span class="line">        <span class="attr">image:</span> &#123;&#123; <span class="string">.Values.image.repository</span> &#125;&#125;<span class="string">:&#123;&#123;</span> <span class="string">.Values.image.tag&#125;&#125;</span></span><br><span class="line">      <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">containerPort:</span> <span class="number">80</span></span><br><span class="line">        <span class="attr">protocol:</span> <span class="string">TCP</span></span><br><span class="line"><span class="string">EOF</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 在values.yaml中的值可以被部署release时用到的参数 --values YAML_FILE_PATH 或 --set key1=value1, key2=value2覆盖掉</span></span><br><span class="line"><span class="string">$</span> <span class="string">helm</span> <span class="string">install</span> <span class="string">--set</span> <span class="string">image.tag=&#x27;latest&#x27;</span> <span class="string">.</span></span><br><span class="line"></span><br><span class="line"><span class="string">$</span> <span class="string">升级版本</span></span><br><span class="line"><span class="string">helm</span> <span class="string">upgrade</span> [<span class="string">-f</span> <span class="string">values.yaml</span>] <span class="string">test</span> <span class="string">.</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="Debug"><a href="#Debug" class="headerlink" title="Debug"></a>Debug</h2><figure class="highlight powershell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 使用模板动态生成k8s资源清单，非常需要能提前预览生成的结果</span></span><br><span class="line"><span class="comment"># 使用--dry-run --debug选项来打印出生成的清单文件内容，而不执行部署</span></span><br><span class="line">helm install . -<span class="literal">-dry</span><span class="literal">-run</span> -<span class="literal">-debug</span> -<span class="literal">-set</span> image.tag=latest</span><br></pre></td></tr></table></figure>
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://blog.zerchin.xyz/2020/01/11/27_%E9%83%A8%E7%BD%B2Helm/" title="k8s学习（27）：部署Helm">http://blog.zerchin.xyz/2020/01/11/27_部署Helm/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
+              <a href="/tags/helm/" rel="tag"># helm</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2020/01/09/26_%E9%9B%86%E7%BE%A4%E5%AE%89%E5%85%A8-%E5%87%86%E5%85%A5%E6%8E%A7%E5%88%B6_/" rel="prev" title="k8s学习（26）：集群安全-准入控制">
+                  <i class="fa fa-chevron-left"></i> k8s学习（26）：集群安全-准入控制
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2020/01/11/28_%E4%BD%BF%E7%94%A8Helm%E9%83%A8%E7%BD%B2Dashboard/" rel="next" title="k8s学习（28）：使用Helm部署Dashboard">
+                  k8s学习（28）：使用Helm部署Dashboard <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

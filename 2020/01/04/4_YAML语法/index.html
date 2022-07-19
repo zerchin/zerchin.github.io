@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.zerchin.xyz","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="简单说明YAML是一个可读性高，用来表达数据序列的格式。YAML的意思其实是：仍是一种标记语言，但为了强调这种语言以数据作为中心，而不是以标记语言为重点">
+<meta property="og:type" content="article">
+<meta property="og:title" content="k8s学习（4）：YAML语法">
+<meta property="og:url" content="http://blog.zerchin.xyz/2020/01/04/4_YAML%E8%AF%AD%E6%B3%95/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="简单说明YAML是一个可读性高，用来表达数据序列的格式。YAML的意思其实是：仍是一种标记语言，但为了强调这种语言以数据作为中心，而不是以标记语言为重点">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-01-04T18:30:21.000Z">
+<meta property="article:modified_time" content="2022-07-19T08:23:02.047Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="kubernetes">
+<meta property="article:tag" content="yaml">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://blog.zerchin.xyz/2020/01/04/4_YAML%E8%AF%AD%E6%B3%95/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>k8s学习（4）：YAML语法 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">42</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">26</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">86</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AE%80%E5%8D%95%E8%AF%B4%E6%98%8E"><span class="nav-number">1.</span> <span class="nav-text">简单说明</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E8%AF%AD%E6%B3%95"><span class="nav-number">2.</span> <span class="nav-text">基本语法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#YAML%E6%94%AF%E6%8C%81%E7%9A%84%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="nav-number">3.</span> <span class="nav-text">YAML支持的数据结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AF%B9%E8%B1%A1%E7%B1%BB%E5%9E%8B%EF%BC%9A%E5%AF%B9%E8%B1%A1%E7%9A%84%E4%B8%80%E7%BB%84%E9%94%AE%E5%80%BC%E5%AF%B9%EF%BC%8C%E4%BD%BF%E7%94%A8%E5%86%92%E5%8F%B7%E7%BB%93%E6%9E%84%E8%A1%A8%E7%A4%BA"><span class="nav-number">4.</span> <span class="nav-text">对象类型：对象的一组键值对，使用冒号结构表示</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E7%BB%84%E7%B1%BB%E5%9E%8B%EF%BC%9A%E4%B8%80%E7%BB%84%E8%BF%9E%E8%AF%8D%E7%BA%BF%E5%BC%80%E5%A4%B4%E7%9A%84%E8%A1%8C%EF%BC%8C%E6%9E%84%E6%88%90%E4%B8%80%E4%B8%AA%E6%95%B0%E7%BB%84"><span class="nav-number">5.</span> <span class="nav-text">数组类型：一组连词线开头的行，构成一个数组</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A4%8D%E5%90%88%E7%BB%93%E6%9E%84%EF%BC%9A%E5%AF%B9%E8%B1%A1%E5%92%8C%E6%95%B0%E7%BB%84%E5%8F%AF%E4%BB%A5%E7%BB%93%E5%90%88%E4%BD%BF%E7%94%A8%EF%BC%8C%E5%BD%A2%E6%88%90%E5%A4%8D%E5%90%88%E7%BB%93%E6%9E%84"><span class="nav-number">6.</span> <span class="nav-text">复合结构：对象和数组可以结合使用，形成复合结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BA%AF%E9%87%8F%EF%BC%9A%E7%BA%AF%E9%87%8F%E6%98%AF%E6%9C%80%E5%9F%BA%E6%9C%AC%E7%9A%84%E3%80%81%E4%B8%8D%E5%8F%AF%E5%86%8D%E5%88%86%E7%9A%84%E5%80%BC%E3%80%82%E4%BB%A5%E4%B8%8B%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B%E9%83%BD%E5%B1%9E%E4%BA%8E%E7%BA%AF%E9%87%8F"><span class="nav-number">7.</span> <span class="nav-text">纯量：纯量是最基本的、不可再分的值。以下数据类型都属于纯量</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AD%97%E7%AC%A6%E4%B8%B2"><span class="nav-number">8.</span> <span class="nav-text">字符串</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">86</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">42</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://blog.zerchin.xyz/2020/01/04/4_YAML%E8%AF%AD%E6%B3%95/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          k8s学习（4）：YAML语法
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2020-01-04 18:30:21" itemprop="dateCreated datePublished" datetime="2020-01-04T18:30:21+00:00">2020-01-04</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">更新于</span>
+        <time title="修改时间：2022-07-19 08:23:02" itemprop="dateModified" datetime="2022-07-19T08:23:02+00:00">2022-07-19</time>
+      </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/kubernetes%E6%95%99%E7%A8%8B/" itemprop="url" rel="index"><span itemprop="name">kubernetes教程</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="简单说明"><a href="#简单说明" class="headerlink" title="简单说明"></a>简单说明</h2><p>YAML是一个可读性高，用来表达数据序列的格式。YAML的意思其实是：仍是一种标记语言，但为了强调这种语言以数据作为中心，而不是以标记语言为重点</p>
+<h2 id="基本语法"><a href="#基本语法" class="headerlink" title="基本语法"></a>基本语法</h2><ul>
+<li><strong>缩进时不允许使用tab键，只允许使用空格</strong></li>
+<li><strong>缩进的空格数目不重要，只要相同层级的元素左侧对齐即可</strong></li>
+<li><strong># 标识注释，从这个字符一直到行尾，都会被解释器忽略</strong></li>
+</ul>
+<h2 id="YAML支持的数据结构"><a href="#YAML支持的数据结构" class="headerlink" title="YAML支持的数据结构"></a>YAML支持的数据结构</h2><ul>
+<li><strong>对象：键值对的集合，又称为映射（mapping）/哈希（hashes）</strong></li>
+<li><strong>数组：一组按次序排列的值，又称为序列（sequence）/列表（list）</strong></li>
+<li><strong>纯量（scalars）：单个的、不可再分的值</strong></li>
+</ul>
+<h2 id="对象类型：对象的一组键值对，使用冒号结构表示"><a href="#对象类型：对象的一组键值对，使用冒号结构表示" class="headerlink" title="对象类型：对象的一组键值对，使用冒号结构表示"></a>对象类型：对象的一组键值对，使用冒号结构表示</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">name:</span> <span class="string">Steve</span></span><br><span class="line"><span class="attr">age:</span> <span class="number">18</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>YAML也允许另一种写法，将所有键值对写成一个行内对象</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">hash:</span> &#123; <span class="attr">name:</span> <span class="string">Steve</span>, <span class="attr">age:</span> <span class="number">18</span> &#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="数组类型：一组连词线开头的行，构成一个数组"><a href="#数组类型：一组连词线开头的行，构成一个数组" class="headerlink" title="数组类型：一组连词线开头的行，构成一个数组"></a>数组类型：一组连词线开头的行，构成一个数组</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">animal</span></span><br><span class="line"><span class="bullet">-</span> <span class="string">Cat</span></span><br><span class="line"><span class="bullet">-</span> <span class="string">Dog</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>数组也可以采用行内表示法</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">animal:</span> [<span class="string">Cat</span>, <span class="string">Dog</span>]</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="复合结构：对象和数组可以结合使用，形成复合结构"><a href="#复合结构：对象和数组可以结合使用，形成复合结构" class="headerlink" title="复合结构：对象和数组可以结合使用，形成复合结构"></a>复合结构：对象和数组可以结合使用，形成复合结构</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">languages:</span></span><br><span class="line"><span class="bullet">-</span> <span class="string">Ruby</span></span><br><span class="line"><span class="bullet">-</span> <span class="string">Perl</span></span><br><span class="line"><span class="bullet">-</span> <span class="string">Python</span></span><br><span class="line"><span class="attr">websites:</span></span><br><span class="line"><span class="attr">YAML:</span> <span class="string">yaml.org</span></span><br><span class="line"><span class="attr">Ruby:</span> <span class="string">ruby-lang.org</span></span><br><span class="line"><span class="attr">Python:</span> <span class="string">python.org</span></span><br><span class="line"><span class="attr">Perl:</span> <span class="string">user.perl.org</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="纯量：纯量是最基本的、不可再分的值。以下数据类型都属于纯量"><a href="#纯量：纯量是最基本的、不可再分的值。以下数据类型都属于纯量" class="headerlink" title="纯量：纯量是最基本的、不可再分的值。以下数据类型都属于纯量"></a>纯量：纯量是最基本的、不可再分的值。以下数据类型都属于纯量</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1</span> <span class="string">字符串</span> <span class="string">布尔值</span> <span class="string">证书</span> <span class="string">浮点数</span> <span class="literal">Null</span></span><br><span class="line"><span class="number">2</span> <span class="string">时间</span> <span class="string">日期</span></span><br><span class="line"></span><br><span class="line"><span class="string">数值直接以字面量的形式表示</span></span><br><span class="line"><span class="attr">number:</span> <span class="number">12.30</span></span><br><span class="line"></span><br><span class="line"><span class="string">布尔值用true和false表示</span></span><br><span class="line"><span class="attr">isSet:</span> <span class="literal">true</span></span><br><span class="line"></span><br><span class="line"><span class="literal">null</span><span class="string">用~表示</span></span><br><span class="line"><span class="attr">parent:</span> <span class="string">~</span></span><br><span class="line"></span><br><span class="line"><span class="string">时间采用ISO8601格式</span></span><br><span class="line"><span class="attr">iso8601:</span> <span class="number">2001-12-14t21:49:43.10-05:00</span></span><br><span class="line"></span><br><span class="line"><span class="string">日期采用复合iso8601格式的年、月、日表示</span></span><br><span class="line"><span class="attr">date:</span> <span class="number">1976-07-31</span></span><br><span class="line"></span><br><span class="line"><span class="string">YAML允许使用两个感叹号，强制转换数据类型</span></span><br><span class="line"><span class="attr">e:</span> <span class="type">!!str</span> <span class="number">123</span></span><br><span class="line"><span class="attr">f:</span> <span class="type">!!str</span> <span class="literal">true</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="字符串"><a href="#字符串" class="headerlink" title="字符串"></a>字符串</h2><p><strong>字符串默认不使用引号表示</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">str</span> <span class="string">这是一行字符串</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>如果字符串之中包含空格或特殊字符，需要放在引号之中</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">str:</span> <span class="string">&#x27;内容：字符串&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>单引号和双引号都可以使用，双引号不会对特殊字符转义</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">s1:</span> <span class="string">&#x27;内容\n字符串&#x27;</span></span><br><span class="line"><span class="attr">s2:</span> <span class="string">&#x27;内容\n字符串&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>单引号之中如果还有单引号，必须连续使用两个单引号转义</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">str:</span> <span class="string">&#x27;labor&#x27;</span><span class="string">&#x27;s day&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>字符串可以写成多行，从第二行开始，必须有一个单空格缩进，换行符会被转为空格</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">str:</span> <span class="string">这是一段</span></span><br><span class="line">  <span class="string">多行</span></span><br><span class="line">  <span class="string">字符串</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>多行字符串可以使用|保留换行符，也可以使用&gt;折叠换行</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">this:</span> <span class="string">|</span></span><br><span class="line"><span class="string">Foo</span></span><br><span class="line"><span class="string">Bar</span></span><br><span class="line"><span class="attr">that:</span> <span class="string">&gt;</span></span><br><span class="line"><span class="string">Foo</span></span><br><span class="line"><span class="string">Bar</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>+表示保留文字块末尾的换行，-表示删除字符串末尾的换行</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">s1:</span> <span class="string">|</span></span><br><span class="line"> <span class="string">Foo</span></span><br><span class="line"><span class="attr">s2:</span> <span class="string">|+</span></span><br><span class="line"> <span class="string">Foo</span></span><br><span class="line"><span class="attr">s3:</span> <span class="string">|-</span></span><br><span class="line"> <span class="string">Foo</span></span><br></pre></td></tr></table></figure>
+
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://blog.zerchin.xyz/2020/01/04/4_YAML%E8%AF%AD%E6%B3%95/" title="k8s学习（4）：YAML语法">http://blog.zerchin.xyz/2020/01/04/4_YAML语法/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
+              <a href="/tags/yaml/" rel="tag"># yaml</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2020/01/04/3_%E8%B5%84%E6%BA%90%E6%B8%85%E5%8D%95-%E8%B5%84%E6%BA%90%E7%B1%BB%E5%9E%8B/" rel="prev" title="k8s学习（3）：资源清单-资源类型">
+                  <i class="fa fa-chevron-left"></i> k8s学习（3）：资源清单-资源类型
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2020/01/04/5_%E8%B5%84%E6%BA%90%E6%B8%85%E5%8D%95-pod%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F/" rel="next" title="k8s学习（5）：Pod生命周期">
+                  k8s学习（5）：Pod生命周期 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

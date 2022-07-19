@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.zerchin.xyz","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="简介CentOS7 部署Cobbler(PXE)实现自动化安装Centos、Windows">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CentOS7 部署Cobbler(PXE)实现自动化安装Centos、Windows">
+<meta property="og:url" content="http://blog.zerchin.xyz/2019/01/16/Cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="简介CentOS7 部署Cobbler(PXE)实现自动化安装Centos、Windows">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/vm-boot.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/vm-console.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/vm-boot2.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/vm-console2.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/win-1.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/win-2.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/win-3.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/win-4.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/win-smb.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/vm-win-boot.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/win-install-1.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/win-install-2.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/win-install-3.png">
+<meta property="article:published_time" content="2019-01-16T16:23:52.000Z">
+<meta property="article:modified_time" content="2019-01-16T16:23:52.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="centos">
+<meta property="article:tag" content="cobbler">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://blog.zerchin.xyz/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/vm-boot.png">
+
+
+<link rel="canonical" href="http://blog.zerchin.xyz/2019/01/16/Cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>CentOS7 部署Cobbler(PXE)实现自动化安装Centos、Windows | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">42</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">26</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">86</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AE%80%E4%BB%8B"><span class="nav-number">1.</span> <span class="nav-text">简介</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#1-%E7%8E%AF%E5%A2%83"><span class="nav-number">2.</span> <span class="nav-text">1 环境</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-cobbler%E9%83%A8%E7%BD%B2"><span class="nav-number">3.</span> <span class="nav-text">2 cobbler部署</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#2-1-%E5%85%B3%E9%97%AD%E9%98%B2%E7%81%AB%E5%A2%99"><span class="nav-number">3.1.</span> <span class="nav-text">2.1 关闭防火墙</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-2-%E5%85%B3%E9%97%ADselinux"><span class="nav-number">3.2.</span> <span class="nav-text">2.2 关闭selinux</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-3-%E5%AE%89%E8%A3%85epel%E6%BA%90"><span class="nav-number">3.3.</span> <span class="nav-text">2.3 安装epel源</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-4-%E5%AE%89%E8%A3%85cobbler%E5%8F%8A%E5%85%B6%E7%9B%B8%E5%85%B3%E8%BD%AF%E4%BB%B6"><span class="nav-number">3.4.</span> <span class="nav-text">2.4 安装cobbler及其相关软件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-5-%E4%BF%AE%E6%94%B9cobbler%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6"><span class="nav-number">3.5.</span> <span class="nav-text">2.5 修改cobbler配置文件</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#2-5-1-%E4%BF%AE%E6%94%B9server%E5%92%8Cnext-server%E5%8F%82%E6%95%B0"><span class="nav-number">3.5.1.</span> <span class="nav-text">2.5.1 修改server和next_server参数</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-5-2-%E4%BF%AE%E6%94%B9default-password-crypted%E5%8F%82%E6%95%B0"><span class="nav-number">3.5.2.</span> <span class="nav-text">2.5.2 修改default_password_crypted参数</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-5-3-%E5%BC%80%E5%90%AF%E7%AE%A1%E7%90%86DHCP"><span class="nav-number">3.5.3.</span> <span class="nav-text">2.5.3 开启管理DHCP</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-6-%E5%90%AF%E7%94%A8tftp"><span class="nav-number">3.6.</span> <span class="nav-text">2.6 启用tftp</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-7-%E5%90%AF%E5%8A%A8%E7%9B%B8%E5%85%B3%E6%9C%8D%E5%8A%A1"><span class="nav-number">3.7.</span> <span class="nav-text">2.7 启动相关服务</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-8-%E6%A3%80%E6%9F%A5cobbler"><span class="nav-number">3.8.</span> <span class="nav-text">2.8 检查cobbler</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-9-%E4%BF%AE%E5%A4%8D%E4%B8%8A%E8%BF%B0%E6%A3%80%E6%9F%A5%E5%87%BA%E7%9A%84%E9%97%AE%E9%A2%981%EF%BC%8C%E5%85%B6%E4%B8%AD%E9%97%AE%E9%A2%982%E3%80%813%E5%8F%AF%E4%BB%A5%E5%BF%BD%E7%95%A5"><span class="nav-number">3.9.</span> <span class="nav-text">2.9 修复上述检查出的问题1，其中问题2、3可以忽略</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-10-%E9%87%8D%E5%90%AFcobblerd%E6%9C%8D%E5%8A%A1%EF%BC%8C%E5%B9%B6%E8%BF%9B%E8%A1%8C%E5%90%8C%E6%AD%A5"><span class="nav-number">3.10.</span> <span class="nav-text">2.10 重启cobblerd服务，并进行同步</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-11-%E5%86%8D%E6%AC%A1%E6%A3%80%E6%9F%A5cobbler"><span class="nav-number">3.11.</span> <span class="nav-text">2.11 再次检查cobbler</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3-%E5%AE%89%E8%A3%85CentOS7-5%E7%B3%BB%E7%BB%9F"><span class="nav-number">4.</span> <span class="nav-text">3 安装CentOS7.5系统</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E6%8C%82%E8%BD%BDCentOS7-5%E9%95%9C%E5%83%8F%E6%96%87%E4%BB%B6"><span class="nav-number">4.1.</span> <span class="nav-text">3.1 挂载CentOS7.5镜像文件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-%E5%AF%BC%E5%85%A5%E9%95%9C%E5%83%8F"><span class="nav-number">4.2.</span> <span class="nav-text">3.2 导入镜像</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-%E6%9F%A5%E7%9C%8B%E9%95%9C%E5%83%8F%E5%88%97%E8%A1%A8"><span class="nav-number">4.3.</span> <span class="nav-text">3.3 查看镜像列表</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-4-%E5%88%9B%E5%BB%BA%E4%B8%80%E5%8F%B0%E7%A9%BA%E7%9A%84%E8%99%9A%E6%8B%9F%E6%9C%BA%EF%BC%8C%E4%B8%8D%E6%8C%82%E8%BD%BDCD-DVD%E5%85%89%E7%9B%98%E9%95%9C%E5%83%8F%EF%BC%8C%E5%B9%B6%E5%90%AF%E5%8A%A8"><span class="nav-number">4.4.</span> <span class="nav-text">3.4 创建一台空的虚拟机，不挂载CD&#x2F;DVD光盘镜像，并启动</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-5-%E9%80%89%E6%8B%A9CentOS7-5-x86-64%EF%BC%8C%E5%BC%80%E5%A7%8B%E8%87%AA%E5%8A%A8%E5%8C%96%E5%AE%89%E8%A3%85CentOS7-5%E7%B3%BB%E7%BB%9F"><span class="nav-number">4.5.</span> <span class="nav-text">3.5 选择CentOS7.5-x86_64，开始自动化安装CentOS7.5系统</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-6-%E7%99%BB%E5%BD%95CentOS7-5%E7%B3%BB%E7%BB%9F"><span class="nav-number">4.6.</span> <span class="nav-text">3.6 登录CentOS7.5系统</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-7-%E8%87%AA%E5%B7%B1%E6%89%8B%E5%86%99ks%E6%96%87%E4%BB%B6"><span class="nav-number">4.7.</span> <span class="nav-text">3.7 自己手写ks文件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-8-%E5%A4%8D%E5%88%B6ks%E6%96%87%E4%BB%B6%E5%88%B0cobbler%E7%9B%AE%E5%BD%95%E4%B8%8B"><span class="nav-number">4.8.</span> <span class="nav-text">3.8 复制ks文件到cobbler目录下</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-9-%E6%8C%87%E5%AE%9ACentOS7-5%E7%9A%84ks%E6%96%87%E4%BB%B6"><span class="nav-number">4.9.</span> <span class="nav-text">3.9 指定CentOS7.5的ks文件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-10-%E5%88%9B%E5%BB%BACentOS7-5%E8%99%9A%E6%8B%9F%E6%9C%BA"><span class="nav-number">4.10.</span> <span class="nav-text">3.10 创建CentOS7.5虚拟机</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4-%E5%AE%89%E8%A3%85Windows7%E7%B3%BB%E7%BB%9F"><span class="nav-number">5.</span> <span class="nav-text">4 安装Windows7系统</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#4-1-%E5%AE%9A%E5%88%B6Win-PE"><span class="nav-number">5.1.</span> <span class="nav-text">4.1 定制Win PE</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-1-%E9%9C%80%E8%A6%81%E5%9C%A8%E4%B8%AA%E4%BA%BA%E7%94%B5%E8%84%91%E4%B8%8A%E4%B8%8B%E8%BD%BD%E5%AE%89%E8%A3%85AIK%EF%BC%8C%E5%85%B7%E4%BD%93%E5%A6%82%E4%B8%8B"><span class="nav-number">5.1.1.</span> <span class="nav-text">4.1.1 需要在个人电脑上下载安装AIK，具体如下</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-2-%E8%BF%9B%E5%85%A5%E8%A7%A3%E5%8E%8B%E5%90%8E%E7%9A%84%E7%9B%AE%E5%BD%95%EF%BC%8C%E5%8F%8C%E5%87%BBStartCD-exe%EF%BC%8C%E7%82%B9%E5%87%BBWindows-AIK%E5%AE%89%E8%A3%85%E7%A8%8B%E5%BA%8F-%E5%BC%80%E5%A7%8B%E5%AE%89%E8%A3%85"><span class="nav-number">5.1.2.</span> <span class="nav-text">4.1.2 进入解压后的目录，双击StartCD.exe，点击Windows AIK安装程序 开始安装</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-3-%E5%AE%89%E8%A3%85%E5%AE%8C%E6%AF%95%E5%90%8E%EF%BC%8C%E5%90%AF%E5%8A%A8%E8%BF%99%E4%B8%AA%E5%B7%A5%E5%85%B7%E6%9D%A5%E5%AE%9A%E5%88%B6Win-PE%E9%95%9C%E5%83%8F"><span class="nav-number">5.1.3.</span> <span class="nav-text">4.1.3 安装完毕后，启动这个工具来定制Win PE镜像</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-1-4-%E9%80%9A%E8%BF%87%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%88%B6%E4%BD%9CWin-PE%E9%95%9C%E5%83%8F"><span class="nav-number">5.1.4.</span> <span class="nav-text">4.1.4 通过命令行制作Win PE镜像</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-2-%E5%AF%BC%E5%85%A5ISO%E9%95%9C%E5%83%8F"><span class="nav-number">5.2.</span> <span class="nav-text">4.2 导入ISO镜像</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-3-%E9%85%8D%E7%BD%AEISO%E9%95%9C%E5%83%8F%E7%9A%84%E6%97%A0%E4%BA%BA%E5%80%BC%E5%AE%88%E5%AE%89%E8%A3%85%E6%96%87%E4%BB%B6"><span class="nav-number">5.3.</span> <span class="nav-text">4.3 配置ISO镜像的无人值守安装文件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-4-%E5%AE%89%E8%A3%85Samba%E6%9C%8D%E5%8A%A1"><span class="nav-number">5.4.</span> <span class="nav-text">4.4 安装Samba服务</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-4-1-%E5%AE%89%E8%A3%85Samba%E8%BD%AF%E4%BB%B6%E5%8C%85"><span class="nav-number">5.4.1.</span> <span class="nav-text">4.4.1 安装Samba软件包</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-4-2-%E9%85%8D%E7%BD%AESamba%E6%96%87%E4%BB%B6"><span class="nav-number">5.4.2.</span> <span class="nav-text">4.4.2 配置Samba文件</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-4-3-%E9%85%8D%E7%BD%AEwin7%E5%85%B1%E4%BA%AB%E6%96%87%E4%BB%B6%E5%A4%B9"><span class="nav-number">5.4.3.</span> <span class="nav-text">4.4.3 配置win7共享文件夹</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-4-4-%E5%90%AF%E5%8A%A8Samba%E6%9C%8D%E5%8A%A1"><span class="nav-number">5.4.4.</span> <span class="nav-text">4.4.4 启动Samba服务</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#4-4-5-%E9%AA%8C%E8%AF%81smb%E8%83%BD%E5%90%A6%E8%AE%BF%E9%97%AE"><span class="nav-number">5.4.5.</span> <span class="nav-text">4.4.5 验证smb能否访问</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-5-%E6%B7%BB%E5%8A%A0Autounattend-xml%E6%96%87%E4%BB%B6%E5%88%B0-smb-win-%E4%B8%8B"><span class="nav-number">5.5.</span> <span class="nav-text">4.5 添加Autounattend.xml文件到&#x2F;smb&#x2F;win&#x2F;下</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-6-%E5%88%9B%E5%BB%BA%E4%B8%80%E5%8F%B0%E7%A9%BA%E7%9A%84%E8%99%9A%E6%8B%9F%E6%9C%BA%EF%BC%8C%E4%B8%8D%E6%8C%82%E8%BD%BDCD-DVD%E5%85%89%E7%9B%98%E9%95%9C%E5%83%8F%EF%BC%8C%E5%B9%B6%E5%90%AF%E5%8A%A8"><span class="nav-number">5.6.</span> <span class="nav-text">4.6 创建一台空的虚拟机，不挂载CD&#x2F;DVD光盘镜像，并启动</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-7-%E9%80%89%E6%8B%A9Windows7%E8%BF%9B%E8%A1%8C%E5%AE%89%E8%A3%85"><span class="nav-number">5.7.</span> <span class="nav-text">4.7 选择Windows7进行安装</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-8-%E7%AD%89%E5%BE%85%E5%AE%89%E8%A3%85%E5%AE%8C%E6%AF%95%E5%8D%B3%E5%8F%AF%E8%BF%9B%E5%85%A5%E7%B3%BB%E7%BB%9F"><span class="nav-number">5.8.</span> <span class="nav-text">4.8 等待安装完毕即可进入系统</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#5-%E9%81%87%E5%88%B0%E7%9A%84%E9%97%AE%E9%A2%98"><span class="nav-number">6.</span> <span class="nav-text">5 遇到的问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%8E%AF%E5%A2%83%E4%B8%AD%E5%B7%B2%E6%9C%89DHCP%E6%9C%8D%E5%8A%A1"><span class="nav-number">6.1.</span> <span class="nav-text">环境中已有DHCP服务</span></a></li></ol></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">86</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">42</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://blog.zerchin.xyz/2019/01/16/Cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          CentOS7 部署Cobbler(PXE)实现自动化安装Centos、Windows
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2019-01-16 16:23:52" itemprop="dateCreated datePublished" datetime="2019-01-16T16:23:52+00:00">2019-01-16</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/cobbler/" itemprop="url" rel="index"><span itemprop="name">cobbler</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p><strong>CentOS7 部署Cobbler(PXE)实现自动化安装Centos、Windows</strong></p>
+<h2 id="1-环境"><a href="#1-环境" class="headerlink" title="1 环境"></a>1 环境</h2><table>
+<thead>
+<tr>
+<th>系统</th>
+<th>CentOS7.5</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>IP</td>
+<td>192.168.100.2</td>
+</tr>
+</tbody></table>
+<p>Cobbler是基于PXE的升级版，简化了配置步骤，能同时管理DHCP、TFTP等，还提供了web界面，但是没有记录下来，我大概看了下，web界面还是挺方便的，感兴趣的童鞋可以安装看看<br>这里用的是CentOS7.5，我用CentOS7.2也是成功了，所以理论上，CentOS7各版本都是可以的</p>
+<h2 id="2-cobbler部署"><a href="#2-cobbler部署" class="headerlink" title="2 cobbler部署"></a>2 cobbler部署</h2><h3 id="2-1-关闭防火墙"><a href="#2-1-关闭防火墙" class="headerlink" title="2.1 关闭防火墙"></a>2.1 关闭防火墙</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># systemctl stop firewalld</span></span><br><span class="line"><span class="comment"># systemctl disable firewalld</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2-2-关闭selinux"><a href="#2-2-关闭selinux" class="headerlink" title="2.2 关闭selinux"></a>2.2 关闭selinux</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># setenforce 0</span></span><br><span class="line"><span class="comment"># sed -i &quot;s/^SELINUX=.*/SELINUX=permissive/g&quot; /etc/sysconfig/selinux</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2-3-安装epel源"><a href="#2-3-安装epel源" class="headerlink" title="2.3 安装epel源"></a>2.3 安装epel源</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># yum install -y epel-release</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2-4-安装cobbler及其相关软件"><a href="#2-4-安装cobbler及其相关软件" class="headerlink" title="2.4 安装cobbler及其相关软件"></a>2.4 安装cobbler及其相关软件</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># yum -y install cobbler dhcp tftp-server pykickstart httpd</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2-5-修改cobbler配置文件"><a href="#2-5-修改cobbler配置文件" class="headerlink" title="2.5 修改cobbler配置文件"></a>2.5 修改cobbler配置文件</h3><h4 id="2-5-1-修改server和next-server参数"><a href="#2-5-1-修改server和next-server参数" class="headerlink" title="2.5.1 修改server和next_server参数"></a>2.5.1 修改server和next_server参数</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># vi /etc/cobbler/settings</span></span><br><span class="line">将server: 127.0.0.1修改为server: 192.168.100.2</span><br><span class="line">将next_server: 127.0.0.1修改为next_server: 192.168.100.2</span><br></pre></td></tr></table></figure>
+
+<p>这里的192.168.100.2为当前节点IP</p>
+<h4 id="2-5-2-修改default-password-crypted参数"><a href="#2-5-2-修改default-password-crypted参数" class="headerlink" title="2.5.2 修改default_password_crypted参数"></a>2.5.2 修改default_password_crypted参数</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># openssl passwd -1 -salt &#x27;passwd&#x27; &#x27;123456&#x27;</span></span><br><span class="line">$1$passwd<span class="variable">$h</span>/du.ylwCiLuPa1Br.Ho2.</span><br></pre></td></tr></table></figure>
+
+<p>这里的123456设置的是默认密码<br>将得到的结果替换default_password_crypted的参数<br>例如：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># vi /etc/cobbler/settings</span></span><br><span class="line">default_password_crypred: <span class="string">&quot;$1$passwd<span class="variable">$h</span>/du.ylwCiLuPa1Br.Ho2.&quot;</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="2-5-3-开启管理DHCP"><a href="#2-5-3-开启管理DHCP" class="headerlink" title="2.5.3 开启管理DHCP"></a>2.5.3 开启管理DHCP</h4><p># vi /etc/cobbler/settings<br>将manage_dhcp参数改为1<br>将pxe_just_once参数改为1<br>修改DHCP模板</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># vi /etc/cobbler/dhcp.template</span></span><br><span class="line">subnet 192.168.100.0 netmask 255.255.255.0 &#123;</span><br><span class="line">     option routers             192.168.100.1;</span><br><span class="line">     option domain-name-servers 114.114.114.114;</span><br><span class="line">     option subnet-mask         255.255.255.0;</span><br><span class="line">     range dynamic-bootp        192.168.100.10 192.168.100.200;</span><br><span class="line">     default-lease-time         21600;</span><br><span class="line">     max-lease-time             43200;</span><br><span class="line">     next-server                <span class="variable">$next_server</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-6-启用tftp"><a href="#2-6-启用tftp" class="headerlink" title="2.6 启用tftp"></a>2.6 启用tftp</h3><p>将/etc/xinetd.d/tftp的disable选项改为no</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># /etc/xinetd.d/tftp</span></span><br><span class="line"><span class="built_in">disable</span> = no</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-7-启动相关服务"><a href="#2-7-启动相关服务" class="headerlink" title="2.7 启动相关服务"></a>2.7 启动相关服务</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># systemctl start httpd rsyncd tftp cobblerd</span></span><br><span class="line"><span class="comment"># systemctl enable httpd rsyncd tftp cobblerd</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2-8-检查cobbler"><a href="#2-8-检查cobbler" class="headerlink" title="2.8 检查cobbler"></a>2.8 检查cobbler</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cobbler check</span></span><br><span class="line">The following are potential configuration items that you may want to fix:</span><br><span class="line">1 : Some network boot-loaders are missing from /var/lib/cobbler/loaders, you may run <span class="string">&#x27;cobbler get-loaders&#x27;</span> to download them, or, <span class="keyword">if</span> you only want to handle x86/x86_64 netbooting, you may ensure that you have installed a *recent* version of the syslinux package installed and can ignore this message entirely.  Files <span class="keyword">in</span> this directory, should you want to support all architectures, should include pxelinux.0, menu.c32, elilo.efi, and yaboot. The <span class="string">&#x27;cobbler get-loaders&#x27;</span> <span class="built_in">command</span> is the easiest way to resolve these requirements.</span><br><span class="line">2 : debmirror package is not installed, it will be required to manage debian deployments and repositories</span><br><span class="line">3 : fencing tools were not found, and are required to use the (optional) power management features. install cman or fence-agents to use them</span><br><span class="line">Restart cobblerd and <span class="keyword">then</span> run <span class="string">&#x27;cobbler sync&#x27;</span> to apply changes.</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-9-修复上述检查出的问题1，其中问题2、3可以忽略"><a href="#2-9-修复上述检查出的问题1，其中问题2、3可以忽略" class="headerlink" title="2.9 修复上述检查出的问题1，其中问题2、3可以忽略"></a>2.9 修复上述检查出的问题1，其中问题2、3可以忽略</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cobbler get-loaders</span></span><br><span class="line">task started: 2018-12-12_110817_get_loaders</span><br><span class="line">task started (id=Download Bootloader Content, time=Wed Dec 12 11:08:17 2018)</span><br><span class="line">downloading https://cobbler.github.io/loaders/README to /var/lib/cobbler/loaders/README</span><br><span class="line">downloading https://cobbler.github.io/loaders/COPYING.elilo to /var/lib/cobbler/loaders/COPYING.elilo</span><br><span class="line">downloading https://cobbler.github.io/loaders/COPYING.yaboot to /var/lib/cobbler/loaders/COPYING.yaboot</span><br><span class="line">downloading https://cobbler.github.io/loaders/COPYING.syslinux to /var/lib/cobbler/loaders/COPYING.syslinux</span><br><span class="line">downloading https://cobbler.github.io/loaders/elilo-3.8-ia64.efi to /var/lib/cobbler/loaders/elilo-ia64.efi</span><br><span class="line">downloading https://cobbler.github.io/loaders/yaboot-1.3.17 to /var/lib/cobbler/loaders/yaboot</span><br><span class="line">downloading https://cobbler.github.io/loaders/pxelinux.0-3.86 to /var/lib/cobbler/loaders/pxelinux.0</span><br><span class="line">downloading https://cobbler.github.io/loaders/menu.c32-3.86 to /var/lib/cobbler/loaders/menu.c32</span><br><span class="line">downloading https://cobbler.github.io/loaders/grub-0.97-x86.efi to /var/lib/cobbler/loaders/grub-x86.efi</span><br><span class="line">downloading https://cobbler.github.io/loaders/grub-0.97-x86_64.efi to /var/lib/cobbler/loaders/grub-x86_64.efi</span><br><span class="line">*** TASK COMPLETE ***</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-10-重启cobblerd服务，并进行同步"><a href="#2-10-重启cobblerd服务，并进行同步" class="headerlink" title="2.10 重启cobblerd服务，并进行同步"></a>2.10 重启cobblerd服务，并进行同步</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># systemctl restart cobblerd</span></span><br><span class="line"><span class="comment"># cobbler sync</span></span><br><span class="line">task started: 2018-12-12_110924_sync</span><br><span class="line">task started (id=Sync, time=Wed Dec 12 11:09:24 2018)</span><br><span class="line">running pre-sync triggers</span><br><span class="line">cleaning trees</span><br><span class="line">removing: /var/lib/tftpboot/grub/images</span><br><span class="line">copying bootloaders</span><br><span class="line">trying hardlink /var/lib/cobbler/loaders/pxelinux.0 -&gt; /var/lib/tftpboot/pxelinux.0</span><br><span class="line">trying hardlink /var/lib/cobbler/loaders/menu.c32 -&gt; /var/lib/tftpboot/menu.c32</span><br><span class="line">trying hardlink /var/lib/cobbler/loaders/yaboot -&gt; /var/lib/tftpboot/yaboot</span><br><span class="line">trying hardlink /usr/share/syslinux/memdisk -&gt; /var/lib/tftpboot/memdisk</span><br><span class="line">trying hardlink /var/lib/cobbler/loaders/grub-x86.efi -&gt; /var/lib/tftpboot/grub/grub-x86.efi</span><br><span class="line">trying hardlink /var/lib/cobbler/loaders/grub-x86_64.efi -&gt; /var/lib/tftpboot/grub/grub-x86_64.efi</span><br><span class="line">copying distros to tftpboot</span><br><span class="line">copying images</span><br><span class="line">generating PXE configuration files</span><br><span class="line">generating PXE menu structure</span><br><span class="line">rendering DHCP files</span><br><span class="line">generating /etc/dhcp/dhcpd.conf</span><br><span class="line">rendering TFTPD files</span><br><span class="line">generating /etc/xinetd.d/tftp</span><br><span class="line">cleaning link caches</span><br><span class="line">running post-sync triggers</span><br><span class="line">running python triggers from /var/lib/cobbler/triggers/sync/post/*</span><br><span class="line">running python trigger cobbler.modules.sync_post_restart_services</span><br><span class="line">running: dhcpd -t -q</span><br><span class="line">received on stdout:</span><br><span class="line">received on stderr:</span><br><span class="line">running: service dhcpd restart</span><br><span class="line">received on stdout:</span><br><span class="line">received on stderr: Redirecting to /bin/systemctl restart dhcpd.service</span><br><span class="line">running shell triggers from /var/lib/cobbler/triggers/sync/post/*</span><br><span class="line">running python triggers from /var/lib/cobbler/triggers/change/*</span><br><span class="line">running python trigger cobbler.modules.scm_track</span><br><span class="line">running shell triggers from /var/lib/cobbler/triggers/change/*</span><br><span class="line">*** TASK COMPLETE ***</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-11-再次检查cobbler"><a href="#2-11-再次检查cobbler" class="headerlink" title="2.11 再次检查cobbler"></a>2.11 再次检查cobbler</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cobbler check</span></span><br><span class="line">The following are potential configuration items that you may want to fix:</span><br><span class="line">1 : debmirror package is not installed, it will be required to manage debian deployments and repositories</span><br><span class="line">2 : fencing tools were not found, and are required to use the (optional) power management features. install cman or fence-agents to use them</span><br><span class="line">Restart cobblerd and <span class="keyword">then</span> run <span class="string">&#x27;cobbler sync&#x27;</span> to apply changes.</span><br></pre></td></tr></table></figure>
+
+<p>刚刚的问题1已经解决了</p>
+<h2 id="3-安装CentOS7-5系统"><a href="#3-安装CentOS7-5系统" class="headerlink" title="3 安装CentOS7.5系统"></a>3 安装CentOS7.5系统</h2><h3 id="3-1-挂载CentOS7-5镜像文件"><a href="#3-1-挂载CentOS7-5镜像文件" class="headerlink" title="3.1 挂载CentOS7.5镜像文件"></a>3.1 挂载CentOS7.5镜像文件</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># mkdir /mnt/CentOS7.5</span></span><br><span class="line"><span class="comment"># mount CentOS-7-x86_64-DVD-1804.iso /mnt/CentOS7.5/</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="3-2-导入镜像"><a href="#3-2-导入镜像" class="headerlink" title="3.2 导入镜像"></a>3.2 导入镜像</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#  cobbler import --path=/mnt/CentOS7.5 --name=CentOS7.5 --arch=x86_64</span></span><br><span class="line">task started: 2018-12-12_111742_import</span><br><span class="line">task started (id=Media import, time=Wed Dec 12 11:17:42 2018)</span><br><span class="line">Found a candidate signature: breed=redhat, version=rhel6</span><br><span class="line">Found a candidate signature: breed=redhat, version=rhel7</span><br><span class="line">Found a matching signature: breed=redhat, version=rhel7</span><br><span class="line">Adding distros from path /var/www/cobbler/ks_mirror/CentOS7.5-x86_64:</span><br><span class="line">creating new distro: CentOS7.5-x86_64</span><br><span class="line">trying symlink: /var/www/cobbler/ks_mirror/CentOS7.5-x86_64 -&gt; /var/www/cobbler/links/CentOS7.5-x86_64</span><br><span class="line">creating new profile: CentOS7.5-x86_64</span><br><span class="line">associating repos</span><br><span class="line">checking <span class="keyword">for</span> rsync repo(s)</span><br><span class="line">checking <span class="keyword">for</span> rhn repo(s)</span><br><span class="line">checking <span class="keyword">for</span> yum repo(s)</span><br><span class="line">starting descent into /var/www/cobbler/ks_mirror/CentOS7.5-x86_64 <span class="keyword">for</span> CentOS7.5-x86_64</span><br><span class="line">processing repo at : /var/www/cobbler/ks_mirror/CentOS7.5-x86_64</span><br><span class="line">need to process repo/comps: /var/www/cobbler/ks_mirror/CentOS7.5-x86_64</span><br><span class="line">looking <span class="keyword">for</span> /var/www/cobbler/ks_mirror/CentOS7.5-x86_64/repodata/*comps*.xml</span><br><span class="line">Keeping repodata as-is :/var/www/cobbler/ks_mirror/CentOS7.5-x86_64/repodata</span><br><span class="line">*** TASK COMPLETE ***</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-3-查看镜像列表"><a href="#3-3-查看镜像列表" class="headerlink" title="3.3 查看镜像列表"></a>3.3 查看镜像列表</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># cobbler distro list</span><br><span class="line">   CentOS7.5-x86_64</span><br><span class="line"># cobbler profile list</span><br><span class="line">   CentOS7.5-x86_64</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-4-创建一台空的虚拟机，不挂载CD-DVD光盘镜像，并启动"><a href="#3-4-创建一台空的虚拟机，不挂载CD-DVD光盘镜像，并启动" class="headerlink" title="3.4 创建一台空的虚拟机，不挂载CD/DVD光盘镜像，并启动"></a>3.4 创建一台空的虚拟机，不挂载CD/DVD光盘镜像，并启动</h3><p>虚拟机内存必须大于等于2G，启动后，会自动获取IP地址。</p>
+<p><img src="/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/vm-boot.png" alt="vm-boot"></p>
+<h3 id="3-5-选择CentOS7-5-x86-64，开始自动化安装CentOS7-5系统"><a href="#3-5-选择CentOS7-5-x86-64，开始自动化安装CentOS7-5系统" class="headerlink" title="3.5 选择CentOS7.5-x86_64，开始自动化安装CentOS7.5系统"></a>3.5 选择CentOS7.5-x86_64，开始自动化安装CentOS7.5系统</h3><p>选择CentOS7.5-x86_64后，虚拟机会自动安装CentOS7.5系统，自动分区磁盘，并设置好root密码，密码为前面设置的123456</p>
+<h3 id="3-6-登录CentOS7-5系统"><a href="#3-6-登录CentOS7-5系统" class="headerlink" title="3.6 登录CentOS7.5系统"></a>3.6 登录CentOS7.5系统</h3><p>安装完后的用户名密码为 root：123456</p>
+<p><img src="/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/vm-console.png" alt="vm-console"></p>
+<h3 id="3-7-自己手写ks文件"><a href="#3-7-自己手写ks文件" class="headerlink" title="3.7 自己手写ks文件"></a>3.7 自己手写ks文件</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># vi ks-centos7.5.cfs</span></span><br><span class="line">install</span><br><span class="line">keyboard <span class="string">&#x27;us&#x27;</span></span><br><span class="line">rootpw --iscrypted <span class="variable">$default_password_crypted</span></span><br><span class="line">timezone Asia/Shanghai</span><br><span class="line">url --url=<span class="variable">$tree</span></span><br><span class="line">lang en_US</span><br><span class="line">firewall --disabled</span><br><span class="line">auth  --useshadow  --passalgo=sha512</span><br><span class="line">text</span><br><span class="line">selinux --disabled</span><br><span class="line">skipx</span><br><span class="line">network  --bootproto=dhcp --device=eth0</span><br><span class="line">network  --hostname=xzq</span><br><span class="line">reboot</span><br><span class="line">bootloader --location=mbr</span><br><span class="line">zerombr</span><br><span class="line">clearpart --all --initlabel</span><br><span class="line">part /boot --asprimary --fstype=<span class="string">&quot;xfs&quot;</span> --size=1024</span><br><span class="line">part swap --fstype=<span class="string">&quot;swap&quot;</span> --recommended</span><br><span class="line">part / --fstype=<span class="string">&quot;xfs&quot;</span> --grow --size=1</span><br><span class="line">%packages</span><br><span class="line">@^minimal</span><br><span class="line">@core</span><br><span class="line">@compat-libraries</span><br><span class="line">@debugging</span><br><span class="line">@development</span><br><span class="line">tree</span><br><span class="line">nmap</span><br><span class="line">sysstat</span><br><span class="line">lrzsz</span><br><span class="line">dos2unix</span><br><span class="line">telnet</span><br><span class="line">wget</span><br><span class="line">vim</span><br><span class="line">net-tools</span><br><span class="line">bash-completion</span><br><span class="line">%end</span><br><span class="line">%post</span><br><span class="line">systemctl <span class="built_in">disable</span> postfix.service  </span><br><span class="line">%end</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-8-复制ks文件到cobbler目录下"><a href="#3-8-复制ks文件到cobbler目录下" class="headerlink" title="3.8 复制ks文件到cobbler目录下"></a>3.8 复制ks文件到cobbler目录下</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cp ks-centos7.5.cfg /var/lib/cobbler/kickstarts/.</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="3-9-指定CentOS7-5的ks文件"><a href="#3-9-指定CentOS7-5的ks文件" class="headerlink" title="3.9 指定CentOS7.5的ks文件"></a>3.9 指定CentOS7.5的ks文件</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cobbler profile edit --name=Centos-7.5-x86_64 --kickstart=/var/lib/cobbler/kickstarts/ks-centos7.5.cfg</span></span><br><span class="line"><span class="comment"># cobbler profile report</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="3-10-创建CentOS7-5虚拟机"><a href="#3-10-创建CentOS7-5虚拟机" class="headerlink" title="3.10 创建CentOS7.5虚拟机"></a>3.10 创建CentOS7.5虚拟机</h3><p>重复3.4-3.6的操作即可</p>
+<p><img src="/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/vm-boot2.png" alt="vm-boot2"></p>
+<p><img src="/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/vm-console2.png" alt="vm-console2"></p>
+<h2 id="4-安装Windows7系统"><a href="#4-安装Windows7系统" class="headerlink" title="4 安装Windows7系统"></a>4 安装Windows7系统</h2><h3 id="4-1-定制Win-PE"><a href="#4-1-定制Win-PE" class="headerlink" title="4.1 定制Win PE"></a>4.1 定制Win PE</h3><p>使用Windows AIK（适用于win7的）工具来定制Win PE<br>去Microsoft官网下载ISO包</p>
+<h4 id="4-1-1-需要在个人电脑上下载安装AIK，具体如下"><a href="#4-1-1-需要在个人电脑上下载安装AIK，具体如下" class="headerlink" title="4.1.1 需要在个人电脑上下载安装AIK，具体如下"></a>4.1.1 需要在个人电脑上下载安装AIK，具体如下</h4><p>解压AIK包</p>
+<p><img src="/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/win-1.png" alt="win-1"></p>
+<h4 id="4-1-2-进入解压后的目录，双击StartCD-exe，点击Windows-AIK安装程序-开始安装"><a href="#4-1-2-进入解压后的目录，双击StartCD-exe，点击Windows-AIK安装程序-开始安装" class="headerlink" title="4.1.2 进入解压后的目录，双击StartCD.exe，点击Windows AIK安装程序 开始安装"></a>4.1.2 进入解压后的目录，双击StartCD.exe，点击Windows AIK安装程序 开始安装</h4><p><img src="/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/win-2.png" alt="win-2"></p>
+<p><img src="/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/win-3.png" alt="win-3"></p>
+<h4 id="4-1-3-安装完毕后，启动这个工具来定制Win-PE镜像"><a href="#4-1-3-安装完毕后，启动这个工具来定制Win-PE镜像" class="headerlink" title="4.1.3 安装完毕后，启动这个工具来定制Win PE镜像"></a>4.1.3 安装完毕后，启动这个工具来定制Win PE镜像</h4><p><img src="/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/win-4.png" alt="win-4"></p>
+<h4 id="4-1-4-通过命令行制作Win-PE镜像"><a href="#4-1-4-通过命令行制作Win-PE镜像" class="headerlink" title="4.1.4 通过命令行制作Win PE镜像"></a>4.1.4 通过命令行制作Win PE镜像</h4><figure class="highlight powershell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">## 进入一个盘，例如这里进入E盘</span></span><br><span class="line">C:\Program Files\Windows AIK\Tools\PETools&gt; E:</span><br><span class="line"><span class="comment">## 生成Win PE预安装文件</span></span><br><span class="line">E:\&gt; copype amd64 E:\winpe</span><br><span class="line"><span class="comment">## 挂载成可读写形式</span></span><br><span class="line">E:\&gt; imagex /mountrw E:\winpe\winpe.wim <span class="number">1</span> E:\winpe\mount</span><br><span class="line"><span class="comment">## 制作start脚本</span></span><br><span class="line">E:\&gt; <span class="built_in">echo</span> ping <span class="literal">-n</span> <span class="number">7</span> <span class="literal">-l</span> <span class="number">69</span> <span class="number">192.168</span>.<span class="number">100.2</span> &gt;&gt; E:\winpe\mount\Windows\System32\startnet.cmd</span><br><span class="line">E:\&gt; <span class="built_in">echo</span> net use Z: \\<span class="number">192.168</span>.<span class="number">100.2</span>\share &gt;&gt; E:\winpe\mount\Windows\System32\startnet.cmd</span><br><span class="line">E:\&gt; <span class="built_in">echo</span> Z: &gt;&gt; E:\winpe\mount\Windows\System32\startnet.cmd</span><br><span class="line">E:\&gt; <span class="built_in">echo</span> <span class="built_in">cd</span> win &gt;&gt; E:\winpe\mount\Windows\System32\startnet.cmd</span><br><span class="line">E:\&gt; <span class="built_in">echo</span> setup.exe /unattend:Autounattend.xml &gt;&gt; E:\winpe\mount\Windows\System32\startnet.cmd</span><br><span class="line"><span class="comment">## 卸载</span></span><br><span class="line">E:\&gt; imagex /unmount c:\winpe\mount /commit</span><br><span class="line"><span class="comment">## 复制启动文件</span></span><br><span class="line">E:\&gt; <span class="built_in">copy</span> E:\winpe\winpe.wim E:\winpe\ISO\sources\boot.wim</span><br><span class="line"><span class="comment">## 生成Win PE ISO镜像</span></span><br><span class="line">E:\&gt; oscdimg <span class="literal">-n</span> <span class="literal">-bE</span>:\\winpe\etfsboot.com E:\winpe\ISO E:\\winpe\winpe_cobbler_amd64.iso</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-2-导入ISO镜像"><a href="#4-2-导入ISO镜像" class="headerlink" title="4.2 导入ISO镜像"></a>4.2 导入ISO镜像</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cobbler distro add --name=windows7 --kernel=/var/lib/tftpboot/memdisk --initrd=/root/winpe_cobbler_amd64.iso --kopts=&quot;raw iso&quot;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="4-3-配置ISO镜像的无人值守安装文件"><a href="#4-3-配置ISO镜像的无人值守安装文件" class="headerlink" title="4.3 配置ISO镜像的无人值守安装文件"></a>4.3 配置ISO镜像的无人值守安装文件</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># touch /var/lib/cobbler/kickstarts/win7pe.xml</span></span><br><span class="line"><span class="comment">#cobbler profile add --name=windows7 --distro=windows7 --kickstart=/var/lib/cobbler/kickstarts/win7pe.xml</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="4-4-安装Samba服务"><a href="#4-4-安装Samba服务" class="headerlink" title="4.4 安装Samba服务"></a>4.4 安装Samba服务</h3><h4 id="4-4-1-安装Samba软件包"><a href="#4-4-1-安装Samba软件包" class="headerlink" title="4.4.1 安装Samba软件包"></a>4.4.1 安装Samba软件包</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># yum install samba -y</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="4-4-2-配置Samba文件"><a href="#4-4-2-配置Samba文件" class="headerlink" title="4.4.2 配置Samba文件"></a>4.4.2 配置Samba文件</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># vi /etc/samba/smb.conf</span></span><br><span class="line">[global]</span><br><span class="line">        map to guest = Bad User</span><br><span class="line">[share]</span><br><span class="line">        comment = share directory</span><br><span class="line">        path = /smb/</span><br><span class="line">        directory mask = 0755</span><br><span class="line">        create mask = 0755</span><br><span class="line">        guest ok = yes</span><br><span class="line">        writable = yes</span><br></pre></td></tr></table></figure>
+
+<h4 id="4-4-3-配置win7共享文件夹"><a href="#4-4-3-配置win7共享文件夹" class="headerlink" title="4.4.3 配置win7共享文件夹"></a>4.4.3 配置win7共享文件夹</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># mkdir -p /smb/win</span></span><br><span class="line"><span class="comment"># mkdir /mnt/win7</span></span><br><span class="line"><span class="comment"># mount /root/cn_windows_7_ultimate_with_sp1_x64_dvd_u_677408.iso /mnt/win7</span></span><br><span class="line"><span class="comment"># cp -rf /mnt/win7/* /smb/win/.</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="4-4-4-启动Samba服务"><a href="#4-4-4-启动Samba服务" class="headerlink" title="4.4.4 启动Samba服务"></a>4.4.4 启动Samba服务</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># systemctl start smb</span></span><br><span class="line"><span class="comment"># systemctl enable smb</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="4-4-5-验证smb能否访问"><a href="#4-4-5-验证smb能否访问" class="headerlink" title="4.4.5 验证smb能否访问"></a>4.4.5 验证smb能否访问</h4><p>打开\192.168.100.2，看看能否访问</p>
+<p><img src="/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/win-smb.png" alt="win-smb"></p>
+<h3 id="4-5-添加Autounattend-xml文件到-smb-win-下"><a href="#4-5-添加Autounattend-xml文件到-smb-win-下" class="headerlink" title="4.5 添加Autounattend.xml文件到/smb/win/下"></a>4.5 添加Autounattend.xml文件到/smb/win/下</h3><p>将Autounattend.xml自动值守安装文件添加到Samba共享目录下<br>这个文件可以自己制作，我这边已经写好了一个，需要的可以参考<a target="_blank" rel="noopener" href="https://pan.baidu.com/s/1WaDHshXauSJx9NiSqvbfLw">https://pan.baidu.com/s/1WaDHshXauSJx9NiSqvbfLw</a></p>
+<h3 id="4-6-创建一台空的虚拟机，不挂载CD-DVD光盘镜像，并启动"><a href="#4-6-创建一台空的虚拟机，不挂载CD-DVD光盘镜像，并启动" class="headerlink" title="4.6 创建一台空的虚拟机，不挂载CD/DVD光盘镜像，并启动"></a>4.6 创建一台空的虚拟机，不挂载CD/DVD光盘镜像，并启动</h3><p><img src="/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/vm-win-boot.png" alt="vm-win-boot"></p>
+<h3 id="4-7-选择Windows7进行安装"><a href="#4-7-选择Windows7进行安装" class="headerlink" title="4.7 选择Windows7进行安装"></a>4.7 选择Windows7进行安装</h3><p><img src="/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/win-install-1.png" alt="win-install-1"></p>
+<p><img src="/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/win-install-2.png" alt="win-install-2"></p>
+<h3 id="4-8-等待安装完毕即可进入系统"><a href="#4-8-等待安装完毕即可进入系统" class="headerlink" title="4.8 等待安装完毕即可进入系统"></a>4.8 等待安装完毕即可进入系统</h3><p><img src="/images/mk/cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/win-install-3.png" alt="win-install-3"></p>
+<h2 id="5-遇到的问题"><a href="#5-遇到的问题" class="headerlink" title="5 遇到的问题"></a>5 遇到的问题</h2><h3 id="环境中已有DHCP服务"><a href="#环境中已有DHCP服务" class="headerlink" title="环境中已有DHCP服务"></a>环境中已有DHCP服务</h3><p>在大部分网络环境中都会已经有一个dhcp服务了，如果要在这样的网络环境中构筑pxe就需要dhcp proxy（就近选择原理）<br>在CentOS上可以安装dnsmasq服务</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">首先关闭cobbler的dhcp设置</span><br><span class="line"><span class="comment"># vi /etc/cobbler/settings</span></span><br><span class="line">将manage_dhcp参数改为0</span><br><span class="line">接着配置dnsmasq</span><br><span class="line">[root@localhost ~]<span class="comment"># yum install dnsmasq -y</span></span><br><span class="line">[root@localhost ~]<span class="comment"># vi /etc/dnsmasq.d/dhcp</span></span><br><span class="line">port=0   <span class="comment">#禁用DNS端口</span></span><br><span class="line">dhcp-range=192.168.100.0,proxy  <span class="comment">#当前所在网段</span></span><br><span class="line">dhcp-boot=pxelinux.0</span><br><span class="line">pxe-service=x86PC,<span class="string">&#x27;Cobbler-Install&#x27;</span>,pxelinux</span><br><span class="line">[root@localhost ~]<span class="comment"># systemctl start dnsmasq</span></span><br><span class="line">[root@localhost ~]<span class="comment"># systemctl enable dnsmasq</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>Ubuntu系统试了能成，自动化模板cobbler也有提供，其他的没试，理论上也是可以的<br>Windows部署参考链接：<a target="_blank" rel="noopener" href="https://www.cnblogs.com/pluse/p/8508538.html">https://www.cnblogs.com/pluse/p/8508538.html</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://blog.zerchin.xyz/2019/01/16/Cobbler%E8%87%AA%E5%8A%A8%E5%8C%96/" title="CentOS7 部署Cobbler(PXE)实现自动化安装Centos、Windows">http://blog.zerchin.xyz/2019/01/16/Cobbler自动化/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/centos/" rel="tag"># centos</a>
+              <a href="/tags/cobbler/" rel="tag"># cobbler</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/10/04/openstack%EF%BC%88queens%EF%BC%89%E9%83%A8%E7%BD%B2Zun%E6%9C%8D%E5%8A%A1/" rel="prev" title="openstack（queens）部署Zun服务">
+                  <i class="fa fa-chevron-left"></i> openstack（queens）部署Zun服务
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2019/03/15/pve%E5%B5%8C%E5%A5%97%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="next" title="pve嵌套虚拟化">
+                  pve嵌套虚拟化 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

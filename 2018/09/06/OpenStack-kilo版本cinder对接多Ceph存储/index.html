@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.zerchin.xyz","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="简介本文为您介绍如何配置OpenStack kilo版本 cinder对接多个ceph存储">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenStack-kilo版本cinder对接多Ceph存储">
+<meta property="og:url" content="http://blog.zerchin.xyz/2018/09/06/OpenStack-kilo%E7%89%88%E6%9C%ACcinder%E5%AF%B9%E6%8E%A5%E5%A4%9ACeph%E5%AD%98%E5%82%A8/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="简介本文为您介绍如何配置OpenStack kilo版本 cinder对接多个ceph存储">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-09-06T20:32:23.000Z">
+<meta property="article:modified_time" content="2018-09-06T20:32:23.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="kubernetes">
+<meta property="article:tag" content="ingress">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://blog.zerchin.xyz/2018/09/06/OpenStack-kilo%E7%89%88%E6%9C%ACcinder%E5%AF%B9%E6%8E%A5%E5%A4%9ACeph%E5%AD%98%E5%82%A8/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>OpenStack-kilo版本cinder对接多Ceph存储 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">42</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">26</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">86</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AE%80%E4%BB%8B"><span class="nav-number">1.</span> <span class="nav-text">简介</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%8E%AF%E5%A2%83"><span class="nav-number">2.</span> <span class="nav-text">环境</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Cinder%E9%85%8D%E7%BD%AE"><span class="nav-number">3.</span> <span class="nav-text">Cinder配置</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%87%8D%E5%90%AFcinder%E6%9C%8D%E5%8A%A1"><span class="nav-number">4.</span> <span class="nav-text">重启cinder服务</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B%E5%AD%98%E5%82%A8%E6%98%AF%E5%90%A6%E9%83%BD%E5%90%AF%E5%8A%A8%E6%88%90%E5%8A%9F"><span class="nav-number">5.</span> <span class="nav-text">查看存储是否都启动成功</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%AE%BE%E7%BD%AE%E5%AD%98%E5%82%A8%E7%B1%BB%E5%9E%8B"><span class="nav-number">6.</span> <span class="nav-text">设置存储类型</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA%E5%8D%B7%E7%B1%BB%E5%9E%8B"><span class="nav-number">6.1.</span> <span class="nav-text">创建卷类型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B%E5%8D%B7%E7%B1%BB%E5%9E%8B"><span class="nav-number">6.2.</span> <span class="nav-text">查看卷类型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%BF%99%E6%97%B6%E5%80%99%E8%BF%98%E4%B8%8D%E8%83%BD%E9%80%89%E6%8B%A9%E5%AD%98%E5%82%A8%E6%B1%A0%EF%BC%8C%E8%BF%98%E9%9C%80%E8%A6%81%E8%AE%BE%E7%BD%AEvolume-backend-name"><span class="nav-number">6.3.</span> <span class="nav-text">这时候还不能选择存储池，还需要设置volume_backend_name</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B%E6%98%AF%E5%90%A6%E8%AE%BE%E7%BD%AE%E6%88%90%E5%8A%9F"><span class="nav-number">6.4.</span> <span class="nav-text">查看是否设置成功</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA%E4%B8%80%E4%B8%AAceph01%E7%B1%BB%E5%9E%8B%E7%9A%84%E5%AD%98%E5%82%A8"><span class="nav-number">7.</span> <span class="nav-text">创建一个ceph01类型的存储</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B%E6%98%AF%E5%90%A6%E5%88%9B%E5%BB%BA%E6%88%90%E5%8A%9F"><span class="nav-number">7.1.</span> <span class="nav-text">查看是否创建成功</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%86%8D%E7%9C%8B%E7%9C%8Bceph01%E7%9A%84%E5%AD%98%E5%82%A8%E6%B1%A0%E6%98%AF%E5%90%A6%E6%9C%89%E6%95%B0%E6%8D%AE"><span class="nav-number">7.2.</span> <span class="nav-text">再看看ceph01的存储池是否有数据</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8E%A5%E4%B8%8B%E6%9D%A5%E5%88%9B%E5%BB%BAceph02%E5%8D%B7"><span class="nav-number">8.</span> <span class="nav-text">接下来创建ceph02卷</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B%E5%8D%B7%E6%98%AF%E5%90%A6%E5%88%9B%E5%BB%BA%E6%88%90%E5%8A%9F"><span class="nav-number">8.1.</span> <span class="nav-text">查看卷是否创建成功</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%86%8D%E7%9C%8B%E7%9C%8Bceph02%E5%AD%98%E5%82%A8%E6%B1%A0%E4%B8%AD%E6%98%AF%E5%90%A6%E6%9C%89%E6%95%B0%E6%8D%AE"><span class="nav-number">8.2.</span> <span class="nav-text">再看看ceph02存储池中是否有数据</span></a></li></ol></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">86</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">42</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://blog.zerchin.xyz/2018/09/06/OpenStack-kilo%E7%89%88%E6%9C%ACcinder%E5%AF%B9%E6%8E%A5%E5%A4%9ACeph%E5%AD%98%E5%82%A8/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          OpenStack-kilo版本cinder对接多Ceph存储
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2018-09-06 20:32:23" itemprop="dateCreated datePublished" datetime="2018-09-06T20:32:23+00:00">2018-09-06</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/ingress/" itemprop="url" rel="index"><span itemprop="name">ingress</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>本文为您介绍如何配置OpenStack kilo版本 cinder对接多个ceph存储</p>
+<h2 id="环境"><a href="#环境" class="headerlink" title="环境"></a>环境</h2><table>
+<thead>
+<tr>
+<th>主机</th>
+<th>地址</th>
+<th>版本</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>controller</td>
+<td>192.168.11.71</td>
+<td>OpenStack-kilo</td>
+</tr>
+<tr>
+<td>compute</td>
+<td>192.168.11.72</td>
+<td>OpenStack-kilo</td>
+</tr>
+<tr>
+<td>ceph01</td>
+<td>192.168.11.235</td>
+<td>Ceph-Giant</td>
+</tr>
+<tr>
+<td>ceph02</td>
+<td>192.168.11.232</td>
+<td>Ceph-Giant</td>
+</tr>
+</tbody></table>
+<h2 id="Cinder配置"><a href="#Cinder配置" class="headerlink" title="Cinder配置"></a>Cinder配置</h2><p>在compute节点上操作</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">[root@compute ~]<span class="comment"># vi /etc/cinder/cinder.conf</span></span><br><span class="line">[DEFAULT]</span><br><span class="line">glance_host = controller</span><br><span class="line">enabled_backends = ceph01,ceph02    <span class="comment"># 这里设置两种存储</span></span><br><span class="line">[ceph01]</span><br><span class="line">volume_driver = cinder.volume.drivers.rbd.RBDDriver</span><br><span class="line">rbd_pool = volumes</span><br><span class="line">rbd_ceph_conf = /etc/ceph/ceph01.conf</span><br><span class="line">rbd_flatten_volume_from_snapshot = <span class="literal">false</span></span><br><span class="line">rbd_max_clone_depth = 5</span><br><span class="line">rbd_store_chunk_size = 4</span><br><span class="line">rados_connect_timeout = -1</span><br><span class="line">glance_api_version = 2</span><br><span class="line">rbd_user = cinder</span><br><span class="line">rbd_secret_uuid = df76a280-68fb-4bfb-bfab-976f0c71efa2   <span class="comment"># 这里要自行导入到vrish中，下同</span></span><br><span class="line">volume_backend_name = ceph01                  <span class="comment"># 设置命名，以便引用，下同</span></span><br><span class="line">[ceph02]</span><br><span class="line">volume_driver = cinder.volume.drivers.rbd.RBDDriver</span><br><span class="line">rbd_pool = ceph-cinder</span><br><span class="line">rbd_ceph_conf = /etc/ceph/ceph02.conf</span><br><span class="line">rbd_flatten_volume_from_snapshot = <span class="literal">false</span></span><br><span class="line">rbd_max_clone_depth = 5</span><br><span class="line">rbd_store_chunk_size = 4</span><br><span class="line">rados_connect_timeout = -1</span><br><span class="line">glance_api_version = 2</span><br><span class="line">rbd_user = ceph-cinder</span><br><span class="line">rbd_secret_uuid = 207a92a6-acaf-47c2-9556-e560a79ba472</span><br><span class="line">volume_backend_name = ceph02</span><br></pre></td></tr></table></figure>
+
+<p>具体如何配置key到virsh中，请看我的另一篇<a href="https://blog.zerchin.xyz/2018/09/04/OpenStack-kilo%E7%89%88%E6%9C%AC%E5%AF%B9%E6%8E%A5ceph/">设置cinder存储</a></p>
+<h2 id="重启cinder服务"><a href="#重启cinder服务" class="headerlink" title="重启cinder服务"></a>重启cinder服务</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[root@compute ~]<span class="comment"># systemctl restart openstack-cinder-volumes</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="查看存储是否都启动成功"><a href="#查看存储是否都启动成功" class="headerlink" title="查看存储是否都启动成功"></a>查看存储是否都启动成功</h2><p>在controller节点上查看</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">[root@controller ~]<span class="comment"># source admin-openrc</span></span><br><span class="line">[root@controller ~]<span class="comment"># cinder service-list</span></span><br><span class="line">+------------------+-----------------+------+---------+-------+----------------------------+-----------------+</span><br><span class="line">|      Binary      |       Host      | Zone |  Status | State |         Updated_at         | Disabled Reason |</span><br><span class="line">+------------------+-----------------+------+---------+-------+----------------------------+-----------------+</span><br><span class="line">| cinder-scheduler |    controller   | nova | enabled |   up  | 2018-09-05T04:28:07.000000 |        -        |</span><br><span class="line">|  cinder-volume   |   compute@ceph01| nova | enabled |   up  | 2018-09-05T04:28:05.000000 |        -        |</span><br><span class="line">|  cinder-volume   |   compute@ceph02| nova | enabled |   up  | 2018-09-05T04:28:05.000000 |        -        |</span><br><span class="line">+------------------+-----------------+------+---------+-------+----------------------------+-----------------+</span><br></pre></td></tr></table></figure>
+
+<p>能看到compute@ceph01和compute@ceph02，并且状态都为up状态，说明多ceph存储启用成功</p>
+<h2 id="设置存储类型"><a href="#设置存储类型" class="headerlink" title="设置存储类型"></a>设置存储类型</h2><p>现在如果创建卷，scheduler会选择合适的位置创建卷，如果想要创建的时候选择某个存储池，可以设置存储类型</p>
+<h3 id="创建卷类型"><a href="#创建卷类型" class="headerlink" title="创建卷类型"></a>创建卷类型</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@controller ~]<span class="comment"># cinder type-create ceph01</span></span><br><span class="line">[root@controller ~]<span class="comment"># cinder type-create ceph02</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="查看卷类型"><a href="#查看卷类型" class="headerlink" title="查看卷类型"></a>查看卷类型</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[root@controller ~]<span class="comment"># cinder type-list</span></span><br><span class="line">+--------------------------------------+------+</span><br><span class="line">|                  ID                  | Name |</span><br><span class="line">+--------------------------------------+------+</span><br><span class="line">| 8c50de7d-d6ba-4866-ba42-93d14859860b | ceph01|</span><br><span class="line">| abdaa7a5-f95b-4f24-ab21-6d5bc74344a7 | ceph02|</span><br><span class="line">+--------------------------------------+------+</span><br></pre></td></tr></table></figure>
+
+<h3 id="这时候还不能选择存储池，还需要设置volume-backend-name"><a href="#这时候还不能选择存储池，还需要设置volume-backend-name" class="headerlink" title="这时候还不能选择存储池，还需要设置volume_backend_name"></a>这时候还不能选择存储池，还需要设置volume_backend_name</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@controller ~]<span class="comment"># cinder type-key ceph01 set volume_backend_name=ceph01</span></span><br><span class="line">[root@controller ~]<span class="comment"># cinder type-key ceph02 set volume_backend_name=ceph02</span></span><br></pre></td></tr></table></figure>
+
+<p>这里的volume_backend_name是我们一开始设置的</p>
+<h3 id="查看是否设置成功"><a href="#查看是否设置成功" class="headerlink" title="查看是否设置成功"></a>查看是否设置成功</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[root@controller ~]<span class="comment"># cinder extra-specs-list</span></span><br><span class="line">+--------------------------------------+-------+-------------------------------------+</span><br><span class="line">|                  ID                  |  Name |             extra_specs             |</span><br><span class="line">+--------------------------------------+-------+-------------------------------------+</span><br><span class="line">| 8c50de7d-d6ba-4866-ba42-93d14859860b | ceph01| &#123;u<span class="string">&#x27;volume_backend_name&#x27;</span>: u<span class="string">&#x27;ceph01&#x27;</span>&#125; |</span><br><span class="line">| abdaa7a5-f95b-4f24-ab21-6d5bc74344a7 | ceph02| &#123;u<span class="string">&#x27;volume_backend_name&#x27;</span>: u<span class="string">&#x27;ceph02&#x27;</span>&#125; |</span><br><span class="line">+--------------------------------------+------+-----------------------------------+</span><br></pre></td></tr></table></figure>
+
+<p>现在可以根据类型选择存储池位置创建卷了</p>
+<h2 id="创建一个ceph01类型的存储"><a href="#创建一个ceph01类型的存储" class="headerlink" title="创建一个ceph01类型的存储"></a>创建一个ceph01类型的存储</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">[root@controller ~]<span class="comment"># cinder create --display-name ceph01 --volume-type ceph01 1</span></span><br><span class="line">+---------------------+--------------------------------------+</span><br><span class="line">|       Property      |                Value                 |</span><br><span class="line">+---------------------+--------------------------------------+</span><br><span class="line">|     attachments     |                  []                  |</span><br><span class="line">|  availability_zone  |                 nova                 |</span><br><span class="line">|       bootable      |                <span class="literal">false</span>                 |</span><br><span class="line">|      created_at     |      2018-09-05T04:40:44.892618      |</span><br><span class="line">| display_description |                 None                 |</span><br><span class="line">|     display_name    |                 ceph01               |</span><br><span class="line">|      encrypted      |                False                 |</span><br><span class="line">|          id         | 29b71020-8f0f-46d5-a2e3-5e89953a15ee |</span><br><span class="line">|       metadata      |                  &#123;&#125;                  |</span><br><span class="line">|     multiattach     |                <span class="literal">false</span>                 |</span><br><span class="line">|         size        |                  1                   |</span><br><span class="line">|     snapshot_id     |                 None                 |</span><br><span class="line">|     source_volid    |                 None                 |</span><br><span class="line">|        status       |               creating               |</span><br><span class="line">|     volume_type     |                 ceph01               |</span><br><span class="line">+---------------------+--------------------------------------+</span><br></pre></td></tr></table></figure>
+
+<h3 id="查看是否创建成功"><a href="#查看是否创建成功" class="headerlink" title="查看是否创建成功"></a>查看是否创建成功</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[root@controller ~]<span class="comment"># cinder list</span></span><br><span class="line">+--------------------------------------+-----------+--------------+------+-------------+----------+-------------+</span><br><span class="line">|                  ID                  |   Status  | Display Name | Size | Volume Type | Bootable | Attached to |</span><br><span class="line">+--------------------------------------+-----------+--------------+------+-------------+----------+-------------+</span><br><span class="line">| 29b71020-8f0f-46d5-a2e3-5e89953a15ee | available |     ceph01   |  1   |    ceph01   |  <span class="literal">false</span>   |             |</span><br><span class="line">+--------------------------------------+-----------+--------------+------+-------------+----------+-------------+</span><br></pre></td></tr></table></figure>
+
+<p>看到状态为available，说明创建成功</p>
+<h3 id="再看看ceph01的存储池是否有数据"><a href="#再看看ceph01的存储池是否有数据" class="headerlink" title="再看看ceph01的存储池是否有数据"></a>再看看ceph01的存储池是否有数据</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@ceph01 my-cluster]<span class="comment"># rbd ls ceph-cinder</span></span><br><span class="line">volume-29b71020-8f0f-46d5-a2e3-5e89953a15ee</span><br></pre></td></tr></table></figure>
+
+<p>看到id对应刚刚创建的卷id，说明类型设置成功</p>
+<h2 id="接下来创建ceph02卷"><a href="#接下来创建ceph02卷" class="headerlink" title="接下来创建ceph02卷"></a>接下来创建ceph02卷</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">[root@controller ~]<span class="comment"># cinder create --display-name ceph02 --volume-type ceph02 1</span></span><br><span class="line">+---------------------+--------------------------------------+</span><br><span class="line">|       Property      |                Value                 |</span><br><span class="line">+---------------------+--------------------------------------+</span><br><span class="line">|     attachments     |                  []                  |</span><br><span class="line">|  availability_zone  |                 nova                 |</span><br><span class="line">|       bootable      |                <span class="literal">false</span>                 |</span><br><span class="line">|      created_at     |      2018-09-05T04:44:26.657639      |</span><br><span class="line">| display_description |                 None                 |</span><br><span class="line">|     display_name    |                ceph02                |</span><br><span class="line">|      encrypted      |                False                 |</span><br><span class="line">|          id         | e170af88-5cb3-4b47-b550-f254bf544b50 |</span><br><span class="line">|       metadata      |                  &#123;&#125;                  |</span><br><span class="line">|     multiattach     |                <span class="literal">false</span>                 |</span><br><span class="line">|         size        |                  1                   |</span><br><span class="line">|     snapshot_id     |                 None                 |</span><br><span class="line">|     source_volid    |                 None                 |</span><br><span class="line">|        status       |               creating               |</span><br><span class="line">|     volume_type     |                ceph02                |</span><br><span class="line">+---------------------+--------------------------------------+</span><br></pre></td></tr></table></figure>
+
+<h3 id="查看卷是否创建成功"><a href="#查看卷是否创建成功" class="headerlink" title="查看卷是否创建成功"></a>查看卷是否创建成功</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[root@controller ~]<span class="comment"># cinder list</span></span><br><span class="line">+--------------------------------------+-----------+--------------+------+-------------+----------+-------------+</span><br><span class="line">|                  ID                  |   Status  | Display Name | Size | Volume Type | Bootable | Attached to |</span><br><span class="line">+--------------------------------------+-----------+--------------+------+-------------+----------+-------------+</span><br><span class="line">| 29b71020-8f0f-46d5-a2e3-5e89953a15ee | available |    ceph01    |  1   |    ceph01   |  <span class="literal">false</span>   |             |</span><br><span class="line">| e170af88-5cb3-4b47-b550-f254bf544b50 | available |    ceph02    |  1   |    ceph02   |  <span class="literal">false</span>   |             |</span><br><span class="line">+--------------------------------------+-----------+--------------+------+-------------+----------+-------------+</span><br></pre></td></tr></table></figure>
+
+<p>可以看到ceph02的状态为available，说明创建成功</p>
+<h3 id="再看看ceph02存储池中是否有数据"><a href="#再看看ceph02存储池中是否有数据" class="headerlink" title="再看看ceph02存储池中是否有数据"></a>再看看ceph02存储池中是否有数据</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@ceph02 ~]<span class="comment"># rbd ls volumes</span></span><br><span class="line">volume-e170af88-5cb3-4b47-b550-f254bf544b50</span><br></pre></td></tr></table></figure>
+
+<p>看到存储池中id对应卷id，说明类型设置成功</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://blog.zerchin.xyz/2018/09/06/OpenStack-kilo%E7%89%88%E6%9C%ACcinder%E5%AF%B9%E6%8E%A5%E5%A4%9ACeph%E5%AD%98%E5%82%A8/" title="OpenStack-kilo版本cinder对接多Ceph存储">http://blog.zerchin.xyz/2018/09/06/OpenStack-kilo版本cinder对接多Ceph存储/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
+              <a href="/tags/ingress/" rel="tag"># ingress</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/09/05/OpenStack-Rocky-Cinder-guide/" rel="prev" title="OpenStack（Rocky）安装部署Cinder">
+                  <i class="fa fa-chevron-left"></i> OpenStack（Rocky）安装部署Cinder
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2018/10/04/openstack%EF%BC%88queens%EF%BC%89%E9%83%A8%E7%BD%B2Zun%E6%9C%8D%E5%8A%A1/" rel="next" title="openstack（queens）部署Zun服务">
+                  openstack（queens）部署Zun服务 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.zerchin.xyz","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="问题概述由于canal是通过明细路由将数据转发到对应的pod容器网卡上，当访问的pod的IP不存在时，或者当pod访问外部服务在回包的过程中pod已经不存在没有对应的明细路由时，会导致该数据包进入到主机时，找不到对应的明细路由，最终通过默认网关转发到主机外部（交换机）。此时就会在交换机上可以看到源IP是pod IP、Mac地址是物理主机的Mac地址的数据包。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="canal网络添加黑洞路由">
+<meta property="og:url" content="http://blog.zerchin.xyz/2021/07/23/canal%E7%BD%91%E7%BB%9C%E6%B7%BB%E5%8A%A0%E9%BB%91%E6%B4%9E%E8%B7%AF%E7%94%B1/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="问题概述由于canal是通过明细路由将数据转发到对应的pod容器网卡上，当访问的pod的IP不存在时，或者当pod访问外部服务在回包的过程中pod已经不存在没有对应的明细路由时，会导致该数据包进入到主机时，找不到对应的明细路由，最终通过默认网关转发到主机外部（交换机）。此时就会在交换机上可以看到源IP是pod IP、Mac地址是物理主机的Mac地址的数据包。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/canal%E7%BD%91%E7%BB%9C%E6%B7%BB%E5%8A%A0%E9%BB%91%E6%B4%9E%E8%B7%AF%E7%94%B1.assets/route-1.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/canal%E7%BD%91%E7%BB%9C%E6%B7%BB%E5%8A%A0%E9%BB%91%E6%B4%9E%E8%B7%AF%E7%94%B1.assets/ping-1.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/canal%E7%BD%91%E7%BB%9C%E6%B7%BB%E5%8A%A0%E9%BB%91%E6%B4%9E%E8%B7%AF%E7%94%B1.assets/tcpdump-1.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/canal%E7%BD%91%E7%BB%9C%E6%B7%BB%E5%8A%A0%E9%BB%91%E6%B4%9E%E8%B7%AF%E7%94%B1.assets/tcpdump-2.png">
+<meta property="article:published_time" content="2021-07-23T16:07:38.000Z">
+<meta property="article:modified_time" content="2021-07-23T16:07:38.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="k8s">
+<meta property="article:tag" content="canal">
+<meta property="article:tag" content="network">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://blog.zerchin.xyz/images/mk/canal%E7%BD%91%E7%BB%9C%E6%B7%BB%E5%8A%A0%E9%BB%91%E6%B4%9E%E8%B7%AF%E7%94%B1.assets/route-1.png">
+
+
+<link rel="canonical" href="http://blog.zerchin.xyz/2021/07/23/canal%E7%BD%91%E7%BB%9C%E6%B7%BB%E5%8A%A0%E9%BB%91%E6%B4%9E%E8%B7%AF%E7%94%B1/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>canal网络添加黑洞路由 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">42</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">26</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">86</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%97%AE%E9%A2%98%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">问题概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%97%AE%E9%A2%98%E5%BD%B1%E5%93%8D"><span class="nav-number">2.</span> <span class="nav-text">问题影响</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A7%A3%E5%86%B3%E6%80%9D%E8%B7%AF"><span class="nav-number">3.</span> <span class="nav-text">解决思路</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%88%E6%9E%9C%E9%AA%8C%E8%AF%81"><span class="nav-number">4.</span> <span class="nav-text">效果验证</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BB%93%E8%AE%BA"><span class="nav-number">4.1.</span> <span class="nav-text">结论</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9C%80%E7%BB%88%E7%89%88"><span class="nav-number">5.</span> <span class="nav-text">最终版</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">86</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">42</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://blog.zerchin.xyz/2021/07/23/canal%E7%BD%91%E7%BB%9C%E6%B7%BB%E5%8A%A0%E9%BB%91%E6%B4%9E%E8%B7%AF%E7%94%B1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          canal网络添加黑洞路由
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2021-07-23 16:07:38" itemprop="dateCreated datePublished" datetime="2021-07-23T16:07:38+00:00">2021-07-23</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/k8s/" itemprop="url" rel="index"><span itemprop="name">k8s</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="问题概述"><a href="#问题概述" class="headerlink" title="问题概述"></a>问题概述</h2><p>由于canal是通过明细路由将数据转发到对应的pod容器网卡上，当访问的pod的IP不存在时，或者当pod访问外部服务在回包的过程中pod已经不存在没有对应的明细路由时，会导致该数据包进入到主机时，找不到对应的明细路由，最终通过默认网关转发到主机外部（交换机）。此时就会在交换机上可以看到源IP是pod IP、Mac地址是物理主机的Mac地址的数据包。</p>
+<h2 id="问题影响"><a href="#问题影响" class="headerlink" title="问题影响"></a>问题影响</h2><p>正常情况下，该数据包通过默认路由走到网关后，网关会将该数据包丢弃。但是由于思科ACI网络的GARP学习机制，会导致交换机学习到错误的MAC-IP的地址，造成频繁的MAC-IP地址学习，影响交换机使用的性能，严重时会影响到整个ACI网络发送错误的数据包到错误的主机上。</p>
+<h2 id="解决思路"><a href="#解决思路" class="headerlink" title="解决思路"></a>解决思路</h2><p>基于上述问题，我们可以通过添加黑洞路由来解决这个问题</p>
+<p>先查看主机flannel.1网卡的IP</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># ip a flannel.1</span></span><br><span class="line">Command <span class="string">&quot;flannel.1&quot;</span> is unknown, try <span class="string">&quot;ip address help&quot;</span>.</span><br><span class="line">root@node01:~<span class="comment"># ifconfig flannel.1</span></span><br><span class="line">flannel.1: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1450</span><br><span class="line">        inet 10.42.0.0  netmask 255.255.255.255  broadcast 0.0.0.0</span><br><span class="line">        ether a2:a1:5d:bc:b8:0c  txqueuelen 0  (Ethernet)</span><br><span class="line">        RX packets 14124739  bytes 15160299170 (15.1 GB)</span><br><span class="line">        RX errors 0  dropped 0  overruns 0  frame 0</span><br><span class="line">        TX packets 12848009  bytes 4268398360 (4.2 GB)</span><br><span class="line">        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0</span><br></pre></td></tr></table></figure>
+
+<p>添加黑洞路由</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ip route add blackhole 10.42.0.0/24</span><br></pre></td></tr></table></figure>
+
+<p><img src="/images/mk/canal%E7%BD%91%E7%BB%9C%E6%B7%BB%E5%8A%A0%E9%BB%91%E6%B4%9E%E8%B7%AF%E7%94%B1.assets/route-1.png" alt="route-1"></p>
+<p>上述操作在每个节点上都添加上对应的黑洞路由</p>
+<h2 id="效果验证"><a href="#效果验证" class="headerlink" title="效果验证"></a>效果验证</h2><p>验证访问不存在的pod IP是否能在主机网卡上抓到目的IP为该pod IP的数据包</p>
+<p>10.42.0.21 ping 一个不存在的pod IP：10.42.1.200</p>
+<p><img src="/images/mk/canal%E7%BD%91%E7%BB%9C%E6%B7%BB%E5%8A%A0%E9%BB%91%E6%B4%9E%E8%B7%AF%E7%94%B1.assets/ping-1.png" alt="ping-1"></p>
+<p>添加黑洞路由前抓包</p>
+<p><img src="/images/mk/canal%E7%BD%91%E7%BB%9C%E6%B7%BB%E5%8A%A0%E9%BB%91%E6%B4%9E%E8%B7%AF%E7%94%B1.assets/tcpdump-1.png" alt="tcpdump-1"></p>
+<p>添加黑洞路由</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># ip route add blackhole 10.42.1.0&#x2F;24</span><br></pre></td></tr></table></figure>
+
+<p>再次抓包</p>
+<p><img src="/images/mk/canal%E7%BD%91%E7%BB%9C%E6%B7%BB%E5%8A%A0%E9%BB%91%E6%B4%9E%E8%B7%AF%E7%94%B1.assets/tcpdump-2.png" alt="tcpdump-2"></p>
+<h3 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h3><p>添加黑洞路由可以禁止pod数据包通过默认路由发往外部交换机</p>
+<h2 id="最终版"><a href="#最终版" class="headerlink" title="最终版"></a>最终版</h2><p>通过如上方法在每个节点上添加黑洞路由的方式可以避免pod包路由到交换机上，但是因为每个主机的pod子网段是不同的，所以每次添加节点都得手动添加对应子网的黑洞路由，而且主机重启后路由就丢失了，需要重新添加，那有没有一劳永逸的方法呢？答案是肯定的。</p>
+<p>直接添加B类子网的黑洞路由就可以了。也就是说，直接添加集群层面的pod网段的路由，并写入到网络配置文件中，这样每次重启主机或者重启网络都会自动加载黑洞路由，就不用去手动维护这个路由了。</p>
+<p>参考CentOS7，方法如下：</p>
+<ol>
+<li><p>确认集群的pod CIDR，例如Rancher创建的集群默认pod的CIDR是<code>10.42.0.0/16</code></p>
+</li>
+<li><p>新建路由配置文件</p>
+</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vi /etc/sysconfig/network-scripts/route-eth0</span><br></pre></td></tr></table></figure>
+
+<p>键入如下路由规则</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">blackhole 10.42.0.0/16 </span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>保存后重启网络即可</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl restart network</span><br></pre></td></tr></table></figure>
+
+<p>查看路由</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># ip route|grep blackhole</span></span><br><span class="line">blackhole 10.42.0.0/16 </span><br></pre></td></tr></table></figure>
+
+<p>至此添加成功！</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://blog.zerchin.xyz/2021/07/23/canal%E7%BD%91%E7%BB%9C%E6%B7%BB%E5%8A%A0%E9%BB%91%E6%B4%9E%E8%B7%AF%E7%94%B1/" title="canal网络添加黑洞路由">http://blog.zerchin.xyz/2021/07/23/canal网络添加黑洞路由/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/k8s/" rel="tag"># k8s</a>
+              <a href="/tags/canal/" rel="tag"># canal</a>
+              <a href="/tags/network/" rel="tag"># network</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2021/05/22/%E8%AE%B0%E4%B8%80%E6%AC%A1docker-compose%E6%98%A0%E5%B0%842222%E7%AB%AF%E5%8F%A3%E7%9A%84%E5%9D%91/" rel="prev" title="记一次docker-compose映射2222端口的坑">
+                  <i class="fa fa-chevron-left"></i> 记一次docker-compose映射2222端口的坑
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2021/07/30/%E8%AE%B0%E4%B8%80%E6%AC%A1harbor%E6%95%B0%E6%8D%AE%E5%BA%93%E8%A1%A8%E5%BC%82%E5%B8%B8%E6%81%A2%E5%A4%8D%E8%BF%87%E7%A8%8B/" rel="next" title="记一次harbor数据库表异常恢复过程">
+                  记一次harbor数据库表异常恢复过程 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

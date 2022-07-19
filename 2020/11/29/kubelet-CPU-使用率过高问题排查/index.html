@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.zerchin.xyz","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="问题背景客户的k8s集群环境，发现所有的worker节点的kubelet进程的CPU使用率长时间占用过高，通过pidstat可以看到CPU使用率高达100%。针对此问题，客户在Rancher客户门户系统进行工单提问，请求Rancher工程师对kubelet进程的异常进行问题排查。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="kubelet CPU 使用率过高问题排查">
+<meta property="og:url" content="http://blog.zerchin.xyz/2020/11/29/kubelet-CPU-%E4%BD%BF%E7%94%A8%E7%8E%87%E8%BF%87%E9%AB%98%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="问题背景客户的k8s集群环境，发现所有的worker节点的kubelet进程的CPU使用率长时间占用过高，通过pidstat可以看到CPU使用率高达100%。针对此问题，客户在Rancher客户门户系统进行工单提问，请求Rancher工程师对kubelet进程的异常进行问题排查。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/kubelet%20cpu%E4%BD%BF%E7%94%A8%E7%8E%87%E8%BF%87%E9%AB%98/kubelet-cpu-used.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/kubelet%20cpu%E4%BD%BF%E7%94%A8%E7%8E%87%E8%BF%87%E9%AB%98/kubelet-futex-error.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/kubelet%20cpu%E4%BD%BF%E7%94%A8%E7%8E%87%E8%BF%87%E9%AB%98/kubelet_strace.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/kubelet%20cpu%E4%BD%BF%E7%94%A8%E7%8E%87%E8%BF%87%E9%AB%98/kubelet_flame2.png">
+<meta property="article:published_time" content="2020-11-29T16:43:03.000Z">
+<meta property="article:modified_time" content="2020-11-29T16:43:03.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="kubernetes">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://zerchin.gitee.io/picturebed/img/kubelet%20cpu%E4%BD%BF%E7%94%A8%E7%8E%87%E8%BF%87%E9%AB%98/kubelet-cpu-used.png">
+
+
+<link rel="canonical" href="http://blog.zerchin.xyz/2020/11/29/kubelet-CPU-%E4%BD%BF%E7%94%A8%E7%8E%87%E8%BF%87%E9%AB%98%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>kubelet CPU 使用率过高问题排查 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">42</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">26</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">86</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%97%AE%E9%A2%98%E8%83%8C%E6%99%AF"><span class="nav-number">1.</span> <span class="nav-text">问题背景</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%9B%86%E7%BE%A4%E7%8E%AF%E5%A2%83"><span class="nav-number">2.</span> <span class="nav-text">集群环境</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8E%92%E6%9F%A5%E8%BF%87%E7%A8%8B"><span class="nav-number">3.</span> <span class="nav-text">排查过程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8strace%E5%B7%A5%E5%85%B7%E5%AF%B9kubelet%E8%BF%9B%E7%A8%8B%E8%BF%9B%E8%A1%8C%E8%B7%9F%E8%B8%AA"><span class="nav-number">3.1.</span> <span class="nav-text">使用strace工具对kubelet进程进行跟踪</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8go-pprof%E5%B7%A5%E5%85%B7%E5%AF%B9kubelet%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8%E8%BF%9B%E8%A1%8C%E5%88%86%E6%9E%90"><span class="nav-number">3.2.</span> <span class="nav-text">使用go pprof工具对kubelet函数调用进行分析</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A7%A3%E5%86%B3%E6%96%B9%E6%B3%95"><span class="nav-number">4.</span> <span class="nav-text">解决方法</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">86</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">42</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://blog.zerchin.xyz/2020/11/29/kubelet-CPU-%E4%BD%BF%E7%94%A8%E7%8E%87%E8%BF%87%E9%AB%98%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          kubelet CPU 使用率过高问题排查
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2020-11-29 16:43:03" itemprop="dateCreated datePublished" datetime="2020-11-29T16:43:03+00:00">2020-11-29</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/kubernetes/" itemprop="url" rel="index"><span itemprop="name">kubernetes</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p>客户的k8s集群环境，发现所有的worker节点的kubelet进程的CPU使用率长时间占用过高，通过pidstat可以看到CPU使用率高达100%。针对此问题，客户在Rancher客户门户系统进行工单提问，请求Rancher工程师对kubelet进程的异常进行问题排查。</p>
+<p><img src="https://zerchin.gitee.io/picturebed/img/kubelet%20cpu%E4%BD%BF%E7%94%A8%E7%8E%87%E8%BF%87%E9%AB%98/kubelet-cpu-used.png" alt="image-20201128234823968"></p>
+<h2 id="集群环境"><a href="#集群环境" class="headerlink" title="集群环境"></a>集群环境</h2><table>
+<thead>
+<tr>
+<th>软件</th>
+<th>版本</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>kubernetes</td>
+<td>v1.18.8</td>
+</tr>
+<tr>
+<td>docker</td>
+<td>18.09.9</td>
+</tr>
+<tr>
+<td>rancher</td>
+<td>v2.4.8-ent</td>
+</tr>
+<tr>
+<td>CentOS</td>
+<td>7.6</td>
+</tr>
+<tr>
+<td>kernel</td>
+<td>4.4.227-1.el7.elrepo.x86_64</td>
+</tr>
+</tbody></table>
+<h2 id="排查过程"><a href="#排查过程" class="headerlink" title="排查过程"></a>排查过程</h2><h3 id="使用strace工具对kubelet进程进行跟踪"><a href="#使用strace工具对kubelet进程进行跟踪" class="headerlink" title="使用strace工具对kubelet进程进行跟踪"></a>使用strace工具对kubelet进程进行跟踪</h3><ol>
+<li>由于kubelet进程CPU使用率异常，可以使用strace工具对kubelet进程动态跟踪进程的调用情况，首先使用<code>strace -cp &lt;PID&gt;</code>命令统计kubelet进程在某段时间内的每个系统调用的时间、调用和错误情况.</li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/kubelet%20cpu%E4%BD%BF%E7%94%A8%E7%8E%87%E8%BF%87%E9%AB%98/kubelet-futex-error.png" alt="kubelet_futex_error"></p>
+<p>从上图可以看到，执行系统调用过程中，futex抛出了五千多个errors，这肯定是不正常的，而且这个函数占用的时间也达到了99%，所以需要更深层次的查看kubelet进程相关的调用。</p>
+<ol start="2">
+<li>由于<code>strace -cp</code>命令只能查看进程的整体调用情况，所以我们可以通过<code>strace -tt -p &lt;PID&gt;</code>命令打印每个系统调用的时间戳，如下：</li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/kubelet%20cpu%E4%BD%BF%E7%94%A8%E7%8E%87%E8%BF%87%E9%AB%98/kubelet_strace.png" alt="kubelet_strace.png"></p>
+<p>从strace输出的结果来看，在执行futex相关的系统调用时，有大量的Connect timed out，并返回了<code>-1 </code>和<code>ETIMEDOUT</code>的error，所以才会在<code>strace -cp</code>中看到了那么多的error。</p>
+<p>futex是一种用户态和内核态混合的同步机制，当futex变量告诉进程有竞争发生时，会执行系统调用去完成相应的处理，例如wait或者wake up，从官方的文档了解到，futex有这么几个参数：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">futex(<span class="keyword">uint32_t</span> *uaddr, <span class="keyword">int</span> futex_op, <span class="keyword">uint32_t</span> val,</span><br><span class="line">                 <span class="keyword">const</span> struct timespec *timeout,   <span class="comment">/* or: uint32_t val2 */</span></span><br><span class="line">                 <span class="keyword">uint32_t</span> *uaddr2, <span class="keyword">uint32_t</span> val3);</span><br></pre></td></tr></table></figure>
+
+<p>官方文档给出<code>ETIMEDOUT</code>的解释：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">ETIMEDOUT</span><br><span class="line">       The operation in futex_op employed the timeout specified in</span><br><span class="line">       timeout, and the timeout expired before the operation</span><br><span class="line">       completed.</span><br></pre></td></tr></table></figure>
+
+<p>意思就是在指定的timeout时间中，未能完成相应的操作，其中<code>futex_op</code>对应上述输出结果的<code>FUTEX_WAIT_PRIVATE</code>和<code>FUTEX_WAIT_PRIVATE</code>，可以看到基本都是发生在<code>FUTEX_WAIT_PRIVATE</code>时发生的超时。</p>
+<p>从目前的系统调用层面可以判断，futex无法顺利进入睡眠状态，但是futex做了哪些操作还是不清楚，还无法判断kubeletCPU飙高的原因，所以我们需要进一步从kubelet的函数调用中去看到底是执行了卡在了哪个地方。</p>
+<blockquote>
+<p>FUTEX_PRIVATE_FLAG：这个参数告诉内核futex是进程专用的，不与其他进程共享，这里的FUTEX_WAIT_PRIVATE和FUTEX_WAKE_PRIVATE就是其中的两种FLAG；</p>
+<p>futex相关说明1：<a target="_blank" rel="noopener" href="https://man7.org/linux/man-pages/man7/futex.7.html">https://man7.org/linux/man-pages/man7/futex.7.html</a> </p>
+<p>fuex相关说明2： <a target="_blank" rel="noopener" href="https://man7.org/linux/man-pages/man2/futex.2.html">https://man7.org/linux/man-pages/man2/futex.2.html</a></p>
+</blockquote>
+<h3 id="使用go-pprof工具对kubelet函数调用进行分析"><a href="#使用go-pprof工具对kubelet函数调用进行分析" class="headerlink" title="使用go pprof工具对kubelet函数调用进行分析"></a>使用go pprof工具对kubelet函数调用进行分析</h3><p>早期的k8s版本，可以直接通过<code>debug/pprof</code> 接口获取debug数据，后面考虑到相关安全性的问题，取消了这个接口，参考<a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/issues/81023">CVE-2019-11248</a>，我们可以通过kubectl开启proxy进行相关数据指标的获取</p>
+<ol>
+<li>首先使用<code>kubectl proxy</code>命令启动API server代理</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl proxy --address=<span class="string">&#x27;0.0.0.0&#x27;</span>  --accept-hosts=<span class="string">&#x27;^*$&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p>这里需要注意，如果使用的是Rancher UI上copy的kubeconfig文件，则需要使用指定了master IP的context，如果是RKE或者其他工具安装则可以忽略</p>
+<ol start="2">
+<li>构建golang环境。go pprof需要在golang环境下使用，本地如果没有安装golang，则可以通过docker快速构建golang环境</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker run -itd --name golang-env --net host golang bash</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>使用go pprof工具导出采集的指标，这里替换127.0.0.1为apiserver节点的IP，默认端口是8001，如果docker run的环境跑在apiserver所在的节点上，可以使用127.0.0.1。另外，还要替换NODENAME为对应的节点名称。</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker <span class="built_in">exec</span> -it golang-env bash</span><br><span class="line">go tool pprof -seconds=60 -raw -output=kubelet.pprof http://127.0.0.1:8001/api/v1/nodes/<span class="variable">$&#123;NODENAME&#125;</span>/proxy/debug/pprof/profile</span><br></pre></td></tr></table></figure>
+
+<p>这里等待60s后，会将这60s内相关的函数调用输出到当前目录的kubelet.pprof文件中。</p>
+<ol start="4">
+<li>输出好的pprof文件不方便查看，需要转换成火焰图，推荐使用FlameGraph工具生成svg图</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">git <span class="built_in">clone</span> https://github.com/brendangregg/FlameGraph.git</span><br><span class="line"><span class="built_in">cd</span> FlameGraph/</span><br><span class="line">./stackcollapse-go.pl kubelet.pprof &gt; kubelet.out</span><br><span class="line">./flamegraph.pl kubelet.out &gt; kubelet.svg</span><br></pre></td></tr></table></figure>
+
+<p>转换成火焰图后，就可以在浏览器很直观的看到函数相关调用和具体调用时间比了。</p>
+<ol start="5">
+<li>分析火焰图</li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/kubelet%20cpu%E4%BD%BF%E7%94%A8%E7%8E%87%E8%BF%87%E9%AB%98/kubelet_flame2.png" alt="image-20201129033348406"></p>
+<p> 从kubelet的火焰图可以看到，调用时间最长的函数是<code>k8s.io/kubernetes/vendor/github.com/google/cadvisor/manager.(*containerData).housekeeping</code>，其中cAdvisor是kubelet内置的指标采集工具，主要是负责对节点机器上的资源及容器进行实时监控和性能数据采集，包括CPU使用情况、内存使用情况、网络吞吐量及文件系统使用情况。</p>
+<p>​    深入函数调用可以发现<code>k8s.io/kubernetes/vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs.(*Manager).GetStats</code>这个函数占用<code>k8s.io/kubernetes/vendor/github.com/google/cadvisor/manager.(*containerData).housekeeping</code>这个函数的时间是最长的，说明在获取容器CGroup相关状态时占用了较多的时间。</p>
+<ol start="6">
+<li>既然这个函数占用时间长，那么我们就分析一下这个函数具体干了什么事儿</li>
+</ol>
+<p>查看源代码：<a target="_blank" rel="noopener" href="https://github.com/kubernetes/kubernetes/blob/ded8a1e2853aef374fc93300fe1b225f38f19d9d/vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs/memory.go#L162">https://github.com/kubernetes/kubernetes/blob/ded8a1e2853aef374fc93300fe1b225f38f19d9d/vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs/memory.go#L162</a></p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *MemoryGroup)</span> <span class="title">GetStats</span><span class="params">(path <span class="keyword">string</span>, stats *cgroups.Stats)</span> <span class="title">error</span></span> &#123;</span><br><span class="line">	<span class="comment">// Set stats from memory.stat.</span></span><br><span class="line">	statsFile, err := os.Open(filepath.Join(path, <span class="string">&quot;memory.stat&quot;</span>))</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">if</span> os.IsNotExist(err) &#123;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">defer</span> statsFile.Close()</span><br><span class="line"></span><br><span class="line">	sc := bufio.NewScanner(statsFile)</span><br><span class="line">	<span class="keyword">for</span> sc.Scan() &#123;</span><br><span class="line">		t, v, err := fscommon.GetCgroupParamKeyValue(sc.Text())</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> fmt.Errorf(<span class="string">&quot;failed to parse memory.stat (%q) - %v&quot;</span>, sc.Text(), err)</span><br><span class="line">		&#125;</span><br><span class="line">		stats.MemoryStats.Stats[t] = v</span><br><span class="line">	&#125;</span><br><span class="line">	stats.MemoryStats.Cache = stats.MemoryStats.Stats[<span class="string">&quot;cache&quot;</span>]</span><br><span class="line"></span><br><span class="line">	memoryUsage, err := getMemoryData(path, <span class="string">&quot;&quot;</span>)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">	stats.MemoryStats.Usage = memoryUsage</span><br><span class="line">	swapUsage, err := getMemoryData(path, <span class="string">&quot;memsw&quot;</span>)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">	stats.MemoryStats.SwapUsage = swapUsage</span><br><span class="line">	kernelUsage, err := getMemoryData(path, <span class="string">&quot;kmem&quot;</span>)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">	stats.MemoryStats.KernelUsage = kernelUsage</span><br><span class="line">	kernelTCPUsage, err := getMemoryData(path, <span class="string">&quot;kmem.tcp&quot;</span>)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">	stats.MemoryStats.KernelTCPUsage = kernelTCPUsage</span><br><span class="line"></span><br><span class="line">	useHierarchy := strings.Join([]<span class="keyword">string</span>&#123;<span class="string">&quot;memory&quot;</span>, <span class="string">&quot;use_hierarchy&quot;</span>&#125;, <span class="string">&quot;.&quot;</span>)</span><br><span class="line">	value, err := fscommon.GetCgroupParamUint(path, useHierarchy)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> value == <span class="number">1</span> &#123;</span><br><span class="line">		stats.MemoryStats.UseHierarchy = <span class="literal">true</span></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	pagesByNUMA, err := getPageUsageByNUMA(path)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> err</span><br><span class="line">	&#125;</span><br><span class="line">	stats.MemoryStats.PageUsageByNUMA = pagesByNUMA</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>从代码中可以看到，进程会去读取<code>memory.stat</code>这个文件，这个文件存放了cgroup内存使用情况。也就是说，在读取这个文件花费了大量的时间。这时候，如果我们手动去查看这个文件，会是什么效果？</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># time cat /sys/fs/cgroup/memory/memory.stat &gt;/dev/null</span></span><br><span class="line">real 0m9.065s</span><br><span class="line">user 0m0.000s</span><br><span class="line">sys 0m9.064s</span><br></pre></td></tr></table></figure>
+
+<p>从这里可以看出端倪了，读取这个文件花费了9s，显然是不正常的，难怪kubeletCPU使用飙高，原来是堵在这里了。</p>
+<p>基于上述结果，我们在cAdvisor的GitHub上查找到一个<a target="_blank" rel="noopener" href="https://github.com/google/cadvisor/issues/1774">issue</a>，从该issue中可以得知，该问题跟slab memory 缓存有一定的关系。从该issue中得知，受影响的机器的内存会逐渐被使用，通过/proc/meminfo看到使用的内存是slab memory，该内存是内核缓存的内存页，并且其中绝大部分都是dentry缓存。从这里我们可以判断出，当CGroup中的进程生命周期结束后，由于缓存的原因，还存留在slab memory中，导致其类似僵尸CGroup一样无法被释放。</p>
+<p>也就是每当创建一个memory CGroup，在内核内存空间中，就会为其创建分配一份内存空间，该内存包含当前CGroup相关的cache（dentry、inode），也就是目录和文件索引的缓存，该缓存本质上是为了提高读取的效率。但是当CGroup中的所有进程都退出时，存在内核内存空间的缓存并没有清理掉。</p>
+<p>内核通过伙伴算法进行内存分配，每当有进程申请内存空间时，会为其分配至少一个内存页面，也就是最少会分配4k内存，每次释放内存，也是按照最少一个页面来进行释放。当请求分配的内存大小为几十个字节或几百个字节时，4k对其来说是一个巨大的内存空间，在Linux中，为了解决这个问题，引入了slab内存分配管理机制，用来处理这种小量的内存请求，这就会导致，当CGroup中的所有进程都退出时，不会轻易回收这部分的内存，而这部分内存中的缓存数据，还会被读取到stats中，从而导致影响读取的性能。</p>
+<h2 id="解决方法"><a href="#解决方法" class="headerlink" title="解决方法"></a>解决方法</h2><ol>
+<li>清理节点缓存，这是一个临时的解决方法，暂时清空节点内存缓存，能够缓解kubelet CPU使用率，但是后面缓存上来了，CPU使用率又会升上来。</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">echo</span> 2 &gt; /proc/sys/vm/drop_caches</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li><p>升级内核版本</p>
+<p>2.1. 其实这个主要还是内核的问题，在GitHub上这个<a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/commit/205b20cc5a99cdf197c32f4dbee2b09c699477f0">commit</a>中有提到，在5.2+以上的内核版本中，优化了CGroup stats相关的查询性能，如果想要更好的解决该问题，建议可以参考自己操作系统和环境，合理的升级内核版本。</p>
+<p>2.2. 另外Redhat在<a target="_blank" rel="noopener" href="https://bugzilla.redhat.com/show_bug.cgi?id=1795049">kernel-4.18.0-176</a>版本中也优化了相关CGroup的性能问题，而CentOS 8/RHEL 8默认使用的内核版本就是4.18，如果目前您使用的操作系统是RHEL7/CentOS7，则可以尝试逐渐替换新的操作系统，使用这个4.18.0-176版本以上的内核，毕竟新版本内核总归是对容器相关的体验会好很多。</p>
+</li>
+</ol>
+<blockquote>
+<p>kernel相关commit：<a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/commit/205b20cc5a99cdf197c32f4dbee2b09c699477f0">https://github.com/torvalds/linux/commit/205b20cc5a99cdf197c32f4dbee2b09c699477f0</a></p>
+<p>redhat kernel bug fix：<a target="_blank" rel="noopener" href="https://bugzilla.redhat.com/show_bug.cgi?id=1795049">https://bugzilla.redhat.com/show_bug.cgi?id=1795049</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://blog.zerchin.xyz/2020/11/29/kubelet-CPU-%E4%BD%BF%E7%94%A8%E7%8E%87%E8%BF%87%E9%AB%98%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/" title="kubelet CPU 使用率过高问题排查">http://blog.zerchin.xyz/2020/11/29/kubelet-CPU-使用率过高问题排查/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2020/11/26/kafka%E5%AF%B9%E6%8E%A5Rancher%E6%97%A5%E5%BF%97/" rel="prev" title="kafka对接Rancher日志">
+                  <i class="fa fa-chevron-left"></i> kafka对接Rancher日志
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2020/12/07/helm2%E5%8D%87%E7%BA%A7%E8%87%B3helm3/" rel="next" title="helm2升级至helm3">
+                  helm2升级至helm3 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

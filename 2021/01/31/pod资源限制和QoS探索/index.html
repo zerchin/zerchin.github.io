@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.zerchin.xyz","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="简述默认情况下，k8s不会对pod的资源使用进行限制，也就是说，pod可以无限使用主机的资源，例如CPU、内存等。为了保障k8s整体环境运行的稳定性，一般情况下，建议是对pod的资源使用进行限制，将其限制在一个范围内，防止起过度使用主机资源造成节点负载过大，导致其上面运行的其他应用受到影响。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="pod资源限制和QoS探索">
+<meta property="og:url" content="http://blog.zerchin.xyz/2021/01/31/pod%E8%B5%84%E6%BA%90%E9%99%90%E5%88%B6%E5%92%8CQoS%E6%8E%A2%E7%B4%A2/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="简述默认情况下，k8s不会对pod的资源使用进行限制，也就是说，pod可以无限使用主机的资源，例如CPU、内存等。为了保障k8s整体环境运行的稳定性，一般情况下，建议是对pod的资源使用进行限制，将其限制在一个范围内，防止起过度使用主机资源造成节点负载过大，导致其上面运行的其他应用受到影响。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-01-31T11:22:39.000Z">
+<meta property="article:modified_time" content="2021-01-31T11:22:39.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="kubernetes">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://blog.zerchin.xyz/2021/01/31/pod%E8%B5%84%E6%BA%90%E9%99%90%E5%88%B6%E5%92%8CQoS%E6%8E%A2%E7%B4%A2/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>pod资源限制和QoS探索 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">42</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">26</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">86</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AE%80%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">简述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E6%8F%90"><span class="nav-number">2.</span> <span class="nav-text">前提</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%95%E4%B8%BACGroup"><span class="nav-number">3.</span> <span class="nav-text">何为CGroup</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E9%99%90%E5%88%B6"><span class="nav-number">4.</span> <span class="nav-text">内存限制</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#pod%E7%A4%BA%E4%BE%8B"><span class="nav-number">4.1.</span> <span class="nav-text">pod示例</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA%E4%B8%80%E4%B8%AA%E5%86%85%E5%AD%98%E4%BD%BF%E7%94%A8%E8%B6%85%E5%87%BAlimit%E7%9A%84pod"><span class="nav-number">4.2.</span> <span class="nav-text">创建一个内存使用超出limit的pod</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%AA%E8%AE%BE%E7%BD%AErequest"><span class="nav-number">4.3.</span> <span class="nav-text">只设置request</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E8%B5%84%E6%BA%90%E9%99%90%E5%88%B6%E7%9A%84%E7%9B%AE%E7%9A%84"><span class="nav-number">4.4.</span> <span class="nav-text">内存资源限制的目的</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#CPU%E9%99%90%E5%88%B6"><span class="nav-number">5.</span> <span class="nav-text">CPU限制</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#pod%E7%A4%BA%E4%BE%8B-1"><span class="nav-number">5.1.</span> <span class="nav-text">pod示例</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#request%E4%B9%8BCPU%E8%BD%AF%E9%99%90%E5%88%B6"><span class="nav-number">5.2.</span> <span class="nav-text">request之CPU软限制</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CPU%E8%B5%84%E6%BA%90%E9%99%90%E5%88%B6%E7%9A%84%E7%9B%AE%E7%9A%84"><span class="nav-number">5.3.</span> <span class="nav-text">CPU资源限制的目的</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#QoS"><span class="nav-number">6.</span> <span class="nav-text">QoS</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Guaranteed"><span class="nav-number">6.1.</span> <span class="nav-text">Guaranteed</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Burstable"><span class="nav-number">6.2.</span> <span class="nav-text">Burstable</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#BestEffort"><span class="nav-number">6.3.</span> <span class="nav-text">BestEffort</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#QoS%E4%BC%98%E5%85%88%E7%BA%A7"><span class="nav-number">6.4.</span> <span class="nav-text">QoS优先级</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#OOM-score"><span class="nav-number">6.5.</span> <span class="nav-text">OOM score</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="nav-number">7.</span> <span class="nav-text">参考链接</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">86</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">42</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://blog.zerchin.xyz/2021/01/31/pod%E8%B5%84%E6%BA%90%E9%99%90%E5%88%B6%E5%92%8CQoS%E6%8E%A2%E7%B4%A2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          pod资源限制和QoS探索
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2021-01-31 11:22:39" itemprop="dateCreated datePublished" datetime="2021-01-31T11:22:39+00:00">2021-01-31</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/kubernetes/" itemprop="url" rel="index"><span itemprop="name">kubernetes</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="简述"><a href="#简述" class="headerlink" title="简述"></a>简述</h2><p>默认情况下，k8s不会对pod的资源使用进行限制，也就是说，pod可以无限使用主机的资源，例如CPU、内存等。为了保障k8s整体环境运行的稳定性，一般情况下，建议是对pod的资源使用进行限制，将其限制在一个范围内，防止起过度使用主机资源造成节点负载过大，导致其上面运行的其他应用受到影响。</p>
+<h2 id="前提"><a href="#前提" class="headerlink" title="前提"></a>前提</h2><ul>
+<li><p>已有的k8s环境（这里安装的是k8s-v1.18.12版本）</p>
+</li>
+<li><p>k8s集群安装了metrics-server服务（这里借助rancher搭建k8s集群，默认安装了该服务）</p>
+</li>
+</ul>
+<h2 id="何为CGroup"><a href="#何为CGroup" class="headerlink" title="何为CGroup"></a>何为CGroup</h2><p>参考Wiki，<strong>cgroups</strong>其名称源自<strong>控制组群</strong>（英语：control groups）的简写，是Linux内核的一个功能，用来限制、控制与分离一个进程组的资源（如CPU、内存、磁盘输入输出等）。</p>
+<p>也就是说，通过设置CGroup，可以达到对资源的控制，例如限制内存、CPU的使用。在k8s中，对pod的资源限制就是通过CGroup这个技术来实现的。</p>
+<h2 id="内存限制"><a href="#内存限制" class="headerlink" title="内存限制"></a>内存限制</h2><h3 id="pod示例"><a href="#pod示例" class="headerlink" title="pod示例"></a>pod示例</h3><p>首先创建一个pod，并设置内存限制</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">resources:</span></span><br><span class="line">  <span class="attr">limits:</span></span><br><span class="line">    <span class="attr">memory:</span> <span class="string">&quot;200Mi&quot;</span></span><br><span class="line">  <span class="attr">requests:</span></span><br><span class="line">    <span class="attr">memory:</span> <span class="string">&quot;100Mi&quot;</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>内存单位：E、P、T、G、M、K、Ei、Pi、Ti、Gi、Mi、Ki</p>
+<p>其中M = 1000 x 1000，Mi = 1024 x 1024</p>
+<p>limit必须要≥request</p>
+</blockquote>
+<p>完整yaml参考</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">stress-memory</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">stress</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">polinux/stress</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">    <span class="attr">command:</span> [<span class="string">&quot;stress&quot;</span>]</span><br><span class="line">    <span class="attr">args:</span> [<span class="string">&quot;--vm&quot;</span>, <span class="string">&quot;1&quot;</span>, <span class="string">&quot;--vm-bytes&quot;</span>, <span class="string">&quot;150M&quot;</span>, <span class="string">&quot;--vm-hang&quot;</span>, <span class="string">&quot;1&quot;</span>]</span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">      <span class="attr">limits:</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">&quot;200Mi&quot;</span></span><br><span class="line">      <span class="attr">requests:</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">&quot;100Mi&quot;</span></span><br><span class="line">  <span class="attr">nodeName:</span> <span class="string">node01</span>		<span class="comment">## 这里指定调度到某个节点上，方便接下来的操作</span></span><br></pre></td></tr></table></figure>
+
+<p>这里设置了内存的limit为”200Mi”，内存的request为”100Mi”,并通过<code>stress</code>，指定分配150M的内存空间</p>
+<p>接着我们运行该yaml</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f stress-memory.yaml</span><br></pre></td></tr></table></figure>
+
+<p>等到pod运行起来后，我们看一下pod的详细信息</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pod stress-memory -oyaml</span><br></pre></td></tr></table></figure>
+
+<p>输出结果如下</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">stress-memory</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">  <span class="attr">uid:</span> <span class="string">b84cf8e8-03b3-4365-b5b5-5d9f99969705</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">      <span class="attr">limits:</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">200Mi</span></span><br><span class="line">      <span class="attr">requests:</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">100Mi</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="attr">status:</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">  <span class="attr">qosClass:</span> <span class="string">Burstable</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br></pre></td></tr></table></figure>
+
+<p>从上述输出中可以获取如下两个信息：</p>
+<ul>
+<li>pod的uid为<code>b84cf8e8-03b3-4365-b5b5-5d9f99969705</code></li>
+<li>pod的QoSClass为<code>Burstable</code></li>
+</ul>
+<p>这里<strong>Burstable</strong>对应的就是pod在CGroup中的路径，我们进入到CGroup的memory目录下，并进入到<code>kubepods/Burstable</code>目录中</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /sys/fs/cgroup/memory/kubepods/burstable/</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># ls</span></span><br><span class="line">...</span><br><span class="line">podb84cf8e8-03b3-4365-b5b5-5d9f99969705</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>通过执行<code>ls</code>命令，能看到其中一个目录为<code>podb84cf8e8-03b3-4365-b5b5-5d9f99969705</code>，正好对应上面我们获得pod的uid，也就是说，对pod的资源限制，就是在这个CGroup目录下实现的</p>
+<p>我们看一下这个目录下有什么文件</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> podb84cf8e8-03b3-4365-b5b5-5d9f99969705/</span><br><span class="line">ls -1</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">8c9adca52f2bfd9e1862f6abaac5b435bdaf233925b7d640edb28e36da0b9b39</span><br><span class="line">ca20137f7d5a42910e22425cca06443c16246c90ee9caa27814442e34a832b21</span><br><span class="line">cgroup.clone_children</span><br><span class="line">cgroup.event_control</span><br><span class="line">cgroup.procs</span><br><span class="line">memory.failcnt</span><br><span class="line">memory.force_empty</span><br><span class="line">memory.kmem.failcnt</span><br><span class="line">memory.kmem.limit_in_bytes</span><br><span class="line">memory.kmem.max_usage_in_bytes</span><br><span class="line">memory.kmem.slabinfo</span><br><span class="line">memory.kmem.tcp.failcnt</span><br><span class="line">memory.kmem.tcp.limit_in_bytes</span><br><span class="line">memory.kmem.tcp.max_usage_in_bytes</span><br><span class="line">memory.kmem.tcp.usage_in_bytes</span><br><span class="line">memory.kmem.usage_in_bytes</span><br><span class="line">memory.limit_in_bytes</span><br><span class="line">memory.max_usage_in_bytes</span><br><span class="line">memory.memsw.failcnt</span><br><span class="line">memory.memsw.limit_in_bytes</span><br><span class="line">memory.memsw.max_usage_in_bytes</span><br><span class="line">memory.memsw.usage_in_bytes</span><br><span class="line">memory.move_charge_at_immigrate</span><br><span class="line">memory.numa_stat</span><br><span class="line">memory.oom_control</span><br><span class="line">memory.pressure_level</span><br><span class="line">memory.soft_limit_in_bytes</span><br><span class="line">memory.stat</span><br><span class="line">memory.swappiness</span><br><span class="line">memory.usage_in_bytes</span><br><span class="line">memory.use_hierarchy</span><br><span class="line">notify_on_release</span><br><span class="line">tasks</span><br></pre></td></tr></table></figure>
+
+<p>相关文件作用如下：</p>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>cgroup.event_control</td>
+<td>用于event_fd()接口</td>
+</tr>
+<tr>
+<td>cgroup.procs</td>
+<td>展示process列表</td>
+</tr>
+<tr>
+<td>memory.failcnt</td>
+<td>内存使用达到限制的次数</td>
+</tr>
+<tr>
+<td>memory.force_empty</td>
+<td>强制触发当前CGroup中的内存回收</td>
+</tr>
+<tr>
+<td>memory.limit_in_bytes</td>
+<td>内存限制的最大值</td>
+</tr>
+<tr>
+<td>memory.max_usage_in_bytes</td>
+<td>记录该CGroup中历史最大内存使用量</td>
+</tr>
+<tr>
+<td>memory.move_charge_at_immigrate</td>
+<td>设置/显示当前CGroup的进程移动到另一个CGroup时，当前已占用的内存是否迁移到新的CGroup中，默认为0，即不移动</td>
+</tr>
+<tr>
+<td>memory.numa_stat</td>
+<td>显示numa相关的内存信息</td>
+</tr>
+<tr>
+<td>memory.oom_control</td>
+<td>设置/显示oom相关信息，其中oom_kill_disable为0，则超过内存会被kill；oom_kill_disable为1则停止进程，直至额外的内存被释放，当进程被暂停时，under_oom返回1</td>
+</tr>
+<tr>
+<td>memory.pressure_level</td>
+<td>设置内存压力的通知事件，配合cgroup.event_control一起使用</td>
+</tr>
+<tr>
+<td>memory.soft_limit_in_bytes</td>
+<td>设置/显示内存的软限制，默认不限制</td>
+</tr>
+<tr>
+<td>memory.stat</td>
+<td>显示当前CGroup中内存使用情况</td>
+</tr>
+<tr>
+<td>memory.swappiness</td>
+<td>设置/显示vmscan的swappiness参数（参考sysctl的vm.swappiness）</td>
+</tr>
+<tr>
+<td>memory.usage_in_bytes</td>
+<td>显示当前内存使用情况</td>
+</tr>
+<tr>
+<td>memory.use_hierarchy</td>
+<td>如果该值为0，将会统计到root cgroup里；如果值为1，则统计到它的父cgroup里面</td>
+</tr>
+<tr>
+<td>notify_on_release</td>
+<td>是否在cgroup中最后一个任务退出时通知运行release agent,默认情况下是0,表示不运行。(release_agent在CGroup最顶层的目录)</td>
+</tr>
+<tr>
+<td>tasks</td>
+<td>控制的进程组（这里看不到对应进程，需要进入到子group中查看）</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p> 不涉及内核内存（memory.kmem.*）和swap分区内存（memory.memsw.*），这里就不详细介绍</p>
+</blockquote>
+<p>主要关注这几个文件</p>
+<ol>
+<li><p><code>8c9adca52f2bfd9e1862f6abaac5b435bdaf233925b7d640edb28e36da0b9b39</code>和<code>ca20137f7d5a42910e22425cca06443c16246c90ee9caa27814442e34a832b21</code>：分别对应的是pod运行的主容器ID和pause容器ID</p>
+</li>
+<li><p><code>memory.usage_in_bytes</code>已使用的内存，例如我这里查看的结果是160817152，也就是153MB左右</p>
+</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cat memory.usage_in_bytes</span></span><br><span class="line">160382976</span><br></pre></td></tr></table></figure>
+
+<p>使用kubect top命令查看使用情况</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl top pod</span></span><br><span class="line">NAME            CPU(cores)   MEMORY(bytes)   </span><br><span class="line">stress-memory   13m          151Mi  </span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li><code>memory.limit_in_bytes</code>：内存限制的最大值，等于我们设置的内存limit的值</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cat memory.limit_in_bytes</span></span><br><span class="line">160587776</span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li><code>memory.max_usage_in_bytes</code>：历史内存最大使用量，再查看一下该CGroup下内存历史最大使用量，正好200M</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cat memory.max_usage_in_bytes </span></span><br><span class="line">209715200</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="创建一个内存使用超出limit的pod"><a href="#创建一个内存使用超出limit的pod" class="headerlink" title="创建一个内存使用超出limit的pod"></a>创建一个内存使用超出limit的pod</h3><p>这时候我们将内存使用设置到250M，超出200M的限制</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">stress-memory2</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">stress</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">polinux/stress</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">    <span class="attr">command:</span> [<span class="string">&quot;stress&quot;</span>]</span><br><span class="line">    <span class="attr">args:</span> [<span class="string">&quot;--vm&quot;</span>, <span class="string">&quot;1&quot;</span>, <span class="string">&quot;--vm-bytes&quot;</span>, <span class="string">&quot;250M&quot;</span>, <span class="string">&quot;--vm-hang&quot;</span>, <span class="string">&quot;1&quot;</span>]    <span class="comment">## 修改为250M，也就是分配250M内存</span></span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">      <span class="attr">limits:</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">&quot;200Mi&quot;</span></span><br><span class="line">      <span class="attr">requests:</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">&quot;100Mi&quot;</span></span><br><span class="line">  <span class="attr">nodeName:</span> <span class="string">node01</span></span><br></pre></td></tr></table></figure>
+
+<p>执行<code>kubectl create</code>命令，运行这个pod</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f pod-memory-2.yaml</span><br></pre></td></tr></table></figure>
+
+<p>查看pod状态</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl get pod </span></span><br><span class="line"><span class="string">NAME</span>             <span class="string">READY</span>   <span class="string">STATUS</span>      <span class="string">RESTARTS</span>   <span class="string">AGE</span></span><br><span class="line"><span class="string">stress-memory</span>    <span class="number">1</span><span class="string">/1</span>     <span class="string">Running</span>     <span class="number">1</span>          <span class="string">10m6s</span></span><br><span class="line"><span class="string">stress-memory2</span>   <span class="number">0</span><span class="string">/1</span>     <span class="string">OOMKilled</span>   <span class="number">2</span>          <span class="string">26s</span></span><br></pre></td></tr></table></figure>
+
+<p>此时会发现，pod在不断重启，并且<strong>stress-memory2</strong>这个pod的状态为OOMKilled，这个是怎么回事呢，我们可以进到pod对应的CGroup下查看内存使用情况，我们继续看一下目前pod的状态</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pod stress-memory2 -oyaml</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="attr">status:</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">    <span class="attr">lastState:</span></span><br><span class="line">      <span class="attr">terminated:</span></span><br><span class="line">        <span class="attr">containerID:</span> <span class="string">docker://a7d686a3b56aa03b66fd4fed07217693d8e41d75529c02bae34769dca6f01f9e</span></span><br><span class="line">        <span class="attr">exitCode:</span> <span class="number">1</span></span><br><span class="line">        <span class="attr">finishedAt:</span> <span class="string">&quot;2021-01-18T14:13:21Z&quot;</span></span><br><span class="line">        <span class="attr">reason:</span> <span class="string">OOMKilled</span></span><br><span class="line">        <span class="attr">startedAt:</span> <span class="string">&quot;2021-01-18T14:13:21Z&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>可以看到pod退出的原因是OOMKilled，什么是OOMKilled呢？简单来说，就是当进程申请的内存超出了已有的内存资源，那么为了保证主机的稳定运行，就会基于进程oom_score的值，有选择性的杀死某个进程。也就是说，在这个例子中，pod申请的内存为250Mi，超过了限制的200Mi，那么就会从该进程所在的CGroup中，杀死对应的进程，具体我们可以看一下该CGroup中内存情况：</p>
+<p>通过<code>kubectl get pod stress-memory2 -oyaml</code>命令，获取pod uid，进入到对应的CGroup</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /sys/fs/cgroup/memory/kubepods/burstable/pod92c2a4c2-3b5c-4a9a-8a00-5d59575e96e7/</span><br></pre></td></tr></table></figure>
+
+<p>首先看一下内存限制是多少</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cat memory.limit_in_bytes </span></span><br><span class="line">209715200</span><br></pre></td></tr></table></figure>
+
+<p>再查看一下内存使用量，只有1M左右，这是因为此时pod状态不是运行状态</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cat memory.usage_in_bytes </span></span><br><span class="line">1093632</span><br></pre></td></tr></table></figure>
+
+<p>再查看一下该CGroup下内存历史最大使用量，正好200M</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cat memory.max_usage_in_bytes </span></span><br><span class="line">209715200</span><br></pre></td></tr></table></figure>
+
+<p>此时我们再看看内存使用量达到限制值的次数</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cat memory.failcnt </span></span><br><span class="line">531</span><br></pre></td></tr></table></figure>
+
+<p>从以上信息可以得知，内存不断申请超出内存限制的值，导致进程被kill，最终导致pod退出</p>
+<h3 id="只设置request"><a href="#只设置request" class="headerlink" title="只设置request"></a>只设置request</h3><p>设置request=100M，不设置limit，并设置pod使用内存150M</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">stress-memory4</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">stress</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">polinux/stress</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">    <span class="attr">command:</span> [<span class="string">&quot;stress&quot;</span>]</span><br><span class="line">    <span class="attr">args:</span> [<span class="string">&quot;--vm&quot;</span>, <span class="string">&quot;1&quot;</span>, <span class="string">&quot;--vm-bytes&quot;</span>, <span class="string">&quot;150M&quot;</span>, <span class="string">&quot;--vm-hang&quot;</span>, <span class="string">&quot;1&quot;</span>]</span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">      <span class="attr">requests:</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">&quot;100Mi&quot;</span></span><br><span class="line">  <span class="attr">nodeName:</span> <span class="string">node01</span></span><br></pre></td></tr></table></figure>
+
+<p>执行<code>kubectl create</code>命令，运行这个pod</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f pod-memory-4.yaml</span><br></pre></td></tr></table></figure>
+
+<p>查看pod状态</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl get pod</span></span><br><span class="line"><span class="string">NAME</span>             <span class="string">READY</span>   <span class="string">STATUS</span>    <span class="string">RESTARTS</span>   <span class="string">AGE</span></span><br><span class="line"><span class="string">stress-memory3</span>   <span class="number">1</span><span class="string">/1</span>     <span class="string">Running</span>   <span class="number">0</span>          <span class="string">79s</span></span><br></pre></td></tr></table></figure>
+
+<p>查看pod内存使用</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl top pod</span></span><br><span class="line">NAME             CPU(cores)   MEMORY(bytes)   </span><br><span class="line">stress-memory3   51m          150Mi  </span><br></pre></td></tr></table></figure>
+
+<p>可以发现，pod内存使用时150Mi，说明只设置内存request，并不会对其限制其内存的使用</p>
+<blockquote>
+<p><strong>注意：</strong>如果只设置limit，则request=limit</p>
+</blockquote>
+<h3 id="内存资源限制的目的"><a href="#内存资源限制的目的" class="headerlink" title="内存资源限制的目的"></a>内存资源限制的目的</h3><ul>
+<li><p>如果没有指定内存限制，则容器可以无限制的使用主机内存资源，当使用完主机的所有可用资源后，就会导致该节点调用OOMkilled，此时没有设置内存限制的pod对应的进程的score会更大，所以被kill的可能性更大。</p>
+</li>
+<li><p>为集群中的pod设置内存请求和限制，可以有效的利用集群上的内存资源，防止应用突发高峰期的时候内存猛涨影响其他应用的稳定运行</p>
+</li>
+</ul>
+<h2 id="CPU限制"><a href="#CPU限制" class="headerlink" title="CPU限制"></a>CPU限制</h2><h3 id="pod示例-1"><a href="#pod示例-1" class="headerlink" title="pod示例"></a>pod示例</h3><p>首先创建一个pod，并设置CPU限制</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">resources:</span></span><br><span class="line">  <span class="attr">limits:</span></span><br><span class="line">    <span class="attr">cpu:</span> <span class="string">&quot;1&quot;</span></span><br><span class="line">  <span class="attr">requests:</span></span><br><span class="line">    <span class="attr">cpu:</span> <span class="string">&quot;0.5&quot;</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>CPU单位：小数值是可以使用。一个请求 0.5 CPU 的容器保证会获得请求 1 个 CPU 的容器的 CPU 的一半。 可以使用后缀 <code>m</code> 表示毫。例如 <code>100m</code> CPU、100 milliCPU 和 0.1 CPU 都相同。 精度不能超过 1m。</p>
+</blockquote>
+<p>完整yaml参考</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">stress-cpu</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">stress-cpu</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">vish/stress</span></span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">      <span class="attr">limits:</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">&quot;0.9&quot;</span></span><br><span class="line">      <span class="attr">requests:</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">&quot;0.5&quot;</span></span><br><span class="line">    <span class="attr">args:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">-cpus</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&quot;2&quot;</span></span><br><span class="line">  <span class="attr">nodeName:</span> <span class="string">node01</span>		<span class="comment">## 这里指定调度到某个节点上，方便接下来的操作</span></span><br></pre></td></tr></table></figure>
+
+<p>这里设置了CPU的limit为”1”，CPU的request为”0.5”，并通过stress指定分配2个进程去跑满2个CPU</p>
+<p>接着我们运行该yaml</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f stress-cpu.yaml</span><br></pre></td></tr></table></figure>
+
+<p>等到pod运行起来后，我们看一下pod的详细信息</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pod stress-cpu -oyaml</span><br></pre></td></tr></table></figure>
+
+<p>输出结果如下</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">stress-cpu</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">  <span class="attr">uid:</span> <span class="number">10929272</span><span class="string">-932f-4b4d-85c8-046a9f0e39d8</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">      <span class="attr">limits:</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">900m</span></span><br><span class="line">      <span class="attr">requests:</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">500m</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="attr">status:</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">  <span class="attr">qosClass:</span> <span class="string">Burstable</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br></pre></td></tr></table></figure>
+
+<p>结合之前的内存相关的实验，从输出的结果中可以得知pod uid为<strong>10929272-932f-4b4d-85c8-046a9f0e39d8</strong>，对应的CGroup路径为<code>kubepods/Burstable</code></p>
+<p>在CGroup中可以看到cpu、cpuset、cpuacct三种跟CPU相关的CGroup，其中<code>cpu</code>用于对cpu使用率的划分；<code>cpuset</code>用于设置cpu的亲和性等，主要用于numa架构的os；<code>cpuacct</code>记录了cpu的部分信息。通过定义可以得知，k8s CPU限制在<code>cpu</code>这个目录中，我们进入到对应的pod的CGroup空间下，查看CGroup相关文件是如何工作的</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cd /sys/fs/cgroup/cpu/kubepods/burstable/pod10929272-932f-4b4d-85c8-046a9f0e39d8/</span></span><br><span class="line">ls -1</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">cgroup.clone_children</span><br><span class="line">cgroup.procs</span><br><span class="line">cpuacct.stat</span><br><span class="line">cpuacct.usage</span><br><span class="line">cpuacct.usage_percpu</span><br><span class="line">cpu.cfs_period_us</span><br><span class="line">cpu.cfs_quota_us</span><br><span class="line">cpu.rt_period_us</span><br><span class="line">cpu.rt_runtime_us</span><br><span class="line">cpu.shares</span><br><span class="line">cpu.stat</span><br><span class="line">d5b407752d32b7cd8937eb6a221b6f013522d00bb237134017ae5d8324ce9e30</span><br><span class="line">eba8c20349137130cdc0af0e9db2a086f6ea5d6f37ad118394b838adfc1325bd</span><br><span class="line">notify_on_release</span><br><span class="line">tasks</span><br></pre></td></tr></table></figure>
+
+<p>相关文件作用如下：</p>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cgroup.clone_children</code></td>
+<td>子cgroup是否会继承父cgroup的配置，默认是0</td>
+</tr>
+<tr>
+<td><code>cgroup.procs</code></td>
+<td>树中当前节点的cgroup中的进程组ID，现在我们在根节点，这个文件中是会有现在系统中所有进程组ID</td>
+</tr>
+<tr>
+<td><code>cpu.cfs_period_us</code></td>
+<td>统计CPU使用时间的周期，单位是微秒（us）。<br />例如如果设置该CGroup中的进程访问CPU的限制为每1秒访问单个CPU0.2秒，则需要设置<code>cpu.cfs_period_us=200000</code>，<code>cpu.cfs_quota_us=1000000</code><br /></td>
+</tr>
+<tr>
+<td><code>cpu.cfs_quota_us</code></td>
+<td>周期内允许占用的CPU时间，即CGroup中的进程能使用cpu的最大时间，该值是硬限（-1为不限制）<br />一旦cgroup中的任务用完了配额指定的所有时间，它们就会在该时间段指定的剩余时间中受到限制，并且直到下一个时间段才允许运行。<code>cpu.cfs_quota_us</code>参数的上限为1秒，下限为1000微秒</td>
+</tr>
+<tr>
+<td><code>cpu.rt_period_us</code></td>
+<td>仅适用于实时调度任务，CPU使用时间的周期，单位是微秒（us），默认是1s（1000000us）</td>
+</tr>
+<tr>
+<td><code>cpu.rt_runtime_us</code></td>
+<td>仅适用于实时调度任务，此参数指定cgroup中的任务可以访问CPU资源的最长连续时间</td>
+</tr>
+<tr>
+<td><code>cpu.shares</code></td>
+<td><code>cpu.shares</code>是软限制，理解为CPU的相对权重。<br />例如，A、B、C三个进程的权重为100、200、300，那么在CPU满载的情况下，A进程最多使用1/6 CPU时间片；而如果CPU不是满载的情况，则各个进程允许使用超出相对权重的大小的CPU时间</td>
+</tr>
+<tr>
+<td><code>cpu.stat</code></td>
+<td>CPU时间统计信息，其中：<br /><code>nr_periods</code>—已经过去的周期间隔数（在cpu.cfs_period_us中指定）<br /><code>nr_throttled</code> — cgroup中的任务被限制的次数（即，由于它们已经用尽了配额所指定的所有可用时间，因此不允许运行）<br /><code>throttled_time</code> — cgroup中的任务已被限制的总持续时间（以纳秒为单位）</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>不涉及到cpuacct，这里就不详细介绍</p>
+</blockquote>
+<p>在CPU的CGroup中，可以使用两个调度程序来调度对CPU资源的访问：</p>
+<ul>
+<li><code>CFS</code>：完全公平调度程序，比例共享调度程序，根据任务或分配给cgroup的优先级/权重，在任务组（cgroup）之间按比例划分CPU时间。</li>
+<li><code>RT</code>：实时调度程序，一种任务调度程序，它提供一种方法来指定实时任务可以使用的CPU时间。（不做讨论）</li>
+</ul>
+<p>这里主要讨论k8s是如何设置CFS调度算法去限制进程对CPU使用，主要关注这几个文件</p>
+<ol>
+<li><code>cpu.cfs_period_us</code>和<code>cpu.cfs_quota_us</code>，由这两个文件组成CPU硬限制，在这个例子中，我们设置CPUlimit的值为900m，所以<code>cfs_quota_us/cfs_period_us</code>等于<code>90000/100000</code>，也就是0.9个CPU</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cat cpu.cfs_period_us </span></span><br><span class="line">100000</span><br><span class="line"><span class="comment"># cat cpu.cfs_quota_us </span></span><br><span class="line">90000</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li><code>cpu.shares</code>，CPU软限制，在这个例子中我们设置了CPU request为500m，可以看出，CPU request对应了<code>cpu.shares</code>（此时软限制不会起到作用）</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cat cpu.shares </span></span><br><span class="line">512</span><br></pre></td></tr></table></figure>
+
+<p>此时查看podCPU使用情况，可以看到确实已经被限制住了</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl top pod</span></span><br><span class="line">NAME         CPU(cores)   MEMORY(bytes)   </span><br><span class="line">stress-cpu   902m         0Mi </span><br></pre></td></tr></table></figure>
+
+<h3 id="request之CPU软限制"><a href="#request之CPU软限制" class="headerlink" title="request之CPU软限制"></a>request之CPU软限制</h3><p>在前面讲内存限制的时候说到，如果只设置request，则limit没有限制。</p>
+<p>如果CPU只设置request，此时limit也是没有限制。但是不同于内存，CPU request的值会设置到<code>cpu.shares</code>中，也就是说，只设置了request的pod，会有一个CPU软限制。</p>
+<p>此时正常情况下，当节点CPU资源充足的时候，设置了request的pod，还是可以正常的请求超出request值的CPU资源，可是当节点可分配的CPU资源不足时，那么CPU软限制就会起到作用，限制pod对CPU的访问。</p>
+<p>下面我们测试一下CPU软限制是如何生效的</p>
+<p>查看节点可分配的CPU大小</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl describe node node01</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">...</span><br><span class="line">Allocatable:</span><br><span class="line">  cpu:                4</span><br><span class="line">  ephemeral-storage:  57971659066</span><br><span class="line">  hugepages-2Mi:      0</span><br><span class="line">  memory:             8071996Ki</span><br><span class="line">  pods:               110</span><br><span class="line">...</span><br><span class="line">...</span><br><span class="line">Allocated resources:</span><br><span class="line">  (Total limits may be over 100 percent, i.e., overcommitted.)</span><br><span class="line">  Resource           Requests    Limits</span><br><span class="line">  --------           --------    ------</span><br><span class="line">  cpu                380m (9%)   10m (0%)</span><br><span class="line">  memory             100Mi (1%)  190Mi (2%)</span><br><span class="line">  ephemeral-storage  0 (0%)      0 (0%)</span><br></pre></td></tr></table></figure>
+
+<p>目前该节点可用CPU数量为4000m，已使用了380m，也就是剩余可用CPU为3620m</p>
+<p>我们先创建一个CPU，设置request为0.5的pod，并通过stress指定分配2个进程去跑满2个CPU</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">stress-cpu-1</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">stress-cpu</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">vish/stress</span></span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">      <span class="attr">requests:</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">&quot;0.5&quot;</span></span><br><span class="line">    <span class="attr">args:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">-cpus</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&quot;2&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>执行<code>kubectl create</code>命令，运行这个pod</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f stress-cpu-1.yaml</span><br></pre></td></tr></table></figure>
+
+<p>查看pod状态</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl get pod</span></span><br><span class="line"><span class="string">NAME</span>             <span class="string">READY</span>   <span class="string">STATUS</span>    <span class="string">RESTARTS</span>   <span class="string">AGE</span></span><br><span class="line"><span class="string">stress-cpu</span>              <span class="number">1</span><span class="string">/1</span>     <span class="string">Running</span>   <span class="number">0</span>          <span class="string">5s</span></span><br></pre></td></tr></table></figure>
+
+<p>查看podCPU使用情况</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl top pod</span></span><br><span class="line">NAME         CPU(cores)   MEMORY(bytes)   </span><br><span class="line">stress-cpu   2001m        0Mi</span><br></pre></td></tr></table></figure>
+
+<p>也可以使用top命令实时查看进程CPU使用情况</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># top</span></span><br><span class="line">  PID USER      PR  NI    VIRT    RES    SHR S  %CPU %MEM     TIME+ COMMAND                                                                                            </span><br><span class="line">30285 root      20   0    5824   3692   3120 R 200.0  0.0  56:18.95 stress </span><br></pre></td></tr></table></figure>
+
+<p>此时我们可以看到，我们进程的CPU使用率达到了2001m，超过了request设置的值</p>
+<p>这时候我们再启动一个pod，设置request为2.5的pod，并通过stress指定分配2个进程去跑满3个CPU</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">stress-cpu-2</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">stress-cpu</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">vish/stress</span></span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">      <span class="attr">requests:</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">&quot;2.5&quot;</span></span><br><span class="line">    <span class="attr">args:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">-cpus</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&quot;3&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>执行<code>kubectl create</code>命令，运行这个pod</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f stress-cpu-2.yaml</span><br></pre></td></tr></table></figure>
+
+<p>查看pod状态</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl get pod</span></span><br><span class="line"><span class="string">NAME</span>           <span class="string">READY</span>   <span class="string">STATUS</span>    <span class="string">RESTARTS</span>   <span class="string">AGE</span></span><br><span class="line"><span class="string">stress-cpu</span>     <span class="number">1</span><span class="string">/1</span>     <span class="string">Running</span>   <span class="number">0</span>          <span class="string">15m</span></span><br><span class="line"><span class="string">stress-cpu-2</span>   <span class="number">1</span><span class="string">/1</span>     <span class="string">Running</span>   <span class="number">0</span>          <span class="string">8s</span></span><br></pre></td></tr></table></figure>
+
+<p>查看podCPU使用情况，此时由于pod占用了大量的CPU资源，执行<code>kubectl</code>会卡住无法执行，可以通过<code>top</code>命令查看CPU使用情况</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># top</span></span><br><span class="line">  PID USER      PR  NI    VIRT    RES    SHR S  %CPU %MEM     TIME+ COMMAND                                                                                            </span><br><span class="line">20732 root      20   0    5568   3688   3120 R 300.0  0.0   6:04.80 stress                                                                                             </span><br><span class="line">30285 root      20   0    5824   3692   3120 R  96.2  0.0  63:57.08 stress </span><br></pre></td></tr></table></figure>
+
+<p>我们再来回顾一下，首先这台主机可用CPU资源3620m，总的CPU资源为4个CPU（4000m），其中380m的CPU资源已分配给其他pod使用，但是并没有满负载，所以总的资源我们可以按照4个CPU来算。</p>
+<p>这里可以看到PID为30285的进程是之前我们创建的pod  <strong>stress-cpu</strong>，当时设置的request是0.5(500m)，并指定分配2个进程去跑满2个CPU(2000m)，也就是软限制在资源充足的情况下，使用率为200%(2000m)，超过了CPUrequest软限制。</p>
+<p>后面我们又创建了一个request为2.5(2500m)，并指定分配3个进程去跑满3个CPU(3000m)的pod <strong>stress-cpu-2</strong>，此时CPU总的CPU使用需求为2+3=5CPU(5000m)，但是CPU的总资源只有4CPU（4000m），此时CPU软限制就会开始发挥作用。</p>
+<p>我们查看一下对应的<code>cpu.shares</code>，<strong>stress-cpu</strong> pod 的<code>cpu.shares</code>的值为512，<strong>stress-cpu-2</strong> pod 的<code>cpu.shares</code>的值为2560。</p>
+<p><code>cpu.shares</code>是软限制，理解为CPU的相对权重。根据之前表格中的算法，那么当CPU满负载的情况下（此时假设只有这两个pod正在满负载的运行）：</p>
+<ul>
+<li><strong>stress-cpu</strong>可以使用<code>4 x 512/(512+2560)≈0.666</code>(666m CPU)</li>
+<li><strong>stress-cpu-2</strong>可以使用<code>4 x 2560/(512+2560)≈3.333</code>(3333m CPU)</li>
+</ul>
+<p>由这个公式可以得知，在软限制的前提下，<strong>stress-cpu-2</strong>可以跑满3333m CPU，但是我们只分配了3个进程去跑满CPU，也就是说，实际上<strong>stress-cpu-2</strong>可以跑到3000mCPU ，正好符合我们使用top看到的数据，占用了300%(3000m)，还剩余333m左右的CPU资源未使用，而这部分的资源可以被其他进程使用。那么可以思考一下，<strong>stress-cpu</strong>可以使用多少CPU资源？</p>
+<p>其实从上面top命令的结果就可以知道，<strong>stress-cpu</strong>使用了近1000mCPU的资源，这是因为，当CPU满负载时，会相应的分配666mCPU的资源，此时<strong>stress-cpu-2</strong>并没有完全使用完，还剩余333mCPU未被使用，那么由于软限制的作用下，实际上是可以使用这部分未被使用的资源，也就是说，<strong>stress-cpu</strong>可以使用<code>666m + 333m = 999m</code>(CPU)，也就是符合使用top命令看到的96%CPU使用率。</p>
+<h3 id="CPU资源限制的目的"><a href="#CPU资源限制的目的" class="headerlink" title="CPU资源限制的目的"></a>CPU资源限制的目的</h3><ul>
+<li>如果没有指定CPU限制，则容器可以无限制的使用主机CPU资源。为集群中的pod设置CPU请求和限制，可以有效的利用集群上的CPU资源，防止应用突发高峰期的时候CPU猛涨影响其他应用的稳定运行</li>
+</ul>
+<h2 id="QoS"><a href="#QoS" class="headerlink" title="QoS"></a>QoS</h2><p>前面我们讲了如何通过设置资源的request和limit来限制pod对主机资源的使用，在前面几个例子中，我们看到，当我们设置了资源配额时，查看pod yaml可以看到<code>qosClass</code>的值为 Burstable，这是因为在k8s中，会为pod设置不同的QoS类型，以保证pod的资源可用，其中QoS有三个类型：</p>
+<ul>
+<li><code>Guaranteed</code>：Pod中的所有容器（包括init容器）都必须设置内存和CPU的请求(limit)和限制(request)，且请求和限制的值要相等。（如果只设置limit，则默认request=limit）；</li>
+<li><code>Burstable</code>：Pod中至少有一个容器设置了内存和CPU请求，且不符合Guaranteed QoS类型的标准；</li>
+<li><code>BestEffort</code>：Pod中所有的容器都没有设置任何内存和CPU的限制和请求。</li>
+</ul>
+<p>即会根据对应的请求和限制来设置QoS等级，接下来我们分别创建对应的QoS等级来感受一下</p>
+<h3 id="Guaranteed"><a href="#Guaranteed" class="headerlink" title="Guaranteed"></a>Guaranteed</h3><p>定义：Pod中的所有容器（包括init容器）都必须设置内存和CPU的请求(limit)和限制(request)，且请求和限制的值要相等。其中如果只设置limit，则默认request=limit</p>
+<p>举个例子：创建一个包含内存和CPU请求和限制的pod，其中内存的请求和限制都为300Mi，CPU的请求和限制都为500m</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">pod-guaranteed</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">pod-guaranteed</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">zerchin/network</span></span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">      <span class="attr">limits:</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">&quot;300Mi&quot;</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">&quot;500m&quot;</span></span><br><span class="line">      <span class="attr">requests:</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">&quot;300Mi&quot;</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">&quot;500m&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>创建pod</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f pod-guaranteed.yaml</span><br></pre></td></tr></table></figure>
+
+<p>查看pod 详细信息</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pod  pod-guaranteed -oyaml</span><br></pre></td></tr></table></figure>
+
+<p>输出结果如下，可以看到pod的qosClass为<strong>Guaranteed</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">pod-guaranteed</span></span><br><span class="line">  <span class="attr">uid:</span> <span class="string">494e608c-d63e-41a9-925c-3ac7acf7b465</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">      <span class="attr">limits:</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">500m</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">300Mi</span></span><br><span class="line">      <span class="attr">requests:</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">500m</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">300Mi</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="attr">status:</span></span><br><span class="line">  <span class="attr">qosClass:</span> <span class="string">Guaranteed</span></span><br></pre></td></tr></table></figure>
+
+<p>根据前面的经验，这里<strong>Guaranteed</strong>对应的就是pod在CGroup中的路径，对应的CGroup路径如下：</p>
+<ul>
+<li>CPU：<code>/sys/fs/cgroup/memory/kubepods/pod494e608c-d63e-41a9-925c-3ac7acf7b465</code></li>
+<li>内存：<code>/sys/fs/cgroup/cpu/kubepods/pod494e608c-d63e-41a9-925c-3ac7acf7b465</code></li>
+</ul>
+<h3 id="Burstable"><a href="#Burstable" class="headerlink" title="Burstable"></a>Burstable</h3><p>定义：Pod中至少有一个容器设置了内存和CPU请求，且不符合Guaranteed QoS类型的标准；</p>
+<p>回顾一下我们前面我们在了解内存和CPU限制的时候，创建的pod都是<strong>Burstable</strong> Qos类型，包括：</p>
+<ul>
+<li>单一设置内存或CPU的request</li>
+<li>同时设置了内存或CPU的request和limit，且request≠limit</li>
+<li>同时设置了内存或CPU的request和limit，且request=limit</li>
+</ul>
+<p>上述这些都是pod中只含有单个容器，还有一种情况就是单个pod包含多个容器，如果一个容器指定了资源请求，另一个容器没有指定任何请求和限制，则也是属于<strong>Burstable</strong> Qos类型</p>
+<p>举个例子：创建一个多容器的pod，其中一个容器设置了内存和CPU的请求和限制且值相等，另一个容器不限制资源</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">pod-burstable</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">pod-burstable-1</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">zerchin/network</span></span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">      <span class="attr">limits:</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">&quot;300Mi&quot;</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">&quot;500m&quot;</span></span><br><span class="line">      <span class="attr">requests:</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">&quot;300Mi&quot;</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">&quot;500m&quot;</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">pod-burstable-2</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">busybox:1.28</span></span><br><span class="line">    <span class="attr">args:</span> [<span class="string">&quot;sh&quot;</span>, <span class="string">&quot;-c&quot;</span>, <span class="string">&quot;sleep 3600&quot;</span>]</span><br></pre></td></tr></table></figure>
+
+<p>创建pod</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f pod-burstable.yaml</span><br></pre></td></tr></table></figure>
+
+<p>查看pod 详细信息</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pod  pod-burstable -oyaml</span><br></pre></td></tr></table></figure>
+
+<p>输出结果如下，可以看到pod的qosClass为<strong>Guaranteed</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">pod-burstable</span></span><br><span class="line">  <span class="attr">uid:</span> <span class="string">7d858afc-f88a-454e-85dc-81670a0ddb8b</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="attr">status:</span></span><br><span class="line">  <span class="attr">qosClass:</span> <span class="string">Burstable</span></span><br><span class="line">  <span class="string">...</span></span><br><span class="line">  <span class="string">...</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="BestEffort"><a href="#BestEffort" class="headerlink" title="BestEffort"></a>BestEffort</h3><p>定义：pod中所有的容器都没有设置任何内存和CPU的限制和请求。</p>
+<p>这个很好理解，我们创建个pod试试</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">pod-besteffort</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">pod-besteffort</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">zerchin/network</span></span><br></pre></td></tr></table></figure>
+
+<p>创建pod</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f pod-besteffort.yaml</span><br></pre></td></tr></table></figure>
+
+<p>查看pod 详细信息</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pod  pod-besteffort -oyaml</span><br></pre></td></tr></table></figure>
+
+<p>输出结果如下，可以看到pod的qosClass为<strong>BestEffort</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">pod-besteffort</span></span><br><span class="line">  <span class="attr">uid:</span> <span class="string">1316dbf7-01ed-415b-b901-2be9d650163c</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="attr">status:</span></span><br><span class="line">  <span class="attr">qosClass:</span> <span class="string">BestEffort</span></span><br></pre></td></tr></table></figure>
+
+<p>那么，在CGroup中对应的路径为<code>kubepods/besteffort/pod1316dbf7-01ed-415b-b901-2be9d650163c</code></p>
+<h3 id="QoS优先级"><a href="#QoS优先级" class="headerlink" title="QoS优先级"></a>QoS优先级</h3><p>当集群资源被耗尽时，容器会被杀死，此时会根据QoS优先级对pod进行处理，即优先级高的会尽量被保护，而优先级低的会优先被杀死</p>
+<p>三种Qos类型优先级（由高到低）：Guaranteed &gt; Burstable &gt; BestEffort</p>
+<p>其中CPU属于可压缩资源，而内存属于不可压缩资源，这里我们主要讨论一下当内存耗尽时，是如何根据QoS优先级处理pod</p>
+<ul>
+<li><code>BestEffort</code>：<code>BestEffort</code>类型的pod没有设置资源限制，此类pod被认为是最低优先级，当系统内存不足时，这些pod会首先被杀死</li>
+<li><code>Burstable </code>：<code>Burstable </code>类型的pod设置有部分资源的请求和限制，此类pod的优先级高于<code>BestEffort</code>类型的pod，当系统内存不足且系统中不存在<code>BestEffort</code>类型的pod时才会被杀死</li>
+<li><code>Guaranteed </code>：<code>Guaranteed</code>类型的pod同时设置了CPU和内存的资源限制和请求，此类pod的优先级最高，只有在系统内存不足且系统系统中不存在<code>BestEffort</code>和<code>Burstable </code>的pod时才会被杀死</li>
+</ul>
+<h3 id="OOM-score"><a href="#OOM-score" class="headerlink" title="OOM score"></a>OOM score</h3><p>在前面讲内存限制时提到过，就是当进程申请的内存超出了已有的内存资源，那么为了保证主机的稳定运行，就会基于进程<code>oom_score</code>的值，有选择性的杀死某个进程，这个过程就是OOMKilled。</p>
+<p>这里我们先了解一下什么是<code>oom_score</code>：</p>
+<p>当系统内存资源被耗尽时，就需要释放部分内存保证主机的运行。而内存是被进程所占用的，所以释放内存实际上就是要杀死进程。那么系统是如何选择进程进行杀死的呢？答案就是基于<code>oom_score</code>的值选择可以杀死的进程。oom_score的值在0-1000范围，其中<code>oom_score</code>的值越高，则被杀死的可能性越大。</p>
+<p><code>oom_score</code>的值还会受到<code>oom_score_adj</code>影响，最后的得分会加上<code>oom_score_adj</code>的值，也就是说，可以通过设置<code>oom_score_adj</code>的大小从而影响最终<code>oom_score</code>的大小。</p>
+<p>其中正常情况下，<code>oom_score</code>是该进程消耗的内存百分比的10倍，通过<code>oom_score_adj</code>进行调整，例如如果某个进程使用了100%的内存，则得分为1000；如果使用0%的内存，则得分为0（其他例如root用户启动的进程会减去30这里不讨论）</p>
+<p>那么我们来看看不同的QoS类型的score值是如何设置的</p>
+<ul>
+<li><p><code>BestEffort</code>：由于它的优先级最低，为了保证<code>BestEffort</code>类型的pod最先被杀死，所以设置<code>oom_score_adj</code>为1000，那么<code>BestEffort</code>类型pod的<code>oom_score</code>值为1000</p>
+</li>
+<li><p><code>Guaranteed</code>：由于它的优先级最高，为了保证<code>Guaranteed</code>类型的pod的不被杀死，所以设置<code>oom_score_adj</code>为-998，那么<code>Guaranteed</code>类型pod的<code>oom_score</code>值为0或者1</p>
+</li>
+<li><p><code>Burstable</code>：这里要分几种情况讨论</p>
+<ul>
+<li>如果总内存请求 &gt; 可用内存的99.8%，则设置<code>oom_score_adj</code>的值为2，否则将<code>oom_score_adj</code>设置为<code>1000 - 10 x 内存请求的百分比</code>，这样可以确保<code>Burstable</code>类型的pod的<code>oom_score</code> &gt; 1。</li>
+<li>如果内存请求为0，则设置<code>oom_score_adj</code>的值为999。所以，如果<code>Burstable</code>类型的pod和<code>Guaranteed</code>类型的发生冲突时，保证<code>Burstable</code>类型的pod被杀死。</li>
+<li>如果<code>Burstable</code>类型的pod使用的内存少于请求的内存，则其<code>oom_score</code>&lt;1000，因此，如果<code>BestEffort</code>类型的pod与使用少于请求内存的<code>Burstable</code>类型的pod发生冲突时，则<code>BestEffort</code>类型的pod将被杀死</li>
+<li>如果<code>Burstable</code>类型的pod使用的内存大于内存请求时，<code>oom_score</code>=1000，否则<code>oom_score</code>&lt;1000</li>
+<li>如果一个使用的内存多于请求内存的<code>Burstable</code>类型的pod，与另一个使用的内存少于请求内存的<code>Burstable</code>类型的pod发生冲突时，则前者将被杀死</li>
+<li>如果<code>Burstable</code>类型的pod与多个进程发生冲突，则OOM分数的计算公式是一种启发式的，它不能保证“请求和限制”的保证</li>
+</ul>
+</li>
+</ul>
+<p>infra 容器（pause）或init 容器，<code>oom_score_adj</code>为-998</p>
+<p>默认kubelet和docker的<code>oom_score_adj</code>为-999</p>
+<p>基于上述oom_score，就能保证当系统资源耗尽时，首先被杀死的是<code>BestEffort</code>类型的pod，其次是<code>Burstable</code>类型的pod，最后才是<code>Guaranteed</code>类型的pod</p>
+<h2 id="参考链接"><a href="#参考链接" class="headerlink" title="参考链接"></a>参考链接</h2><blockquote>
+<p>cpu软限/硬限制参考：<a target="_blank" rel="noopener" href="https://www.cnblogs.com/meisilhr/p/14223869.html">https://www.cnblogs.com/meisilhr/p/14223869.html</a></p>
+<p>cpu.shares参考：<a target="_blank" rel="noopener" href="https://www.sohu.com/a/226413111_100111840">https://www.sohu.com/a/226413111_100111840</a></p>
+<p>CGroup  memory参考：<a target="_blank" rel="noopener" href="https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt">https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt</a></p>
+<p>CGroup memory参考：<a target="_blank" rel="noopener" href="https://github.com/torvalds/linux/tree/master/Documentation/admin-guide/cgroup-v1">https://github.com/torvalds/linux/tree/master/Documentation/admin-guide/cgroup-v1</a></p>
+<p>CGroup参考：<a target="_blank" rel="noopener" href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/resource_management_guide/sec-memory#ex-OOM-control-notifications">https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/resource_management_guide/sec-memory#ex-OOM-control-notifications</a></p>
+<p>CGroup CPU参考：<a target="_blank" rel="noopener" href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/resource_management_guide/sec-cpu">https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/resource_management_guide/sec-cpu</a></p>
+<p>参考：<a target="_blank" rel="noopener" href="https://fuckcloudnative.io/posts/understanding-resource-limits-in-kubernetes-cpu-time/">https://fuckcloudnative.io/posts/understanding-resource-limits-in-kubernetes-cpu-time/</a></p>
+<p>QoS oom_score计算参考：<a target="_blank" rel="noopener" href="https://github.com/kubernetes/community/blob/master/contributors/design-proposals/node/resource-qos.md#compressible-resource-guarantees">https://github.com/kubernetes/community/blob/master/contributors/design-proposals/node/resource-qos.md#compressible-resource-guarantees</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://blog.zerchin.xyz/2021/01/31/pod%E8%B5%84%E6%BA%90%E9%99%90%E5%88%B6%E5%92%8CQoS%E6%8E%A2%E7%B4%A2/" title="pod资源限制和QoS探索">http://blog.zerchin.xyz/2021/01/31/pod资源限制和QoS探索/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2021/01/07/ceph%E5%AF%B9%E6%8E%A5k8s%20storage%20class/" rel="prev" title="ceph对接k8s storage class">
+                  <i class="fa fa-chevron-left"></i> ceph对接k8s storage class
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2021/02/01/Rancher2.4%E6%9B%BF%E6%8D%A2%E6%9D%83%E5%A8%81%E8%AF%81%E4%B9%A6/" rel="next" title="Rancher2.4替换权威证书">
+                  Rancher2.4替换权威证书 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

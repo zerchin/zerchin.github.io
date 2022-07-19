@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.zerchin.xyz","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="简介kubernetes提供CSI驱动将外部存储提供给pod中使用，例如我们可以通过CSI驱动对接Samba&#x2F;CIFS共享文件存储">
+<meta property="og:type" content="article">
+<meta property="og:title" content="k8s对接Samba&amp;CIFS文件共享存储">
+<meta property="og:url" content="http://blog.zerchin.xyz/2021/03/17/k8s%E5%AF%B9%E6%8E%A5Samba&CIFS%E6%96%87%E4%BB%B6%E5%85%B1%E4%BA%AB%E5%AD%98%E5%82%A8/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="简介kubernetes提供CSI驱动将外部存储提供给pod中使用，例如我们可以通过CSI驱动对接Samba&#x2F;CIFS共享文件存储">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-03-17T15:34:25.000Z">
+<meta property="article:modified_time" content="2021-03-17T15:34:25.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="k8s">
+<meta property="article:tag" content="storage">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://blog.zerchin.xyz/2021/03/17/k8s%E5%AF%B9%E6%8E%A5Samba&CIFS%E6%96%87%E4%BB%B6%E5%85%B1%E4%BA%AB%E5%AD%98%E5%82%A8/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>k8s对接Samba&CIFS文件共享存储 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">42</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">26</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">86</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AE%80%E4%BB%8B"><span class="nav-number">1.</span> <span class="nav-text">简介</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E6%8F%90"><span class="nav-number">2.</span> <span class="nav-text">前提</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%89%E8%A3%85"><span class="nav-number">3.</span> <span class="nav-text">安装</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E8%A3%85SMB-CSI%E9%A9%B1%E5%8A%A8%EF%BC%88%E4%BA%8C%E9%80%89%E4%B8%80%EF%BC%89"><span class="nav-number">3.1.</span> <span class="nav-text">安装SMB CSI驱动（二选一）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9C%A8kubernetes%E9%9B%86%E7%BE%A4%E4%B8%AD%E5%AE%89%E8%A3%85Samba%E6%9C%8D%E5%8A%A1%EF%BC%88%E5%8F%AF%E9%80%89%EF%BC%89"><span class="nav-number">3.2.</span> <span class="nav-text">在kubernetes集群中安装Samba服务（可选）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%9B%E5%BB%BAstorage-class"><span class="nav-number">3.3.</span> <span class="nav-text">创建storage class</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%83%A8%E7%BD%B2%E5%BA%94%E7%94%A8"><span class="nav-number">3.4.</span> <span class="nav-text">部署应用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AF%B9%E6%8E%A5-Windows-%E5%85%B1%E4%BA%AB%E6%96%87%E4%BB%B6%E5%A4%B9"><span class="nav-number">3.5.</span> <span class="nav-text">对接 Windows 共享文件夹</span></a></li></ol></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">86</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">42</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://blog.zerchin.xyz/2021/03/17/k8s%E5%AF%B9%E6%8E%A5Samba&CIFS%E6%96%87%E4%BB%B6%E5%85%B1%E4%BA%AB%E5%AD%98%E5%82%A8/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          k8s对接Samba&CIFS文件共享存储
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2021-03-17 15:34:25" itemprop="dateCreated datePublished" datetime="2021-03-17T15:34:25+00:00">2021-03-17</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/k8s/" itemprop="url" rel="index"><span itemprop="name">k8s</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>kubernetes提供CSI驱动将外部存储提供给pod中使用，例如我们可以通过CSI驱动对接Samba/CIFS共享文件存储</p>
+<h2 id="前提"><a href="#前提" class="headerlink" title="前提"></a>前提</h2><ul>
+<li>Kubernetes 1.16+</li>
+</ul>
+<h2 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h2><h3 id="安装SMB-CSI驱动（二选一）"><a href="#安装SMB-CSI驱动（二选一）" class="headerlink" title="安装SMB CSI驱动（二选一）"></a>安装SMB CSI驱动（二选一）</h3><p>通过kubectl安装</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl -skSL https://raw.githubusercontent.com/kubernetes-csi/csi-driver-smb/v0.6.0/deploy/install-driver.sh | bash -s v0.6.0 --</span><br></pre></td></tr></table></figure>
+
+<p>通过helm安装</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">helm repo add csi-driver-smb https://raw.githubusercontent.com/kubernetes-csi/csi-driver-smb/master/charts</span><br><span class="line">helm install csi-driver-smb csi-driver-smb/csi-driver-smb --namespace kube-system</span><br></pre></td></tr></table></figure>
+
+<p>查看pod状态是否正常</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n kube-system get pod |grep csi-smb</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="在kubernetes集群中安装Samba服务（可选）"><a href="#在kubernetes集群中安装Samba服务（可选）" class="headerlink" title="在kubernetes集群中安装Samba服务（可选）"></a>在kubernetes集群中安装Samba服务（可选）</h3><p>首先创建一个secret保存用户和密码</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create secret generic smbcreds --from-literal username=rancher --from-literal password=<span class="string">&quot;rancher&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>接着创建Samba服务</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f https://raw.githubusercontent.com/kubernetes-csi/csi-driver-smb/master/deploy/example/smb-provisioner/smb-server.yaml</span><br></pre></td></tr></table></figure>
+
+<p>查看Samba服务状态是否正常</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pod |grep smb</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="创建storage-class"><a href="#创建storage-class" class="headerlink" title="创建storage class"></a>创建storage class</h3><p>新建<code>storage-class.yaml</code>文件</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">storage.k8s.io/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">StorageClass</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">smb</span></span><br><span class="line"><span class="attr">provisioner:</span> <span class="string">smb.csi.k8s.io</span></span><br><span class="line"><span class="attr">parameters:</span></span><br><span class="line">  <span class="attr">source:</span> <span class="string">&quot;//smb-server.default.svc.cluster.local/share&quot;</span></span><br><span class="line">  <span class="attr">csi.storage.k8s.io/node-stage-secret-name:</span> <span class="string">&quot;smbcreds&quot;</span></span><br><span class="line">  <span class="attr">csi.storage.k8s.io/node-stage-secret-namespace:</span> <span class="string">&quot;default&quot;</span></span><br><span class="line">  <span class="attr">createSubDir:</span> <span class="string">&quot;false&quot;</span>  <span class="comment"># optional: create a sub dir for new volume</span></span><br><span class="line"><span class="attr">reclaimPolicy:</span> <span class="string">Retain</span>  <span class="comment"># only retain is supported</span></span><br><span class="line"><span class="attr">volumeBindingMode:</span> <span class="string">Immediate</span></span><br><span class="line"><span class="attr">mountOptions:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">dir_mode=0777</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">file_mode=0777</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">uid=1001</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">gid=1001</span></span><br></pre></td></tr></table></figure>
+
+<p>其中<code>csi.storage.k8s.io/node-stage-secret-name</code>对应的是上一步创建的secret</p>
+<p>创建storage class</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f storage-class.yaml</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="部署应用"><a href="#部署应用" class="headerlink" title="部署应用"></a>部署应用</h3><p>创建一个statefulset类型的应用，并挂载Samba卷</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">StatefulSet</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">statefulset-smb</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">nginx</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">serviceName:</span> <span class="string">statefulset-smb</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">nginx</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">nodeSelector:</span></span><br><span class="line">        <span class="attr">&quot;kubernetes.io/os&quot;:</span> <span class="string">linux</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">statefulset-smb</span></span><br><span class="line">          <span class="attr">image:</span> <span class="string">mcr.microsoft.com/oss/nginx/nginx:1.19.5</span></span><br><span class="line">          <span class="attr">command:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">&quot;/bin/bash&quot;</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">&quot;-c&quot;</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">set</span> <span class="string">-euo</span> <span class="string">pipefail;</span> <span class="string">while</span> <span class="literal">true</span><span class="string">;</span> <span class="string">do</span> <span class="string">echo</span> <span class="string">$(date)</span> <span class="string">&gt;&gt;</span> <span class="string">/mnt/smb/outfile;</span> <span class="string">sleep</span> <span class="number">1</span><span class="string">;</span> <span class="string">done</span></span><br><span class="line">          <span class="attr">volumeMounts:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">persistent-storage</span></span><br><span class="line">              <span class="attr">mountPath:</span> <span class="string">/mnt/smb</span></span><br><span class="line">  <span class="attr">updateStrategy:</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">RollingUpdate</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">nginx</span></span><br><span class="line">  <span class="attr">volumeClaimTemplates:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">metadata:</span></span><br><span class="line">        <span class="attr">name:</span> <span class="string">persistent-storage</span></span><br><span class="line">        <span class="attr">annotations:</span></span><br><span class="line">          <span class="attr">volume.beta.kubernetes.io/storage-class:</span> <span class="string">smb</span></span><br><span class="line">      <span class="attr">spec:</span></span><br><span class="line">        <span class="attr">accessModes:</span> [<span class="string">&quot;ReadWriteOnce&quot;</span>]</span><br><span class="line">        <span class="attr">resources:</span></span><br><span class="line">          <span class="attr">requests:</span></span><br><span class="line">            <span class="attr">storage:</span> <span class="string">10Gi</span></span><br></pre></td></tr></table></figure>
+
+<p>创建该应用</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl apply -f statefulset-smb.yaml</span><br></pre></td></tr></table></figure>
+
+<p>查看应用状态</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pod</span><br></pre></td></tr></table></figure>
+
+<p>在pod中执行<code>df -h</code>查看Samba挂载情况</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl exec -it statefulset-smb-0 sh</span></span><br><span class="line">kubectl <span class="built_in">exec</span> [POD] [COMMAND] is DEPRECATED and will be removed <span class="keyword">in</span> a future version. Use kubectl <span class="built_in">exec</span> [POD] -- [COMMAND] instead.</span><br><span class="line"><span class="comment"># df -h</span></span><br><span class="line">Filesystem                                    Size  Used Avail Use% Mounted on</span><br><span class="line">overlay                                        40G   19G   20G  50% /</span><br><span class="line">tmpfs                                          64M     0   64M   0% /dev</span><br><span class="line">tmpfs                                         3.9G     0  3.9G   0% /sys/fs/cgroup</span><br><span class="line">/dev/mapper/ubuntu--vg-ubuntu--lv              40G   19G   20G  50% /etc/hosts</span><br><span class="line">//smb-server.default.svc.cluster.local/share   40G   21G   20G  52% /mnt/smb</span><br><span class="line">shm                                            64M     0   64M   0% /dev/shm</span><br><span class="line">tmpfs                                         3.9G   12K  3.9G   1% /run/secrets/kubernetes.io/serviceaccount</span><br><span class="line">tmpfs                                         3.9G     0  3.9G   0% /proc/acpi</span><br><span class="line">tmpfs                                         3.9G     0  3.9G   0% /proc/scsi</span><br><span class="line">tmpfs                                         3.9G     0  3.9G   0% /sys/firmware</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>可以看到，<code>/mnt/smb</code>目录挂载了<code>//smb-server.default.svc.cluster.local/share</code>  Samba文件存储</p>
+<h3 id="对接-Windows-共享文件夹"><a href="#对接-Windows-共享文件夹" class="headerlink" title="对接 Windows 共享文件夹"></a>对接 Windows 共享文件夹</h3><p>创建新的storage class yaml</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">storage.k8s.io/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">StorageClass</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">smb-windows</span></span><br><span class="line"><span class="attr">provisioner:</span> <span class="string">smb.csi.k8s.io</span></span><br><span class="line"><span class="attr">parameters:</span></span><br><span class="line">  <span class="attr">source:</span> <span class="string">&quot;//172.16.30.8/share&quot;</span></span><br><span class="line">  <span class="attr">csi.storage.k8s.io/node-stage-secret-name:</span> <span class="string">&quot;smbcreds&quot;</span></span><br><span class="line">  <span class="attr">csi.storage.k8s.io/node-stage-secret-namespace:</span> <span class="string">&quot;default&quot;</span></span><br><span class="line">  <span class="attr">createSubDir:</span> <span class="string">&quot;false&quot;</span>  <span class="comment"># optional: create a sub dir for new volume</span></span><br><span class="line"><span class="attr">reclaimPolicy:</span> <span class="string">Retain</span>  <span class="comment"># only retain is supported</span></span><br><span class="line"><span class="attr">volumeBindingMode:</span> <span class="string">Immediate</span></span><br><span class="line"><span class="attr">mountOptions:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">dir_mode=0777</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">file_mode=0777</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">uid=1001</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">gid=1001</span></span><br></pre></td></tr></table></figure>
+
+<p>其中<code>source</code>填写对应的Windows主机的IP地址和共享文件路径</p>
+<p>创建storage class</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f storage-class-win.yaml</span><br></pre></td></tr></table></figure>
+
+<p>其他的操作都一样，正常创建工作负载对接PVC即可</p>
+<blockquote>
+<p>参考：<a target="_blank" rel="noopener" href="https://github.com/kubernetes-csi/csi-driver-smb">https://github.com/kubernetes-csi/csi-driver-smb</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://blog.zerchin.xyz/2021/03/17/k8s%E5%AF%B9%E6%8E%A5Samba&CIFS%E6%96%87%E4%BB%B6%E5%85%B1%E4%BA%AB%E5%AD%98%E5%82%A8/" title="k8s对接Samba&amp;CIFS文件共享存储">http://blog.zerchin.xyz/2021/03/17/k8s对接Samba&CIFS文件共享存储/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/k8s/" rel="tag"># k8s</a>
+              <a href="/tags/storage/" rel="tag"># storage</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2021/03/08/CKS%E8%80%83%E8%AF%95%E5%A4%A7%E7%BA%B2/" rel="prev" title="kubernetes安全认证专家(CKS) 考纲">
+                  <i class="fa fa-chevron-left"></i> kubernetes安全认证专家(CKS) 考纲
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2021/04/20/%E7%94%9F%E6%88%90%E8%87%AA%E7%AD%BE%E5%90%8D%E8%AF%81%E4%B9%A6%E8%84%9A%E6%9C%AC/" rel="next" title="生成自签名证书脚本">
+                  生成自签名证书脚本 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.zerchin.xyz","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="概述在了解DDNS之前，我们先来了解一下什么DNS。在网络中，我们如果要访问一台主机或网站时，需要先获知其地址，其中IP地址获取记起来总是不那么方便。而DNS就是为了解决这种问题。DNS，也就是域名系统，记录了域名和IP之间的映射关系，主要的作用就是基于访问的域名（也就是网址中的xx.xx.xx）查出对应的IP。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="自定义DDNS自动解析脚本">
+<meta property="og:url" content="http://blog.zerchin.xyz/2022/06/27/%E8%87%AA%E5%AE%9A%E4%B9%89DDNS%E8%87%AA%E5%8A%A8%E8%A7%A3%E6%9E%90%E8%84%9A%E6%9C%AC/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="概述在了解DDNS之前，我们先来了解一下什么DNS。在网络中，我们如果要访问一台主机或网站时，需要先获知其地址，其中IP地址获取记起来总是不那么方便。而DNS就是为了解决这种问题。DNS，也就是域名系统，记录了域名和IP之间的映射关系，主要的作用就是基于访问的域名（也就是网址中的xx.xx.xx）查出对应的IP。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-06-27T23:34:21.000Z">
+<meta property="article:modified_time" content="2022-06-27T23:34:21.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="network">
+<meta property="article:tag" content="ddns">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://blog.zerchin.xyz/2022/06/27/%E8%87%AA%E5%AE%9A%E4%B9%89DDNS%E8%87%AA%E5%8A%A8%E8%A7%A3%E6%9E%90%E8%84%9A%E6%9C%AC/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>自定义DDNS自动解析脚本 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">42</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">26</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">86</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%88%E5%86%B3%E6%9D%A1%E4%BB%B6"><span class="nav-number">2.</span> <span class="nav-text">先决条件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%AF%A6%E7%BB%86%E6%93%8D%E4%BD%9C"><span class="nav-number">3.</span> <span class="nav-text">详细操作</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9F%BA%E4%BA%8E%E8%85%BE%E8%AE%AF%E4%BA%91DNS%E5%9F%9F%E5%90%8D%E8%A7%A3%E6%9E%90%E5%AE%9E%E7%8E%B0DDNS"><span class="nav-number">3.1.</span> <span class="nav-text">基于腾讯云DNS域名解析实现DDNS</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9F%BA%E4%BA%8E%E5%85%AC%E4%BA%91DNS%E5%9F%9F%E5%90%8D%E8%A7%A3%E6%9E%90%E5%AE%9E%E7%8E%B0DDNS"><span class="nav-number">3.2.</span> <span class="nav-text">基于公云DNS域名解析实现DDNS</span></a></li></ol></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">86</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">42</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://blog.zerchin.xyz/2022/06/27/%E8%87%AA%E5%AE%9A%E4%B9%89DDNS%E8%87%AA%E5%8A%A8%E8%A7%A3%E6%9E%90%E8%84%9A%E6%9C%AC/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          自定义DDNS自动解析脚本
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2022-06-27 23:34:21" itemprop="dateCreated datePublished" datetime="2022-06-27T23:34:21+00:00">2022-06-27</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/network/" itemprop="url" rel="index"><span itemprop="name">network</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>在了解DDNS之前，我们先来了解一下什么DNS。在网络中，我们如果要访问一台主机或网站时，需要先获知其地址，其中IP地址获取记起来总是不那么方便。而DNS就是为了解决这种问题。DNS，也就是域名系统，记录了域名和IP之间的映射关系，主要的作用就是基于访问的域名（也就是网址中的xx.xx.xx）查出对应的IP。</p>
+<p>但是在某些实际场景中，我们的IP并不一定会固定，可能会随着某些因素而发生变化，从而导致我们无法正常访问到具体应用或服务。为了解决这种问题，我们可以通过DDNS实现域名的动态解析。DDNS用来动态更新DNS服务器上域名和IP地址之间的映射关系，从而保证通过域名访问到正确的IP地址。</p>
+<p>通常情况下，某些路由器或者网络设备会有DDNS功能，但是不一定支持我们域名所在的DNS服务商，所以我们可以基于DNS服务商提供的API接口，自行编写DDNS脚本。</p>
+<h2 id="先决条件"><a href="#先决条件" class="headerlink" title="先决条件"></a>先决条件</h2><p>Linux操作系统：CentOS7</p>
+<p>已开通的公网IP</p>
+<h2 id="详细操作"><a href="#详细操作" class="headerlink" title="详细操作"></a>详细操作</h2><h3 id="基于腾讯云DNS域名解析实现DDNS"><a href="#基于腾讯云DNS域名解析实现DDNS" class="headerlink" title="基于腾讯云DNS域名解析实现DDNS"></a>基于腾讯云DNS域名解析实现DDNS</h3><ol>
+<li><p>获取token，登录腾讯云的DNSPod账号中心控制台，右上角依次单击<strong>我的账号</strong>-&gt;<strong>API密钥</strong>，在<strong>DNSPod Token</strong>中点击创建密钥即可。（密钥只会显示一次，记得保存好）</p>
+<p>然后LOGIN_TOKEN会以ID+”,”+TOKEN的方式使用，所以也要记得记录一下当前token的ID值。</p>
+<p>将其保存到<code>/usr/local/dnspod-agent</code>目录下，并命名成<code>dnspod-token</code>文件。</p>
+</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">mkdir -p /usr/<span class="built_in">local</span>/dnspod-agent</span><br><span class="line"><span class="built_in">echo</span> -n <span class="string">&quot;ID,TOKEN&quot;</span> | base64 &gt; /usr/<span class="built_in">local</span>/dnspod-agent/dnspod-token</span><br><span class="line">LOGIN_TOKEN=`base64 -d /usr/<span class="built_in">local</span>/dnspod-agent/dnspod-token`</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>获取当前主机的公网IP</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">IP=`curl ifconfig.me -s`</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>获取Domain ID</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">DOMAIN_ID=`curl -s -X POST https://dnsapi.cn/Domain.List -d <span class="string">&quot;login_token=<span class="variable">$&#123;LOGIN_TOKEN&#125;</span>&amp;format=json&quot;</span> | jq .domains[0].id`</span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li>获取需要解析的子域名前缀，例如demo.zerchin.xyz`，那么就填写demo</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SUB_DOMAIN=<span class="string">&quot;demo&quot;</span></span><br></pre></td></tr></table></figure>
+
+<ol start="5">
+<li>获取record ID，也就是子域名记录的ID</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">RECORD_ID=`curl -s -X POST https://dnsapi.cn/Record.List -d <span class="string">&quot;login_token=<span class="variable">$&#123;LOGIN_TOKEN&#125;</span>&amp;format=json&amp;domain_id=<span class="variable">$&#123;DOMAIN_ID&#125;</span>&amp;sub_domain=<span class="variable">$&#123;SUB_DOMAIN&#125;</span>&quot;</span> | jq -r .records[0].id`</span><br></pre></td></tr></table></figure>
+
+<ol start="6">
+<li>record type</li>
+</ol>
+<p>常用的记录类型：</p>
+<p><code>A</code>：用来指定域名的IP地址</p>
+<p><code>CNAME</code>：将域名指向到另一个域名上</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">RECORD_TYPE=<span class="string">&quot;A&quot;</span></span><br></pre></td></tr></table></figure>
+
+<ol start="7">
+<li>线路类型，我们选择默认就可以了，<code>默认 == &quot;0&quot;</code></li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">RECORD_LINE_ID=<span class="string">&quot;0&quot;</span></span><br></pre></td></tr></table></figure>
+
+<ol start="8">
+<li>原先记录的IP</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">OLD_IP=`curl -s -X POST https://dnsapi.cn/Record.List -d <span class="string">&quot;login_token=<span class="variable">$&#123;LOGIN_TOKEN&#125;</span>&amp;format=json&amp;domain_id=<span class="variable">$&#123;DOMAIN_ID&#125;</span>&amp;sub_domain=<span class="variable">$&#123;SUB_DOMAIN&#125;</span>&quot;</span> | jq -r .records[0].value`</span><br></pre></td></tr></table></figure>
+
+
+
+<p><strong>9. 完整脚本实现如下：</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#! /bin/bash</span></span><br><span class="line"></span><br><span class="line">LOGIN_TOKEN=`base64 -d /usr/<span class="built_in">local</span>/dnspod-agent/dnspod-token`</span><br><span class="line"></span><br><span class="line">IP=`curl ifconfig.me -s`</span><br><span class="line"></span><br><span class="line">DOMAIN_ID=`curl -s -X POST https://dnsapi.cn/Domain.List -d <span class="string">&quot;login_token=<span class="variable">$&#123;LOGIN_TOKEN&#125;</span>&amp;format=json&quot;</span> | jq .domains[0].id`</span><br><span class="line"></span><br><span class="line">SUB_DOMAIN=<span class="string">&quot;demo&quot;</span></span><br><span class="line"></span><br><span class="line">RECORD_ID=`curl -s -X POST https://dnsapi.cn/Record.List -d <span class="string">&quot;login_token=<span class="variable">$&#123;LOGIN_TOKEN&#125;</span>&amp;format=json&amp;domain_id=<span class="variable">$&#123;DOMAIN_ID&#125;</span>&amp;sub_domain=<span class="variable">$&#123;SUB_DOMAIN&#125;</span>&quot;</span> | jq -r .records[0].id`</span><br><span class="line"></span><br><span class="line">RECORD_TYPE=<span class="string">&quot;A&quot;</span></span><br><span class="line"></span><br><span class="line">RECORD_LINE_ID=<span class="string">&quot;0&quot;</span></span><br><span class="line"></span><br><span class="line">OLD_IP=`curl -s -X POST https://dnsapi.cn/Record.List -d <span class="string">&quot;login_token=<span class="variable">$&#123;LOGIN_TOKEN&#125;</span>&amp;format=json&amp;domain_id=<span class="variable">$&#123;DOMAIN_ID&#125;</span>&amp;sub_domain=<span class="variable">$&#123;SUB_DOMAIN&#125;</span>&quot;</span> | jq -r .records[0].value`</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [[ <span class="variable">$OLD_IP</span> != <span class="variable">$IP</span> ]];<span class="keyword">then</span></span><br><span class="line">  <span class="comment">## modify record ip</span></span><br><span class="line">  curl -X POST https://dnsapi.cn/Record.Modify -d <span class="string">&quot;login_token=<span class="variable">$&#123;LOGIN_TOKEN&#125;</span>&amp;format=json&amp;domain_id=<span class="variable">$&#123;DOMAIN_ID&#125;</span>&amp;record_id=<span class="variable">$&#123;RECORD_ID&#125;</span>&amp;sub_domain=<span class="variable">$&#123;SUB_DOMAIN&#125;</span>&amp;value=<span class="variable">$&#123;IP&#125;</span>&amp;record_type=<span class="variable">$&#123;RECORD_TYPE&#125;</span>&amp;record_line_id=<span class="variable">$&#123;RECORD_LINE_ID&#125;</span>&quot;</span></span><br><span class="line">  <span class="built_in">echo</span> `date +<span class="string">&quot;%Y-%m-%d %H:%M:%S&quot;</span>` <span class="variable">$IP</span> &gt;&gt; /usr/<span class="built_in">local</span>/dnspod-agent/dnspod_record_ip</span><br><span class="line"><span class="keyword">fi</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>为防止频繁访问API被禁，建议<code>DOMAIN_ID</code>、<code>RECORD_ID</code>这种不会变动的参数预先获取直接填入。</p>
+</blockquote>
+<p>将上述脚本保存在<code>/usr/local/dnspod-agent</code>目录下，命名为<code>dnspod-agent.sh</code>，然后添加一条每分钟执行的定时任务即可：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">chmod +x /opt/dnspod-agent/dnspod-agent.sh</span><br><span class="line">* * * * * /opt/dnspod-agent/dnspod-agent.sh</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="基于公云DNS域名解析实现DDNS"><a href="#基于公云DNS域名解析实现DDNS" class="headerlink" title="基于公云DNS域名解析实现DDNS"></a>基于公云DNS域名解析实现DDNS</h3><p>公云是一个可以免费解析动态域名服务商，某些路由器集成了公云的DDNS，但是如果没有集成的话，也可以自行实现一个DDNS脚本，如下：</p>
+<ol>
+<li>保存用户名密码到<code>/usr/local/pubyun-agent</code>目录下，命名为<code>pubyun-token</code></li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mkdir -p /opt/pubyun-agent</span><br><span class="line"><span class="built_in">echo</span> -n <span class="string">&quot;userName:password&quot;</span> | base64 &gt; /opt/pubyun-agent/pubyun-token</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>完整脚本实现如下：</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#! /bin/bash</span></span><br><span class="line"><span class="comment">## 获取当前主机IP</span></span><br><span class="line">IP=`curl ifconfig.me -s`</span><br><span class="line"></span><br><span class="line">PUBYUN_TOKEN=`base64 -d /usr/<span class="built_in">local</span>/pubyun-agent/pubyun-token`</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">record_ip</span></span>()&#123;</span><br><span class="line">    curl -X POST -u <span class="variable">$&#123;PUBYUN_TOKEN&#125;</span> <span class="string">&quot;http://members.3322.net/dyndns/update?system=dyndns&amp;hostname=zerchin.f3322.net&quot;</span></span><br><span class="line">    <span class="built_in">echo</span> `date +<span class="string">&quot;%Y-%m-%d %H:%M:%S&quot;</span>` <span class="variable">$IP</span> &gt;&gt; /usr/<span class="built_in">local</span>/pubyun-agent/pubyun_record_ip</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="title">main</span></span>() &#123;</span><br><span class="line">  <span class="keyword">if</span> [[ ! -f <span class="string">&quot;/usr/local/pubyun-agent/pubyun_record_ip&quot;</span> ]];<span class="keyword">then</span></span><br><span class="line">    touch /usr/<span class="built_in">local</span>/pubyun-agent/pubyun_record_ip</span><br><span class="line">    record_ip</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    <span class="keyword">if</span> [[ `tail -n 1 /usr/<span class="built_in">local</span>/pubyun-agent/pubyun_record_ip | awk <span class="string">&#x27;&#123;print $3&#125;&#x27;</span>` != <span class="variable">$IP</span> &amp;&amp; <span class="variable">$IP</span> != <span class="string">&quot;&quot;</span> ]];<span class="keyword">then</span></span><br><span class="line">      record_ip</span><br><span class="line">    <span class="keyword">fi</span></span><br><span class="line">  <span class="keyword">fi</span> </span><br><span class="line">&#125;</span><br><span class="line">main</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>将上述脚本保存在<code>/usr/local/pubyun-agent</code>目录下，命名为<code>pubyun-agent.sh</code>，然后添加一条每分钟执行的定时任务即可：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">chmod +x /opt/pubyun-agent/pubyun-agent.sh</span><br><span class="line">* * * * * /opt/pubyun-agent/pubyun-agent.sh</span><br></pre></td></tr></table></figure>
+
+
+
+<blockquote>
+<p>腾讯云 DNS API 参考：<a target="_blank" rel="noopener" href="https://docs.dnspod.cn/api/modify-records/">https://docs.dnspod.cn/api/modify-records/</a></p>
+<p>公云 DNS API 参考：<a target="_blank" rel="noopener" href="https://www.pubyun.com/products/dyndns/download/">https://www.pubyun.com/products/dyndns/download/</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://blog.zerchin.xyz/2022/06/27/%E8%87%AA%E5%AE%9A%E4%B9%89DDNS%E8%87%AA%E5%8A%A8%E8%A7%A3%E6%9E%90%E8%84%9A%E6%9C%AC/" title="自定义DDNS自动解析脚本">http://blog.zerchin.xyz/2022/06/27/自定义DDNS自动解析脚本/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/network/" rel="tag"># network</a>
+              <a href="/tags/ddns/" rel="tag"># ddns</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2022/06/19/Rancher2.6%20Monitoring%20Grafana%E5%AF%B9%E6%8E%A5LDAP/" rel="prev" title="Rancher2.6 Monitoring Grafana对接LDAP">
+                  <i class="fa fa-chevron-left"></i> Rancher2.6 Monitoring Grafana对接LDAP
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2022/06/29/%E5%9F%BA%E4%BA%8E%E8%AF%81%E4%B9%A6%E7%AD%BE%E5%90%8D%E8%AF%B7%E6%B1%82%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BAkubeconfig/" rel="next" title="基于证书签名请求快速构建kubeconfig">
+                  基于证书签名请求快速构建kubeconfig <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.zerchin.xyz","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="简介基于openwrt lede + ssr 插件 实现科学上网">
+<meta property="og:type" content="article">
+<meta property="og:title" content="pve安装openwrt lede实现科学上网">
+<meta property="og:url" content="http://blog.zerchin.xyz/2020/07/26/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="简介基于openwrt lede + ssr 插件 实现科学上网">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vm-1.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vm-2.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vm-3.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vm-4.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vm-5.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vm-6.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vm-7.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vol-1.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vol-2.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vol-3.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vol-4.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vol-5.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vol-6.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/boot-1.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/boot-2.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/start-vm.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/console-1.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/console-ip.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/restart-network.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/web-1.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/web-net-1.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/web-net-2.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/kuruan-update.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/ssr-plugin-install-3.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/ssr-setup-1.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/ssr-setup-2.png">
+<meta property="og:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/client-windows.png">
+<meta property="article:published_time" content="2020-07-26T11:22:39.000Z">
+<meta property="article:modified_time" content="2020-07-26T11:22:39.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="pve">
+<meta property="article:tag" content="openwrt">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vm-1.png">
+
+
+<link rel="canonical" href="http://blog.zerchin.xyz/2020/07/26/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>pve安装openwrt lede实现科学上网 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">42</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">26</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">86</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AE%80%E4%BB%8B"><span class="nav-number">1.</span> <span class="nav-text">简介</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E6%8F%90"><span class="nav-number">2.</span> <span class="nav-text">前提</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%89%E8%A3%85"><span class="nav-number">3.</span> <span class="nav-text">安装</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#pve%E5%AE%89%E8%A3%85openwrt"><span class="nav-number">3.1.</span> <span class="nav-text">pve安装openwrt</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%B8%8B%E8%BD%BD%E5%9B%BA%E4%BB%B6"><span class="nav-number">3.1.1.</span> <span class="nav-text">下载固件</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA%E8%99%9A%E6%8B%9F%E6%9C%BA"><span class="nav-number">3.1.2.</span> <span class="nav-text">创建虚拟机</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%AF%BC%E5%85%A5%E5%88%9A%E5%88%9A%E4%B8%8B%E8%BD%BD%E7%9A%84%E5%9B%BA%E4%BB%B6%E9%95%9C%E5%83%8F"><span class="nav-number">3.1.3.</span> <span class="nav-text">导入刚刚下载的固件镜像</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%AE%BE%E7%BD%AE%E5%90%AF%E5%8A%A8%E9%A1%B9"><span class="nav-number">3.1.4.</span> <span class="nav-text">设置启动项</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%90%AF%E5%8A%A8%E8%99%9A%E6%8B%9F%E6%9C%BA"><span class="nav-number">3.1.5.</span> <span class="nav-text">启动虚拟机</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%AE%BE%E7%BD%AEIP%E5%9C%B0%E5%9D%80"><span class="nav-number">3.1.6.</span> <span class="nav-text">设置IP地址</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%87%8D%E5%90%AF%E7%BD%91%E7%BB%9C"><span class="nav-number">3.1.7.</span> <span class="nav-text">重启网络</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%B5%8F%E8%A7%88%E5%99%A8%E8%AE%BF%E9%97%AE"><span class="nav-number">3.1.8.</span> <span class="nav-text">浏览器访问</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%AE%BE%E7%BD%AE%E7%BD%91%E7%BB%9C"><span class="nav-number">3.1.9.</span> <span class="nav-text">设置网络</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%AE%89%E8%A3%85ssr"><span class="nav-number">3.1.10.</span> <span class="nav-text">安装ssr</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E8%AE%BE%E7%BD%AESSR"><span class="nav-number">3.1.11.</span> <span class="nav-text">设置SSR</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%AE%A2%E6%88%B7%E7%AB%AF%E4%BD%BF%E7%94%A8"><span class="nav-number">3.1.12.</span> <span class="nav-text">客户端使用</span></a></li></ol></li></ol></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">86</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">42</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://blog.zerchin.xyz/2020/07/26/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          pve安装openwrt lede实现科学上网
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2020-07-26 11:22:39" itemprop="dateCreated datePublished" datetime="2020-07-26T11:22:39+00:00">2020-07-26</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/pve/" itemprop="url" rel="index"><span itemprop="name">pve</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>基于openwrt lede + ssr 插件 实现科学上网</p>
+<h2 id="前提"><a href="#前提" class="headerlink" title="前提"></a>前提</h2><p>需要有虚拟机的环境，如果有服务器，可以部署pve快速搭建一个虚拟环境，这里基于pve环境进行安装部署openwrt。（pve是一个轻量的虚拟化管理工具）</p>
+<p>如果是个人电脑，安装VMware即可，除了创建虚拟机的步骤不太一样（需要导入磁盘），其他都一样</p>
+<h2 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h2><h3 id="pve安装openwrt"><a href="#pve安装openwrt" class="headerlink" title="pve安装openwrt"></a>pve安装openwrt</h3><h4 id="下载固件"><a href="#下载固件" class="headerlink" title="下载固件"></a>下载固件</h4><p>首先下载openwrt的固件镜像：openwrt-koolshare-mod-v2.36-r14941-67f6fa0a30-x86-64-generic-squashfs-combined.vmdk</p>
+<p><a href="/software/openwrt-lede/openwrt-koolshare-mod-v2.36-r14941-67f6fa0a30-x86-64-generic-squashfs-combined.vmdk">镜像下载地址</a></p>
+<h4 id="创建虚拟机"><a href="#创建虚拟机" class="headerlink" title="创建虚拟机"></a>创建虚拟机</h4><p>点击右上角创建虚拟机</p>
+<ol>
+<li>填写虚拟机名称</li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vm-1.png" alt="vm-1"></p>
+<ol start="2">
+<li>选择不适用任何介质</li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vm-2.png" alt="vm-2"></p>
+<ol start="3">
+<li>默认需要选择一个硬盘，随便设置就好，后面用不到这个硬盘</li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vm-3.png" alt="vm-3"></p>
+<ol start="4">
+<li>设置2核一般就够用了</li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vm-4.png" alt="vm-4"></p>
+<ol start="5">
+<li>设置2048M（2G）内存</li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vm-5.png" alt="vm-5"></p>
+<ol start="6">
+<li>选择默认的vmbr0网桥</li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vm-6.png" alt="vm-6"></p>
+<ol start="7">
+<li>最后确认无误后，创建虚拟机</li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vm-7.png" alt="vm-7"></p>
+<h4 id="导入刚刚下载的固件镜像"><a href="#导入刚刚下载的固件镜像" class="headerlink" title="导入刚刚下载的固件镜像"></a>导入刚刚下载的固件镜像</h4><ol>
+<li>登录pve后台，执行<code>qm importdisk</code>命令导入刚刚下载的固件镜像</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">qm importdisk 124 openwrt-koolshare-mod-v2.36-r14941-67f6fa0a30-x86-64-generic-squashfs-combined.vmdk <span class="built_in">local</span> --format vmdk</span><br></pre></td></tr></table></figure>
+
+<p><code>124</code>是刚刚创建的虚拟机的ID</p>
+<p><code>local</code>是对应的存储名称，可以通过<code>pvesm status</code>查看可用的存储，或者直接在web上查看</p>
+<p><code>vmdk</code>是VMware的磁盘格式</p>
+<p>执行该命令后，会得到如下输出，看到<code>Successfully imported disk</code>就说明导入成功了</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">importing disk &#39;openwrt-koolshare-mod-v2.36-r14941-67f6fa0a30-x86-64-generic-squashfs-combined.vmdk&#39; to VM 124 ...</span><br><span class="line">Formatting &#39;&#x2F;var&#x2F;lib&#x2F;vz&#x2F;images&#x2F;124&#x2F;vm-124-disk-1.vmdk&#39;, fmt&#x3D;vmdk size&#x3D;734527488 compat6&#x3D;off hwversion&#x3D;undefined</span><br><span class="line">transferred: 0 bytes remaining: 734527488 bytes total: 734527488 bytes progression: 0.00 %</span><br><span class="line">transferred: 7785991 bytes remaining: 726741497 bytes total: 734527488 bytes progression: 1.06 %</span><br><span class="line">transferred: 15498529 bytes remaining: 719028959 bytes total: 734527488 bytes progression: 2.11 %</span><br><span class="line">...</span><br><span class="line">...</span><br><span class="line">...</span><br><span class="line">transferred: 728504362 bytes remaining: 6023126 bytes total: 734527488 bytes progression: 99.18 %</span><br><span class="line">transferred: 734527488 bytes remaining: 0 bytes total: 734527488 bytes progression: 100.00 %</span><br><span class="line">transferred: 734527488 bytes remaining: 0 bytes total: 734527488 bytes progression: 100.00 %</span><br><span class="line">Successfully imported disk as &#39;unused0:local:124&#x2F;vm-124-disk-1.vmdk&#39;</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>打开UI，添加刚刚导入的磁盘</li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vol-1.png" alt="vol-1"></p>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vol-2.png" alt="vol-2"></p>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vol-3.png" alt="vol-3"></p>
+<ol start="3">
+<li>删除<code>CD/DVD驱动器(ide2)</code>和<code>硬盘(scsi0)</code></li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vol-4.png" alt="vol-4"></p>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vol-5.png" alt="vol-5"></p>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/vol-6.png" alt="vol-6"></p>
+<h4 id="设置启动项"><a href="#设置启动项" class="headerlink" title="设置启动项"></a>设置启动项</h4><p>手动设置硬盘引导启动</p>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/boot-1.png" alt="boot-1"></p>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/boot-2.png" alt="boot-2"></p>
+<h4 id="启动虚拟机"><a href="#启动虚拟机" class="headerlink" title="启动虚拟机"></a>启动虚拟机</h4><p>如果上述步骤操作顺利，就可以启动该虚拟机了</p>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/start-vm.png" alt="start-vm"></p>
+<p>可以看到控制台在加载程序<img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/console-1.png" alt="console-1"></p>
+<h4 id="设置IP地址"><a href="#设置IP地址" class="headerlink" title="设置IP地址"></a>设置IP地址</h4><p>当看到加载至br-lan时，回车进入到命令行</p>
+<p>默认IP地址是192.169.1.1，这个地址无法访问，需要修改成pve的vmbr0的IP网络范围</p>
+<p>编辑<code>/etc/config/network</code></p>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/console-ip.png" alt="console-ip"></p>
+<ul>
+<li>修改IP地址：找到<code>192.168.1.1</code>，修改为对应的可访问的内网IP</li>
+<li>[可选]修改子网掩码：如果不是C类地址，则需要修改为对应的子网掩码，默认不用修改</li>
+</ul>
+<p>参考如下：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">option ipaddr <span class="string">&#x27;172.16.33.1&#x27;</span>  </span><br><span class="line">option netmask <span class="string">&#x27;255.255.0.0&#x27;</span>  </span><br></pre></td></tr></table></figure>
+
+<h4 id="重启网络"><a href="#重启网络" class="headerlink" title="重启网络"></a>重启网络</h4><p>执行如下命令重启网络</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/etc/init.d/network restart</span><br></pre></td></tr></table></figure>
+
+<p>看到这个样子说明重启成功了</p>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/restart-network.png" alt="restart-network"></p>
+<h4 id="浏览器访问"><a href="#浏览器访问" class="headerlink" title="浏览器访问"></a>浏览器访问</h4><p>地址是修改的IP地址，例如我这里是<a target="_blank" rel="noopener" href="http://172.16.33.1/">http://172.16.33.1</a></p>
+<p>密码是：koolshare</p>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/web-1.png" alt="web-1"></p>
+<h4 id="设置网络"><a href="#设置网络" class="headerlink" title="设置网络"></a>设置网络</h4><ol>
+<li>编辑LAN接口</li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/web-net-1.png" alt="web-net-1"></p>
+<ol start="2">
+<li>设置网关和DNS</li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/web-net-2.png" alt="web-net-2"></p>
+<p>修改完后点击右下角的<strong>保存并应用</strong></p>
+<h4 id="安装ssr"><a href="#安装ssr" class="headerlink" title="安装ssr"></a>安装ssr</h4><ol>
+<li>点击左边列表的<strong>库软</strong>，首先需要先更新一波</li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/kuruan-update.png" alt="kuruan-update"></p>
+<p>这里如果失败，大概率是网络没配置好，需要检查一下网络是否配置正确</p>
+<ol start="2">
+<li>下载ssr插件</li>
+</ol>
+<p>更新完后会看到很多插件可以安装，但是没有ssr相关的，可以手动下载插件进行离线安装</p>
+<p><a href="/software/openwrt-lede/koolss_2.2.2.tar.gz">插件下载地址</a></p>
+<ol start="3">
+<li>屏蔽插件安全检测</li>
+</ol>
+<p>较新的openwrt版本有个安全检测机制，会导致插件无法直接安装上去</p>
+<p>可以手动将这段检测代码删除，编辑<code>/koolshare/scripts/ks_tar_install.sh</code>这个文件，找到以下这段代码</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="title">detect_package</span></span>()&#123;                                                        </span><br><span class="line">        <span class="built_in">local</span> TEST_WORD=<span class="string">&quot;<span class="variable">$1</span>&quot;</span>                                         </span><br><span class="line">        <span class="built_in">local</span> ILLEGAL_KEYWORDS=<span class="string">&quot;ss|ssr|shadowsocks|shadowsocksr|v2ray|trojan|clash|wireguard|koolss|brook&quot;</span></span><br><span class="line">        <span class="built_in">local</span> KEY_MATCH=$(<span class="built_in">echo</span> <span class="string">&quot;<span class="variable">$&#123;TEST_WORD&#125;</span>&quot;</span> | grep -Eo <span class="string">&quot;<span class="variable">$ILLEGAL_KEYWORDS</span>&quot;</span>)                             </span><br><span class="line">                                                                                                          </span><br><span class="line">        <span class="keyword">if</span> [ -n <span class="string">&quot;<span class="variable">$KEY_MATCH</span>&quot;</span> ]; <span class="keyword">then</span>                                                                      </span><br><span class="line">                echo_date =======================================================                         </span><br><span class="line">                echo_date <span class="string">&quot;...........................<span class="variable">$&#123;soft_name&#125;</span> ...........................&quot;</span>           </span><br><span class="line">                echo_date <span class="string">&quot;.....................koolshare.............................................&quot;</span>   </span><br><span class="line">                echo_date <span class="string">&quot;..............................&quot;</span>                                                </span><br><span class="line">                echo_date =======================================================                      </span><br><span class="line">                clean                                                                                  </span><br><span class="line">                <span class="built_in">exit</span> 1                                                                                 </span><br><span class="line">        <span class="keyword">fi</span>                                                                                             </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>将其中的<code>local ILLEGAL_KEYWORDS</code>后的内容清空</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="title">detect_package</span></span>()&#123;                                                        </span><br><span class="line">        <span class="built_in">local</span> TEST_WORD=<span class="string">&quot;<span class="variable">$1</span>&quot;</span>                                             </span><br><span class="line">        <span class="built_in">local</span> ILLEGAL_KEYWORDS=<span class="string">&quot;&quot;</span>                                        </span><br><span class="line">        <span class="built_in">local</span> KEY_MATCH=$(<span class="built_in">echo</span> <span class="string">&quot;<span class="variable">$&#123;TEST_WORD&#125;</span>&quot;</span> | grep -Eo <span class="string">&quot;<span class="variable">$ILLEGAL_KEYWORDS</span>&quot;</span>)</span><br><span class="line">                                                                             </span><br><span class="line">        <span class="keyword">if</span> [ -n <span class="string">&quot;<span class="variable">$KEY_MATCH</span>&quot;</span> ]; <span class="keyword">then</span>                                         </span><br><span class="line">                echo_date =======================================================</span><br><span class="line">                echo_date <span class="string">&quot;...........................<span class="variable">$&#123;soft_name&#125;</span> ...........................&quot;</span></span><br><span class="line">                echo_date <span class="string">&quot;.....................koolshare.............................................&quot;</span></span><br><span class="line">                echo_date <span class="string">&quot;..............................&quot;</span>                                             </span><br><span class="line">                echo_date =======================================================                      </span><br><span class="line">                clean                                                                                  </span><br><span class="line">                <span class="built_in">exit</span> 1                                                                                 </span><br><span class="line">        <span class="keyword">fi</span>                                                                                             </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li>安装ssr插件</li>
+</ol>
+<p>在<strong>离线安装</strong>这里选择下载好的ssr插件压缩包，执行上传并安装，这时候就能正常进行插件的安装了</p>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/ssr-plugin-install-3.png" alt="ssr-plugin-install-3"></p>
+<h4 id="设置SSR"><a href="#设置SSR" class="headerlink" title="设置SSR"></a>设置SSR</h4><ol>
+<li>点击koolss进入配置页面，打开<strong>koolss开关</strong>，在[节点管理]-[节点管理]下，添加SSR订阅地址</li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/ssr-setup-1.png" alt="ssr-setup-1"></p>
+<p>这里模式设定选择<strong>全局模式</strong>，混淆参数设定选择<strong>使用订阅设定</strong></p>
+<p>设置完成后，点击<strong>保存订阅设置</strong>，然后再重新点击<strong>手动更新订阅</strong>，就会加载所有的节点了</p>
+<ol start="2">
+<li>选择可用的节点，在[节点管理]-[SSR节点]下，可以看到所有可用的节点，选择其中一个即可</li>
+</ol>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/ssr-setup-2.png" alt="ssr-setup-2"></p>
+<h4 id="客户端使用"><a href="#客户端使用" class="headerlink" title="客户端使用"></a>客户端使用</h4><p>设置网关为openwrt的地址即可，例如Windows设置如下：</p>
+<p><img src="https://zerchin.gitee.io/picturebed/img/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91.assets/client-windows.png" alt="client-windows"></p>
+<!-- 参考视频：https://www.youtube.com/watch?v=pnbzj-87ZOM -->
+
+
+
+<blockquote>
+<p>固件下载地址：<a target="_blank" rel="noopener" href="https://firmware.koolshare.cn/LEDE_X64_fw867">https://firmware.koolshare.cn/LEDE_X64_fw867</a></p>
+<p>插件下载地址：<a target="_blank" rel="noopener" href="https://github.com/hq450/fancyss_history_package/tree/master/fancyss_X64">https://github.com/hq450/fancyss_history_package/tree/master/fancyss_X64</a></p>
+<p>可用的下载地址：<a target="_blank" rel="noopener" href="https://bit.ly/2t8q6cS">https://bit.ly/2t8q6cS</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://blog.zerchin.xyz/2020/07/26/pve%E5%AE%89%E8%A3%85openwrt%20lede%E5%AE%9E%E7%8E%B0%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91/" title="pve安装openwrt lede实现科学上网">http://blog.zerchin.xyz/2020/07/26/pve安装openwrt lede实现科学上网/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/pve/" rel="tag"># pve</a>
+              <a href="/tags/openwrt/" rel="tag"># openwrt</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2020/07/02/%E5%AE%89%E8%A3%85kubectl-ingress-nginx/" rel="prev" title="安装kubectl ingress-nginx">
+                  <i class="fa fa-chevron-left"></i> 安装kubectl ingress-nginx
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2020/07/30/Harbor-1-7-5%E7%89%88%E6%9C%AC%E5%AE%89%E8%A3%85%EF%BC%8C%E5%8D%87%E7%BA%A7%E8%87%B31-8-6%EF%BC%8C%E5%9B%9E%E6%BB%9A%E5%88%B01-7-5/" rel="next" title="Harbor-1.7.5版本安装，升级至1.8.6，回滚到1.7.5">
+                  Harbor-1.7.5版本安装，升级至1.8.6，回滚到1.7.5 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

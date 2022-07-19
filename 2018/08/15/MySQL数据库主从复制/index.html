@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.zerchin.xyz","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="原理随着访问量的不断增加，单台MySQL数据库服务器压力不断增加，需要对MySQL进行优化和架构改造，如果MySQL优化不能明显改善压力，可使用高可用、主从复制、读写分离来拆分库和表等方法进行优化MySQL主从复制集群在中小企业、大型企业中被广泛应用，MySQL主从复制的目的是实现数据库冗余备份，将master数据库数据定时同步至slave库中，一旦master数据库宕机，可以将Web应用数据库配">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL数据库主从复制">
+<meta property="og:url" content="http://blog.zerchin.xyz/2018/08/15/MySQL%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="原理随着访问量的不断增加，单台MySQL数据库服务器压力不断增加，需要对MySQL进行优化和架构改造，如果MySQL优化不能明显改善压力，可使用高可用、主从复制、读写分离来拆分库和表等方法进行优化MySQL主从复制集群在中小企业、大型企业中被广泛应用，MySQL主从复制的目的是实现数据库冗余备份，将master数据库数据定时同步至slave库中，一旦master数据库宕机，可以将Web应用数据库配">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/MySQL_master-slave_replication/mysql-1.png">
+<meta property="article:published_time" content="2018-08-15T14:39:47.000Z">
+<meta property="article:modified_time" content="2018-08-15T14:39:47.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="mysql">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://blog.zerchin.xyz/images/mk/MySQL_master-slave_replication/mysql-1.png">
+
+
+<link rel="canonical" href="http://blog.zerchin.xyz/2018/08/15/MySQL%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>MySQL数据库主从复制 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">42</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">26</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">86</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8E%9F%E7%90%86"><span class="nav-number">1.</span> <span class="nav-text">原理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%A6%96%E5%85%88%E5%9C%A8master%E4%B8%8A%E7%9A%84my-cnf%E7%9A%84-mysqld-%E5%86%85%E6%B7%BB%E5%8A%A0"><span class="nav-number">2.</span> <span class="nav-text">首先在master上的my.cnf的[mysqld]内添加</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B9%B6%E9%87%8D%E5%90%AFmysql%E6%9C%8D%E5%8A%A1"><span class="nav-number">3.</span> <span class="nav-text">并重启mysql服务</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8Bmaster%E7%8A%B6%E6%80%81-%E8%8E%B7%E5%8F%96bin-log%E4%BF%A1%E6%81%AF%E5%92%8Cposition%E7%82%B9%EF%BC%8C%E5%B9%B6%E6%8E%88%E4%BA%88tongbu%E7%94%A8%E6%88%B7%E6%9D%83%E9%99%90"><span class="nav-number">4.</span> <span class="nav-text">查看master状态,获取bin-log信息和position点，并授予tongbu用户权限</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9C%A8slave%E4%B8%8A%E7%9A%84my-cnf%E7%9A%84-mysqld-%E5%86%85%E6%B7%BB%E5%8A%A0"><span class="nav-number">5.</span> <span class="nav-text">在slave上的my.cnf的[mysqld]内添加</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B9%B6%E9%87%8D%E5%90%AFmysql%E6%9C%8D%E5%8A%A1-1"><span class="nav-number">6.</span> <span class="nav-text">并重启mysql服务</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#slave%E6%8C%87%E5%AE%9Amaster%E7%9A%84ip%EF%BC%8C%E7%94%A8%E6%88%B7%E5%90%8D%EF%BC%8C%E5%AF%86%E7%A0%81%EF%BC%8Cbing-log%EF%BC%8Cposition"><span class="nav-number">7.</span> <span class="nav-text">slave指定master的ip，用户名，密码，bing-log，position</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BD%93%E5%87%BA%E7%8E%B0%E4%BB%A5%E4%B8%8B%E7%8A%B6%E6%80%81%E5%88%99%E4%B8%BA%E6%88%90%E5%8A%9F"><span class="nav-number">8.</span> <span class="nav-text">当出现以下状态则为成功</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%AA%8C%E8%AF%81-%E5%9C%A8master%E4%B8%8A%E5%88%9B%E5%BB%BA%E6%95%B0%E6%8D%AE%E5%BA%93"><span class="nav-number">9.</span> <span class="nav-text">验证,在master上创建数据库</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%80%9A%E8%BF%87%E6%9F%A5%E8%AF%A2%E5%8F%91%E7%8E%B0slave%E4%B9%9F%E8%83%BD%E6%9F%A5%E5%88%B0db-test%E6%95%B0%E6%8D%AE%E5%BA%93%EF%BC%8C%E8%AF%B4%E6%98%8E%E5%B7%B2%E7%BB%8F%E6%88%90%E5%8A%9F%E5%AE%9E%E7%8E%B0MySQL%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6"><span class="nav-number">10.</span> <span class="nav-text">通过查询发现slave也能查到db_test数据库，说明已经成功实现MySQL主从复制</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MySQL%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E6%8E%92%E9%94%99%E6%80%9D%E8%B7%AF"><span class="nav-number">11.</span> <span class="nav-text">MySQL主从同步排错思路</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">86</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">42</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://blog.zerchin.xyz/2018/08/15/MySQL%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MySQL数据库主从复制
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2018-08-15 14:39:47" itemprop="dateCreated datePublished" datetime="2018-08-15T14:39:47+00:00">2018-08-15</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/mysql/" itemprop="url" rel="index"><span itemprop="name">mysql</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h2><p>随着访问量的不断增加，单台MySQL数据库服务器压力不断增加，需要对MySQL进行优化和架构改造，如果MySQL优化不能明显改善压力，可使用高可用、主从复制、读写分离来拆分库和表等方法进行优化<br>MySQL主从复制集群在中小企业、大型企业中被广泛应用，MySQL主从复制的目的是实现数据库冗余备份，将master数据库数据定时同步至slave库中，一旦master数据库宕机，可以将Web应用数据库配置快速切换至slave数据库，确保Web应用有较高的可用率，主从复制架构如图所示：</p>
+<p><img src="/images/mk/MySQL_master-slave_replication/mysql-1.png" alt="mysql-1"></p>
+<p>MySQL主从复制集群至少需要2台数据库服务器，其中一台为master，另一台为slave，MySQL主从数据同步是一个异步复制的过程，要实现复制首先需要在master上开启bin-log日志功能，bin-log日志用于记录在master库中执行的增删改操作的SQL语句，整个过程需要开启3个线程，分别是master开启I/O线程，slave开启I/O线程和SQL线程，具体主从同步原理详解如下：</p>
+<ol>
+<li>slave上执行slave start，slave I/O线程会通过在master创建的授权用户连接上至master，并请求master从指定的文件和位置之后发送bin-log日志内容</li>
+<li>master接收到来自slave I/O线程的请求后，master I/O线程根据slave发送的指定bin-log日志position点之后的内容，然后返回给slave的I/O线程</li>
+<li>返回的信息中处理bin-log日志内容外，还有master最新的bin-log文件名以及在bin-log中的下一个指定更新position点</li>
+<li>slave I/O线程接收到信息后，将接收到的日志内容依次添加到slave端的relay-log文件的最末端，并将读取到的master端的bin-log的文件名和position点记录到master.info文件中，以便在下一次读取的时候能告知master从响应的bin-log文件名及最后一个position点开始发起请求</li>
+<li>slave SQL线程检测到relay-log中内容有更新，会立刻解析relay-log日志中的内容，将解析后的SQL预计在slave里执行，执行成功后slave库与master库则会保持数据一致。<br>下面我们来实验一下MySQL主从复制<br><strong>实验环境：</strong></li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>master</th>
+<th>192.168.5.2</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>slave</td>
+<td>192.168.5.3</td>
+</tr>
+</tbody></table>
+<p><strong>主从服务器都已经安装好了mariadb，此方法适用于所有系统，这里我用的是centos7</strong><br>这是我服务器安装的数据库版本</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">MariaDB [(none)]&gt; show variables like &#x27;version&#x27;;</span><br><span class="line">+<span class="comment">---------------+--------------------------------------+</span></span><br><span class="line">| Variable_name | Value                                |</span><br><span class="line">+<span class="comment">---------------+--------------------------------------+</span></span><br><span class="line">| version       | 10.3.8-MariaDB-1:10.3.8+maria~bionic |</span><br><span class="line">+<span class="comment">---------------+--------------------------------------+</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="首先在master上的my-cnf的-mysqld-内添加"><a href="#首先在master上的my-cnf的-mysqld-内添加" class="headerlink" title="首先在master上的my.cnf的[mysqld]内添加"></a>首先在master上的my.cnf的[mysqld]内添加</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># vi /etc/mysql/my.cnf</span></span><br><span class="line">[mysqld]</span><br><span class="line">server-id = 1</span><br><span class="line">log-bin = mysql-bin</span><br></pre></td></tr></table></figure>
+
+<h2 id="并重启mysql服务"><a href="#并重启mysql服务" class="headerlink" title="并重启mysql服务"></a>并重启mysql服务</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># systemctl restart mariadb</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="查看master状态-获取bin-log信息和position点，并授予tongbu用户权限"><a href="#查看master状态-获取bin-log信息和position点，并授予tongbu用户权限" class="headerlink" title="查看master状态,获取bin-log信息和position点，并授予tongbu用户权限"></a>查看master状态,获取bin-log信息和position点，并授予tongbu用户权限</h2><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">MariaDB [(none)]&gt; show master status;</span><br><span class="line">+<span class="comment">------------------+----------+--------------+------------------+</span></span><br><span class="line">| File             | Position | Binlog_Do_DB | Binlog_Ignore_DB |</span><br><span class="line">+<span class="comment">------------------+----------+--------------+------------------+</span></span><br><span class="line">| mysql-bin.000001 |      328 |              |                  |</span><br><span class="line">+<span class="comment">------------------+----------+--------------+------------------+</span></span><br><span class="line">1 row in <span class="keyword">set</span> (<span class="number">0.000</span> sec)</span><br><span class="line">MariaDB [(<span class="keyword">none</span>)]&gt; <span class="keyword">grant</span> <span class="keyword">replication</span> <span class="keyword">slave</span> <span class="keyword">on</span> *.* <span class="keyword">to</span> <span class="string">&#x27;tongbu&#x27;</span>@<span class="string">&#x27;%&#x27;</span> <span class="keyword">identified</span> <span class="keyword">by</span> <span class="string">&#x27;000000&#x27;</span>;</span><br><span class="line">Query OK, 0 rows affected (0.001 sec)</span><br></pre></td></tr></table></figure>
+
+<h2 id="在slave上的my-cnf的-mysqld-内添加"><a href="#在slave上的my-cnf的-mysqld-内添加" class="headerlink" title="在slave上的my.cnf的[mysqld]内添加"></a>在slave上的my.cnf的[mysqld]内添加</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># vi /etc/mysql/my.cnf</span></span><br><span class="line">[mysqld]</span><br><span class="line">server-id = 2</span><br></pre></td></tr></table></figure>
+
+<h2 id="并重启mysql服务-1"><a href="#并重启mysql服务-1" class="headerlink" title="并重启mysql服务"></a>并重启mysql服务</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># systemctl restart mariadb</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="slave指定master的ip，用户名，密码，bing-log，position"><a href="#slave指定master的ip，用户名，密码，bing-log，position" class="headerlink" title="slave指定master的ip，用户名，密码，bing-log，position"></a>slave指定master的ip，用户名，密码，bing-log，position</h2><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">MariaDB [(none)]&gt; change master to master_host=&#x27;192.168.5.2&#x27;,master_user=&#x27;tongbu&#x27;,master_password=&#x27;000000&#x27;,master_log_file=&#x27;mysql-bin.000001&#x27;,master_log_pos=328;</span><br><span class="line">Query OK, 0 rows affected (2.485 sec)</span><br><span class="line">MariaDB [(none)]&gt; start slave;</span><br><span class="line">Query OK, 0 rows affected (0.001 sec)</span><br></pre></td></tr></table></figure>
+
+<h2 id="当出现以下状态则为成功"><a href="#当出现以下状态则为成功" class="headerlink" title="当出现以下状态则为成功"></a>当出现以下状态则为成功</h2><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">MariaDB [(none)]&gt; show slave status\G;</span><br><span class="line">…</span><br><span class="line">Slave_IO_Running: Yes</span><br><span class="line">Slave_SQL_Running: Yes</span><br><span class="line">…</span><br></pre></td></tr></table></figure>
+
+<h2 id="验证-在master上创建数据库"><a href="#验证-在master上创建数据库" class="headerlink" title="验证,在master上创建数据库"></a>验证,在master上创建数据库</h2><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">MariaDB [(none)]&gt; create database db_test;</span><br><span class="line">Query OK, 1 row affected (0.001 sec)</span><br><span class="line">MariaDB [(none)]&gt; show databases;</span><br><span class="line">+<span class="comment">--------------------+</span></span><br><span class="line">| Database           |</span><br><span class="line">+<span class="comment">--------------------+</span></span><br><span class="line">| db_test            |</span><br><span class="line">| information_schema |</span><br><span class="line">| mysql              |</span><br><span class="line">| performance_schema |</span><br><span class="line">+<span class="comment">--------------------+</span></span><br><span class="line">4 rows in <span class="keyword">set</span> (<span class="number">0.001</span> sec)</span><br></pre></td></tr></table></figure>
+
+<h2 id="通过查询发现slave也能查到db-test数据库，说明已经成功实现MySQL主从复制"><a href="#通过查询发现slave也能查到db-test数据库，说明已经成功实现MySQL主从复制" class="headerlink" title="通过查询发现slave也能查到db_test数据库，说明已经成功实现MySQL主从复制"></a>通过查询发现slave也能查到db_test数据库，说明已经成功实现MySQL主从复制</h2><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">MariaDB [(none)]&gt; show databases;</span><br><span class="line">+<span class="comment">--------------------+</span></span><br><span class="line">| Database           |</span><br><span class="line">+<span class="comment">--------------------+</span></span><br><span class="line">| db_test            |</span><br><span class="line">| information_schema |</span><br><span class="line">| mysql              |</span><br><span class="line">| performance_schema |</span><br><span class="line">+<span class="comment">--------------------+</span></span><br><span class="line">4 rows in <span class="keyword">set</span> (<span class="number">0.001</span> sec)</span><br></pre></td></tr></table></figure>
+
+<h2 id="MySQL主从同步排错思路"><a href="#MySQL主从同步排错思路" class="headerlink" title="MySQL主从同步排错思路"></a>MySQL主从同步排错思路</h2><p>MySQL主从同步集群在生产环境使用时，如果主从服务器之间网络通信条件差或者数据库数据量非常大，容易导致MySQL主从同步延迟<br>MySQL主从产生延迟之后，一旦主库宕机，会导致部分数据没有及时同步至从库，重新启动主库，会导致从库与主库同步错误，快速回复主从同步关系有如下两种方法：</p>
+<ol>
+<li>忽略错误后，继续同步<br>此种方法适用于主从库数据内容相差不大的情况。<br>master端执行如下命令，将数据库设置为全局读锁，不允许写入新数据</li>
+</ol>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MariaDB [(none)]&gt; flush tables with read lock;</span><br></pre></td></tr></table></figure>
+
+<p>slave端停止slave I/O及 SQL线程，同时将同步错误的SQL跳过一次，跳过错误会导致数据补一次，启动start slave，同步状态恢复，命令如下：</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">MariaDB [(none)]&gt; stop slave;</span><br><span class="line">MariaDB [(none)]&gt; set global sql_slave_skip_counter = 1;</span><br><span class="line">MariaDB [(none)]&gt; start slave;</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>重新做主从同步，使数据完全同步。<br>此种方法适用于主从库数据内容相差很大的情况<br>master端执行如下命令。将数据库设置全局读锁，不允许写入新数据。</li>
+</ol>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MariaDB [(none)]&gt; flush tables with read lock;</span><br></pre></td></tr></table></figure>
+
+<p>master端基于mysqldump\xtrabackup工具对数据库进行完整备份，也可以用shell脚本或python脚本实现定时备份，备份成功后，将完整的数据导入至从库，重新配置主从关系，当slave端的I/O线程、SQL线程均为Yes之后，最后将master端读锁解开即可，解锁命令如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MariaDB [(none)]&gt; unlock tables;</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://blog.zerchin.xyz/2018/08/15/MySQL%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6/" title="MySQL数据库主从复制">http://blog.zerchin.xyz/2018/08/15/MySQL数据库主从复制/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/mysql/" rel="tag"># mysql</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2018/08/13/CentOS7%E5%AE%89%E8%A3%85KVM/" rel="prev" title="CentOS7安装KVM">
+                  <i class="fa fa-chevron-left"></i> CentOS7安装KVM
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2018/09/04/CentOS7.5%E5%AE%89%E8%A3%85OpenStack_Rocky%E7%89%88%E6%9C%AC/" rel="next" title="CentOS7.5安装OpenStack Rocky版本">
+                  CentOS7.5安装OpenStack Rocky版本 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

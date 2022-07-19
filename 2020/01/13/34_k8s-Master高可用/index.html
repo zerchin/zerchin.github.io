@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.zerchin.xyz","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="k8s基于kubeadm+keepalived搭建高可用 步骤">
+<meta property="og:type" content="article">
+<meta property="og:title" content="k8s学习（34）：k8s高可用集群部署">
+<meta property="og:url" content="http://blog.zerchin.xyz/2020/01/13/34_k8s-Master%E9%AB%98%E5%8F%AF%E7%94%A8/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="k8s基于kubeadm+keepalived搭建高可用 步骤">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-01-13T18:40:21.000Z">
+<meta property="article:modified_time" content="2022-07-19T08:23:02.047Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="kubernetes">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://blog.zerchin.xyz/2020/01/13/34_k8s-Master%E9%AB%98%E5%8F%AF%E7%94%A8/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>k8s学习（34）：k8s高可用集群部署 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">42</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">26</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">86</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%AD%A5%E9%AA%A4"><span class="nav-number">1.</span> <span class="nav-text">步骤</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">86</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">42</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://blog.zerchin.xyz/2020/01/13/34_k8s-Master%E9%AB%98%E5%8F%AF%E7%94%A8/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          k8s学习（34）：k8s高可用集群部署
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2020-01-13 18:40:21" itemprop="dateCreated datePublished" datetime="2020-01-13T18:40:21+00:00">2020-01-13</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">更新于</span>
+        <time title="修改时间：2022-07-19 08:23:02" itemprop="dateModified" datetime="2022-07-19T08:23:02+00:00">2022-07-19</time>
+      </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/kubernetes%E6%95%99%E7%A8%8B/" itemprop="url" rel="index"><span itemprop="name">kubernetes教程</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>k8s基于kubeadm+keepalived搭建高可用</p>
+<h2 id="步骤"><a href="#步骤" class="headerlink" title="步骤"></a>步骤</h2><p>1 配置主机，安装docker，kubeadm，kubectl，kubelet</p>
+<p>2 ssh免密登录</p>
+<p>3 docker配置文件</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">cat &gt; /etc/docker/daemon.json &lt;&lt;EOF</span><br><span class="line">&#123;</span><br><span class="line"> <span class="attr">&quot;exec-opts&quot;</span>: [<span class="string">&quot;native.cgroupdriver=systemd&quot;</span>],</span><br><span class="line"> <span class="attr">&quot;log-driver&quot;</span>: <span class="string">&quot;json-file&quot;</span>,</span><br><span class="line"> <span class="attr">&quot;log-opts&quot;</span>: &#123;</span><br><span class="line">   <span class="attr">&quot;max-size&quot;</span>: <span class="string">&quot;100m&quot;</span></span><br><span class="line">  &#125;,</span><br><span class="line"> <span class="attr">&quot;storage-driver&quot;</span>: <span class="string">&quot;overlay2&quot;</span>,</span><br><span class="line"> <span class="attr">&quot;storage-opts&quot;</span>: [</span><br><span class="line">   <span class="string">&quot;overlay2.override_kernel_check=true&quot;</span></span><br><span class="line">  ]</span><br><span class="line">&#125;</span><br><span class="line">EOF</span><br></pre></td></tr></table></figure>
+
+
+
+<p>4 开启ipvs</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">cat &gt; /etc/sysconfig/modules/ipvs.modules &lt;&lt;<span class="string">EOF</span></span><br><span class="line"><span class="string">#!/bin/bash</span></span><br><span class="line"><span class="string">ipvs_modules=&quot;ip_vs ip_vs_lc ip_vs_wlc ip_vs_rr ip_vs_wrr ip_vs_lblc ip_vs_lblcr ip_vs_dh ip_vs_sh ip_vs_fo ip_vs_nq ip_vs_sed ip_vs_ftp nf_conntrack&quot;</span></span><br><span class="line"><span class="string">for kernel_module in \$&#123;ipvs_modules&#125;; do</span></span><br><span class="line"><span class="string"> /sbin/modinfo -F filename \$&#123;kernel_module&#125; &gt; /dev/null 2&gt;&amp;1</span></span><br><span class="line"><span class="string"> if [ $? -eq 0 ]; then</span></span><br><span class="line"><span class="string"> /sbin/modprobe \$&#123;kernel_module&#125;</span></span><br><span class="line"><span class="string"> fi</span></span><br><span class="line"><span class="string">done</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">chmod 755 /etc/sysconfig/modules/ipvs.modules &amp;&amp; bash /etc/sysconfig/modules/ipvs.modules &amp;&amp; lsmod | grep ip_vs</span><br></pre></td></tr></table></figure>
+
+
+
+<p>安装kubeadm-1.18.2</p>
+<p>部署Keepalived+lvs实现对apiserver高可用</p>
+<p>master节点安装Keepalived+lvs</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">yum install -y socat keepalived ipvsadm conntrack</span><br></pre></td></tr></table></figure>
+
+<p>修改master1的/etc/keepalived/keeplived.conf</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br></pre></td><td class="code"><pre><span class="line">global_defs &#123;</span><br><span class="line">  router_id LVS_DEVEL</span><br><span class="line">&#125;</span><br><span class="line">vrrp_instance VI_1 &#123;</span><br><span class="line">  state BACKUP</span><br><span class="line">  nopreempt</span><br><span class="line">  interface ens33</span><br><span class="line">  virtual_router_id 80</span><br><span class="line">  priority 100</span><br><span class="line">  advert_int 1</span><br><span class="line">  authentication &#123;</span><br><span class="line">    auth_type PASS</span><br><span class="line">    auth_oass just0kk</span><br><span class="line">  &#125;</span><br><span class="line">  virtual_ipaddress &#123;</span><br><span class="line">    192.168.0.199</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line">virtual_server 192.168.0.199 6443 &#123;</span><br><span class="line">    deplay_loop 6</span><br><span class="line">    lb_algo loadbalance</span><br><span class="line">    lb_kind DR</span><br><span class="line">    net_mask 255.255.255.0</span><br><span class="line">    persistence_timeout 0</span><br><span class="line">    protocol TCP</span><br><span class="line">    real_server 192.168.0.6 6443</span><br><span class="line">      weigh 1</span><br><span class="line">      SSL_GET &#123;</span><br><span class="line">        url &#123;</span><br><span class="line">        path &#x2F;healthz</span><br><span class="line">        status_code 200</span><br><span class="line">        &#125;</span><br><span class="line">        connect_timeout 3</span><br><span class="line">        nb_get_retry 3</span><br><span class="line">        delay_before_retry 3</span><br><span class="line">      &#125;</span><br><span class="line">&#125;</span><br><span class="line">real_server 192.168.0.16 6443 &#123;</span><br><span class="line">        weight 1</span><br><span class="line">        SSL_GET &#123;</span><br><span class="line">            url &#123;</span><br><span class="line">              path &#x2F;healthz</span><br><span class="line">              status_code 200</span><br><span class="line">            &#125;</span><br><span class="line">            connect_timeout 3</span><br><span class="line">            nb_get_retry 3</span><br><span class="line">            delay_before_retry 3</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    real_server 192.168.0.26 6443 &#123;</span><br><span class="line">        weight 1</span><br><span class="line">        SSL_GET &#123;</span><br><span class="line">            url &#123;</span><br><span class="line">              path &#x2F;healthz</span><br><span class="line">              status_code 200</span><br><span class="line">            &#125;</span><br><span class="line">            connect_timeout 3</span><br><span class="line">            nb_get_retry 3</span><br><span class="line">            delay_before_retry 3</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>master2节点的keepalived.conf</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><span class="line">global_defs &#123;</span><br><span class="line">   router_id LVS_DEVEL</span><br><span class="line">&#125;</span><br><span class="line">vrrp_instance VI_1 &#123;</span><br><span class="line">    state BACKUP</span><br><span class="line">    nopreempt</span><br><span class="line">    interface ens33</span><br><span class="line">    virtual_router_id 80</span><br><span class="line">    priority 50</span><br><span class="line">    advert_int 1</span><br><span class="line">    authentication &#123;</span><br><span class="line">        auth_type PASS</span><br><span class="line">        auth_pass just0kk</span><br><span class="line">    &#125;</span><br><span class="line">    virtual_ipaddress &#123;</span><br><span class="line">        192.168.0.199</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">virtual_server 192.168.0.199 6443 &#123;</span><br><span class="line">    delay_loop 6</span><br><span class="line">    lb_algo loadbalance</span><br><span class="line">    lb_kind DR    net_mask 255.255.255.0</span><br><span class="line">    persistence_timeout 0</span><br><span class="line">    protocol TCP</span><br><span class="line">    real_server 192.168.0.6 6443 &#123;</span><br><span class="line">        weight 1</span><br><span class="line">        SSL_GET &#123;</span><br><span class="line">            url &#123;</span><br><span class="line">              path &#x2F;healthz</span><br><span class="line">              status_code 200</span><br><span class="line">            &#125;</span><br><span class="line">            connect_timeout 3</span><br><span class="line">            nb_get_retry 3</span><br><span class="line">            delay_before_retry 3</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    real_server 192.168.0.16 6443 &#123;</span><br><span class="line">        weight 1</span><br><span class="line">        SSL_GET &#123;</span><br><span class="line">            url &#123;</span><br><span class="line">              path &#x2F;healthz</span><br><span class="line">              status_code 200</span><br><span class="line">            &#125;</span><br><span class="line">            connect_timeout 3</span><br><span class="line">            nb_get_retry 3</span><br><span class="line">            delay_before_retry 3</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    real_server 192.168.0.26 6443 &#123;</span><br><span class="line">        weight 1</span><br><span class="line">        SSL_GET &#123;</span><br><span class="line">            url &#123;</span><br><span class="line">              path &#x2F;healthz</span><br><span class="line">              status_code 200</span><br><span class="line">            &#125;</span><br><span class="line">            connect_timeout 3</span><br><span class="line">            nb_get_retry 3</span><br><span class="line">            delay_before_retry 3</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>master3节点的keepalived.conf</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">global_defs &#123;</span><br><span class="line">   router_id LVS_DEVEL</span><br><span class="line">&#125;</span><br><span class="line">vrrp_instance VI_1 &#123;</span><br><span class="line">    state BACKUP</span><br><span class="line">    nopreempt</span><br><span class="line">    interface ens33</span><br><span class="line">    virtual_router_id 80</span><br><span class="line">    priority 30</span><br><span class="line">    advert_int 1</span><br><span class="line">    authentication &#123;</span><br><span class="line">        auth_type PASS</span><br><span class="line">        auth_pass just0kk</span><br><span class="line">    &#125;</span><br><span class="line">    virtual_ipaddress &#123;</span><br><span class="line">        192.168.0.199</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">virtual_server 192.168.0.199 6443 &#123;</span><br><span class="line">    delay_loop 6</span><br><span class="line">    lb_algo loadbalance</span><br><span class="line">    lb_kind DR</span><br><span class="line">    net_mask 255.255.255.0</span><br><span class="line">    persistence_timeout 0</span><br><span class="line">    protocol TCP</span><br><span class="line">    real_server 192.168.0.6 6443 &#123;</span><br><span class="line">        weight 1</span><br><span class="line">        SSL_GET &#123;</span><br><span class="line">            url &#123;</span><br><span class="line">              path &#x2F;healthz</span><br><span class="line">              status_code 200</span><br><span class="line">            &#125;</span><br><span class="line">            connect_timeout 3</span><br><span class="line">            nb_get_retry 3</span><br><span class="line">            delay_before_retry 3</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    real_server 192.168.0.16 6443 &#123;</span><br><span class="line">        weight 1</span><br><span class="line">        SSL_GET &#123;</span><br><span class="line">            url &#123;</span><br><span class="line">              path &#x2F;healthz</span><br><span class="line">              status_code 200</span><br><span class="line">            &#125;</span><br><span class="line">            connect_timeout 3</span><br><span class="line">            nb_get_retry 3</span><br><span class="line">            delay_before_retry 3</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    real_server 192.168.0.26 6443 &#123;</span><br><span class="line">        weight 1</span><br><span class="line">        SSL_GET &#123;</span><br><span class="line">            url &#123;</span><br><span class="line">              path &#x2F;healthz</span><br><span class="line">              status_code 200</span><br><span class="line">            &#125;</span><br><span class="line">            connect_timeout 3</span><br><span class="line">            nb_get_retry 3</span><br><span class="line">            delay_before_retry 3</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>注：Keepalived要配置BACKUP，而且是非抢占模式nopreempt，假设master1宕机，启动之后VIP不会飘到master1，可以保证k8s始终处于正常状态。如果master1启动，VIP立刻飘到master1，apiserver还未完全启动，这时候集群就会出问题</p>
+<p>按顺序启动 master1&gt;2&gt;3</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl enable keepalived  &amp;&amp; systemctl start keepalived  &amp;&amp; systemctl status keepalived</span><br></pre></td></tr></table></figure>
+
+<p>启动之后ip a查看vip已经绑定到ens33</p>
+<p>初始化集群</p>
+<p>master1节点</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">cat</span> <span class="string">kubeadm-config.yaml</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">kubeadm.k8s.io/v1beta2</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">ClusterConfiguration</span></span><br><span class="line"><span class="attr">kubernetesVersion:</span> <span class="string">v1.18.2</span></span><br><span class="line"><span class="attr">controlPlaneEndpoint:</span> <span class="number">192.168</span><span class="number">.0</span><span class="number">.199</span><span class="string">:6443</span></span><br><span class="line"><span class="comment">## 国内源用这个</span></span><br><span class="line"><span class="comment">#imageRepository: registry.aliyuncs.com/google_containers</span></span><br><span class="line"><span class="attr">apiServer:</span></span><br><span class="line"> <span class="attr">certSANs:</span></span><br><span class="line"> <span class="bullet">-</span> <span class="number">192.168</span><span class="number">.0</span><span class="number">.6</span></span><br><span class="line"> <span class="bullet">-</span> <span class="number">192.168</span><span class="number">.0</span><span class="number">.16</span></span><br><span class="line"> <span class="bullet">-</span> <span class="number">192.168</span><span class="number">.0</span><span class="number">.26</span></span><br><span class="line"> <span class="bullet">-</span> <span class="number">192.168</span><span class="number">.0</span><span class="number">.56</span></span><br><span class="line"> <span class="bullet">-</span> <span class="number">192.168</span><span class="number">.0</span><span class="number">.199</span></span><br><span class="line"><span class="attr">networking:</span></span><br><span class="line"> <span class="attr">podSubnet:</span> <span class="number">10.244</span><span class="number">.0</span><span class="number">.0</span><span class="string">/16</span></span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">kubeproxy.config.k8s.io/v1alpha1</span></span><br><span class="line"><span class="attr">kind:</span>  <span class="string">KubeProxyConfiguration</span></span><br><span class="line"><span class="attr">mode:</span> <span class="string">ipvs</span></span><br></pre></td></tr></table></figure>
+
+<p>master1节点</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubeadm init --config kubeadm-config.yaml</span><br></pre></td></tr></table></figure>
+
+<p>master1节点</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">mkdir -p $HOME&#x2F;.kube</span><br><span class="line">sudo cp -i  &#x2F;etc&#x2F;kubernetes&#x2F;admin.conf  $HOME&#x2F;.kube&#x2F;config</span><br><span class="line">sudo chown $(id -u):$(id -g)  $HOME&#x2F;.kube&#x2F;config</span><br></pre></td></tr></table></figure>
+
+<p>查看集群状态</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get nodes</span><br></pre></td></tr></table></figure>
+
+<p>master1节点，安装calico网络插件</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl apply -f https:&#x2F;&#x2F;raw.githubusercontent.com&#x2F;luckylucky421&#x2F;kubernetes1.17.3&#x2F;master&#x2F;calico.yaml</span><br></pre></td></tr></table></figure>
+
+<p>查看集群状态</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get nodes</span><br></pre></td></tr></table></figure>
+
+<p>把master1节点的证书拷贝到master2和master3上</p>
+<p>1 在master2、3上创建证书存放目录</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cd &#x2F;root &amp;&amp; mkdir -p &#x2F;etc&#x2F;kubernetes&#x2F;pki&#x2F;etcd &amp;&amp;mkdir -p ~&#x2F;.kube&#x2F;</span><br></pre></td></tr></table></figure>
+
+<p>2 拷贝</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">scp -r &#x2F;etc&#x2F;kubernetes&#x2F;pki&#x2F; master2:&#x2F;etc&#x2F;kubernetes&#x2F;pki&#x2F;</span><br><span class="line">scp -r &#x2F;etc&#x2F;kubernetes&#x2F;pki&#x2F; master3:&#x2F;etc&#x2F;kubernetes&#x2F;pki&#x2F;</span><br></pre></td></tr></table></figure>
+
+<p>3 以master身份加入到集群，–control-plane参数</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">kubeadm join 192.168.0.199:6443 --token 7dwluq.x6nypje7h55rnrhl \</span><br><span class="line">    --discovery-token-ca-cert-hash sha256:fa75619ab0bb6273126350a9dbda9aa6c89828c2c4650299fe1647ab510a7e6c   --control-plane</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">mkdir -p $HOME&#x2F;.kube</span><br><span class="line">sudo cp -i &#x2F;etc&#x2F;kubernetes&#x2F;admin.conf $HOME&#x2F;.kube&#x2F;config</span><br><span class="line">sudo chown $(id -u):$(id -g)$HOME&#x2F;.kube&#x2F;config</span><br></pre></td></tr></table></figure>
+
+<p>node节点加入</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">kubeadm join 192.168.0.199:6443 --token 7dwluq.x6nypje7h55rnrhl \</span><br><span class="line">    --discovery-token-ca-cert-hash sha256:fa75619ab0bb6273126350a9dbda9aa6c89828c2c4650299fe1647ab510a7e6c</span><br></pre></td></tr></table></figure>
+
+<p>查看node状态</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get nodes</span><br></pre></td></tr></table></figure>
+
+
+
+<p>额外的：使用traefik 作为集群ingress</p>
+<p>1 生成traefik证书</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">mkdir  ~&#x2F;ikube&#x2F;tls&#x2F; -p</span><br><span class="line">echo &quot;&quot;&quot;</span><br><span class="line">[req]</span><br><span class="line">distinguished_name &#x3D; req_distinguished_name</span><br><span class="line">prompt &#x3D; yes</span><br><span class="line"></span><br><span class="line">[ req_distinguished_name ]</span><br><span class="line">countryName                     &#x3D; Country Name (2 letter code)</span><br><span class="line">countryName_value               &#x3D; CN</span><br><span class="line"></span><br><span class="line">stateOrProvinceName             &#x3D; State or Province Name (full name)</span><br><span class="line">stateOrProvinceName_value       &#x3D; Beijing</span><br><span class="line"></span><br><span class="line">localityName                    &#x3D; Locality Name (eg, city)</span><br><span class="line">localityName_value              &#x3D; Haidian</span><br><span class="line"></span><br><span class="line">organizationName                &#x3D; Organization Name (eg, company)</span><br><span class="line">organizationName_value          &#x3D; Channelsoft</span><br><span class="line"></span><br><span class="line">organizationalUnitName          &#x3D; Organizational Unit Name (eg, section)</span><br><span class="line">organizationalUnitName_value    &#x3D; R &amp; D Department</span><br><span class="line"></span><br><span class="line">commonName                      &#x3D; Common Name (eg, your name or your server\&#39;s hostname)</span><br><span class="line">commonName_value                &#x3D; *.multi.io</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">emailAddress                    &#x3D; Email Address</span><br><span class="line">emailAddress_value              &#x3D; lentil1016@gmail.com</span><br><span class="line">&quot;&quot;&quot; &gt; ~&#x2F;ikube&#x2F;tls&#x2F;openssl.cnf</span><br><span class="line">openssl req -newkey rsa:4096 -nodes -config ~&#x2F;ikube&#x2F;tls&#x2F;openssl.cnf -days 3650 -x509 -out ~&#x2F;ikube&#x2F;tls&#x2F;tls.crt -keyout ~&#x2F;ikube&#x2F;tls&#x2F;tls.key</span><br><span class="line">kubectl create -n kube-system secret tls ssl --cert ~&#x2F;ikube&#x2F;tls&#x2F;tls.crt --key ~&#x2F;ikube&#x2F;tls&#x2F;tls.key</span><br></pre></td></tr></table></figure>
+
+<p>2 执行yaml创建traefik</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl apply -f https:&#x2F;&#x2F;raw.githubusercontent.com&#x2F;luckylucky421&#x2F;kubernetes1.17.3&#x2F;master&#x2F;traefik.yaml</span><br></pre></td></tr></table></figure>
+
+<p>3 查看是否执行成功</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pods -n kube-system|grep traefik</span><br></pre></td></tr></table></figure>
+
+
+
+<p>额外的：安装kubernetes-dashboard 2.0版本</p>
+<p>1 执行yaml</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl apply -f https:&#x2F;&#x2F;raw.githubusercontent.com&#x2F;luckylucky421&#x2F;kubernetes1.17.3&#x2F;master&#x2F;kubernetes-dashboard.yaml</span><br></pre></td></tr></table></figure>
+
+<p>2 修改dashboard的svc类型为NodePort</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">xxx</span><br></pre></td></tr></table></figure>
+
+<p>3 使用默认的token登录dashboard，登录成功后，只能看到default名称空间</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">kubectl get secret -n kubernetes-dashboard</span><br><span class="line">kubectl  describe  secret  kubernetes-dashboard-token-ngcmg  -n   kubernetes-dashboard</span><br></pre></td></tr></table></figure>
+
+<p>4 创建管理员token，可查看任何名称空间权限</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create clusterrolebinding dashboard-cluster-admin --clusterrole&#x3D;cluster-admin --serviceaccount&#x3D;kubernetes-dashboard:kubernetes-dashboard</span><br></pre></td></tr></table></figure>
+
+<p>5 查看token，并登录</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl  describe  secret  kubernetes-dashboard-token-ngcmg  -n   kubernetes-dashboard</span><br></pre></td></tr></table></figure>
+
+
+
+<p>额外的：安装metrics监控插件</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">kubectl apply -f https:&#x2F;&#x2F;raw.githubusercontent.com&#x2F;luckylucky421&#x2F;kubernetes1.17.3&#x2F;master&#x2F;metrics.yaml</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://blog.zerchin.xyz/2020/01/13/34_k8s-Master%E9%AB%98%E5%8F%AF%E7%94%A8/" title="k8s学习（34）：k8s高可用集群部署">http://blog.zerchin.xyz/2020/01/13/34_k8s-Master高可用/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2020/01/13/33_%E4%B8%8A%E4%B8%8B%E6%96%87/" rel="prev" title="k8s学习（33）：kubeconfig-配置文件上下文">
+                  <i class="fa fa-chevron-left"></i> k8s学习（33）：kubeconfig-配置文件上下文
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2020/01/14/35_Network_Policy/" rel="next" title="k8s学习（35）：k8s之Network Policy">
+                  k8s学习（35）：k8s之Network Policy <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

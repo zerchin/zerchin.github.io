@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.zerchin.xyz","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="基于pid寻找pod两种方法">
+<meta property="og:type" content="article">
+<meta property="og:title" content="基于pid寻找pod&amp;&amp;基于ID查找pod">
+<meta property="og:url" content="http://blog.zerchin.xyz/2020/06/11/%E5%9F%BA%E4%BA%8Epid%E5%AF%BB%E6%89%BEpod-%E5%9F%BA%E4%BA%8EID%E6%9F%A5%E6%89%BEpod/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="基于pid寻找pod两种方法">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-06-11T20:45:48.000Z">
+<meta property="article:modified_time" content="2020-06-11T20:45:48.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="kubernetes">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://blog.zerchin.xyz/2020/06/11/%E5%9F%BA%E4%BA%8Epid%E5%AF%BB%E6%89%BEpod-%E5%9F%BA%E4%BA%8EID%E6%9F%A5%E6%89%BEpod/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>基于pid寻找pod&&基于ID查找pod | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">42</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">26</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">86</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E4%BA%8Epid%E5%AF%BB%E6%89%BEpod"><span class="nav-number">1.</span> <span class="nav-text">基于pid寻找pod</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%A4%E7%A7%8D%E6%96%B9%E6%B3%95"><span class="nav-number">1.1.</span> <span class="nav-text">两种方法</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%AC%AC%E4%B8%80%E7%A7%8D"><span class="nav-number">1.1.1.</span> <span class="nav-text">第一种</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B%E5%AF%B9%E5%BA%94pid"><span class="nav-number">1.1.1.1.</span> <span class="nav-text">查看对应pid</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8Bdocker-ID"><span class="nav-number">1.1.1.2.</span> <span class="nav-text">查看docker ID</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8Bpod-name"><span class="nav-number">1.1.1.3.</span> <span class="nav-text">查看pod name</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%AC%AC%E4%BA%8C%E7%A7%8D"><span class="nav-number">1.1.2.</span> <span class="nav-text">第二种</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8Bpid"><span class="nav-number">1.1.2.1.</span> <span class="nav-text">查看pid</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8Bpod-ID"><span class="nav-number">1.1.2.2.</span> <span class="nav-text">查看pod ID</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8Bpod-name-1"><span class="nav-number">1.1.2.3.</span> <span class="nav-text">查看pod name</span></a></li></ol></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E4%BA%8EID%E6%9F%A5%E6%89%BEpod"><span class="nav-number">2.</span> <span class="nav-text">基于ID查找pod</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">86</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">42</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://blog.zerchin.xyz/2020/06/11/%E5%9F%BA%E4%BA%8Epid%E5%AF%BB%E6%89%BEpod-%E5%9F%BA%E4%BA%8EID%E6%9F%A5%E6%89%BEpod/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          基于pid寻找pod&&基于ID查找pod
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2020-06-11 20:45:48" itemprop="dateCreated datePublished" datetime="2020-06-11T20:45:48+00:00">2020-06-11</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/kubernetes/" itemprop="url" rel="index"><span itemprop="name">kubernetes</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="基于pid寻找pod"><a href="#基于pid寻找pod" class="headerlink" title="基于pid寻找pod"></a>基于pid寻找pod</h2><h3 id="两种方法"><a href="#两种方法" class="headerlink" title="两种方法"></a>两种方法</h3><h4 id="第一种"><a href="#第一种" class="headerlink" title="第一种"></a>第一种</h4><ol>
+<li><h5 id="查看对应pid"><a href="#查看对应pid" class="headerlink" title="查看对应pid"></a>查看对应pid</h5></li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># ps aux|grep prometheus 1000      </span></span><br><span class="line">5631  0.4  4.2 576752 327584 ?       Ssl  Jul08  47:46 /bin/prometheus --web.console.templates=/etc/prometheus/consoles --web.console.libraries=/etc/prometheus/console_libraries --config.file=/etc/prometheus/config_out/prometheus.env.yaml --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=12h --web.enable-lifecycle --storage.tsdb.no-lockfile --web.route-prefix=/ --web.listen-address=127.0.0.1:9090</span><br></pre></td></tr></table></figure>
+
+
+
+<ol start="2">
+<li><h5 id="查看docker-ID"><a href="#查看docker-ID" class="headerlink" title="查看docker ID"></a>查看docker ID</h5></li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># CID=$(cat /proc/5631/cgroup | awk -F &#x27;/&#x27; &#x27;&#123;print $5&#125;&#x27;) # echo $&#123;CID:7:8&#125; 59acd32c</span></span><br></pre></td></tr></table></figure>
+
+
+
+<ol start="3">
+<li><h5 id="查看pod-name"><a href="#查看pod-name" class="headerlink" title="查看pod name"></a>查看pod name</h5></li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># docker inspect 59acd32c | jq &#x27;.[0].Config.Labels[&quot;io.kubernetes.pod.name&quot;]&#x27; &quot;prometheus-cluster-monitoring-0&quot;</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="第二种"><a href="#第二种" class="headerlink" title="第二种"></a>第二种</h4><ol>
+<li><h5 id="查看pid"><a href="#查看pid" class="headerlink" title="查看pid"></a>查看pid</h5></li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># ps aux|grep prometheus 1000      </span></span><br><span class="line">5631  0.4  4.2 576752 327584 ?       Ssl  Jul08  47:46 /bin/prometheus --web.console.templates=/etc/prometheus/consoles --web.console.libraries=/etc/prometheus/console_libraries --config.file=/etc/prometheus/config_out/prometheus.env.yaml --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=12h --web.enable-lifecycle --storage.tsdb.no-lockfile --web.route-prefix=/ --web.listen-address=127.0.0.1:9090</span><br></pre></td></tr></table></figure>
+
+
+
+<ol start="2">
+<li><h5 id="查看pod-ID"><a href="#查看pod-ID" class="headerlink" title="查看pod ID"></a>查看pod ID</h5></li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cat /proc/5631/mountinfo | grep etc-hosts | awk -F / &#x27;&#123;print $6&#125;&#x27; 44a2f0f5-8ddc-40f9-96a5-c37e6bea55df</span></span><br></pre></td></tr></table></figure>
+
+
+
+<ol start="3">
+<li><h5 id="查看pod-name-1"><a href="#查看pod-name-1" class="headerlink" title="查看pod name"></a>查看pod name</h5></li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># docker ps | grep 44a2f0f5-8ddc-40f9-96a5-c37e6bea55df | awk -F _ &#x27;&#123;print $3&#125;&#x27; | uniq prometheus-cluster-monitoring-0</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="基于ID查找pod"><a href="#基于ID查找pod" class="headerlink" title="基于ID查找pod"></a>基于ID查找pod</h2><p>OOM日志如下：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">Nov 16 10:36:48 rancher-2 kernel: stress invoked oom-killer: gfp_mask=0x24000c0, order=0, oom_score_adj=994</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: stress cpuset=336506de688b4cb104c2ec6b2be5134cc66bac44ad2f3e0ad0a12f57623c6d50 mems_allowed=0</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: CPU: 1 PID: 3262 Comm: stress Not tainted 4.4.238-1.el7.elrepo.x86_64 <span class="comment">#1</span></span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: Hardware name: Fedora Project OpenStack Nova, BIOS 1.9.1-5.el7_3.1 04/01/2014</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: 0000000000000286 c7146aedec18fc5b ffff8801f41afc60 ffffffff8134f22a</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: ffff8801f41afd38 ffff88016ec30000 ffff8801f41afcc8 ffffffff81211c8b</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: ffffffff8119996c ffff88016effc2c0 0000000000000000 0000000000000206</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: Call Trace:</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [&lt;ffffffff8134f22a&gt;] dump_stack+0x6d/0x93</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [&lt;ffffffff81211c8b&gt;] dump_header+0x57/0x1bb</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [&lt;ffffffff8119996c&gt;] ? find_lock_task_mm+0x3c/0x80</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [&lt;ffffffff81211dfd&gt;] oom_kill_process.cold+0xe/0x30e</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [&lt;ffffffff81206c46&gt;] ? mem_cgroup_iter+0x146/0x320</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [&lt;ffffffff81208d78&gt;] mem_cgroup_out_of_memory+0x2c8/0x310</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [&lt;ffffffff812099b3&gt;] mem_cgroup_oom_synchronize+0x2e3/0x310</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [&lt;ffffffff81204c60&gt;] ? get_mctgt_type+0x250/0x250</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [&lt;ffffffff8119a30e&gt;] pagefault_out_of_memory+0x3e/0xb0</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [&lt;ffffffff81067882&gt;] mm_fault_error+0x62/0x150</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [&lt;ffffffff81068108&gt;] __do_page_fault+0x3d8/0x3e0</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [&lt;ffffffff810681c3&gt;] trace_do_page_fault+0x43/0x140</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [&lt;ffffffff81061737&gt;] do_async_page_fault+0x37/0xb0</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [&lt;ffffffff81738778&gt;] async_page_fault+0x28/0x30</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: Task <span class="keyword">in</span> /kubepods/burstable/podfc92664d-3ca9-4a37-8244-7bf1a04da201/336506de688b4cb104c2ec6b2be5134cc66bac44ad2f3e0ad0a12f57623c6d50 killed as a result of <span class="built_in">limit</span> of /kubepods/burstable/podfc92664d-3ca9-4a37-8244-7bf1a04da201</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: memory: usage 102400kB, <span class="built_in">limit</span> 102400kB, failcnt 14</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: memory+swap: usage 102400kB, <span class="built_in">limit</span> 9007199254740988kB, failcnt 0</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: kmem: usage 1940kB, <span class="built_in">limit</span> 9007199254740988kB, failcnt 0</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: Memory cgroup stats <span class="keyword">for</span> /kubepods/burstable/podfc92664d-3ca9-4a37-8244-7bf1a04da201: cache:0KB rss:0KB rss_huge:0KB mapped_file:0KB dirty:0KB writeback:0KB swap:0KB inactive_anon:0KB active_anon:0KB inactive_file:0KB active_file:0KB unevictable:0KB</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: Memory cgroup stats <span class="keyword">for</span> /kubepods/burstable/podfc92664d-3ca9-4a37-8244-7bf1a04da201/fa55a38258b1722eb5ba6bc5ea87f9f85107697ed3161d5e98526889b49778db: cache:0KB rss:44KB rss_huge:0KB mapped_file:0KB dirty:0KB writeback:0KB swap:0KB inactive_anon:0KB active_anon:44KB inactive_file:0KB active_file:0KB unevictable:0KB</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: Memory cgroup stats <span class="keyword">for</span> /kubepods/burstable/podfc92664d-3ca9-4a37-8244-7bf1a04da201/336506de688b4cb104c2ec6b2be5134cc66bac44ad2f3e0ad0a12f57623c6d50: cache:0KB rss:100416KB rss_huge:75776KB mapped_file:0KB dirty:0KB writeback:0KB swap:0KB inactive_anon:0KB active_anon:100392KB inactive_file:0KB active_file:0KB unevictable:0KB</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [ pid ]   uid  tgid total_vm      rss nr_ptes nr_pmds swapents oom_score_adj name</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [ 2608]     0  2608      255        1       4       2        0          -998 pause</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: [ 3149]     0  3149    28361    25755      56       5        0           994 stress</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: Memory cgroup out of memory: Kill process 3149 (stress) score 1979 or sacrifice child</span><br><span class="line">Nov 16 10:36:48 rancher-2 kernel: Killed process 3149 (stress) total-vm:113444kB, anon-rss:99904kB, file-rss:3116kB</span><br><span class="line">Nov 16 10:36:48 rancher-2 containerd: time=<span class="string">&quot;2020-11-16T10:36:48.794443229+08:00&quot;</span> level=info msg=<span class="string">&quot;shim reaped&quot;</span> id=336506de688b4cb104c2ec6b2be5134cc66bac44ad2f3e0ad0a12f57623c6d50</span><br><span class="line">Nov 16 10:36:48 rancher-2 dockerd: time=<span class="string">&quot;2020-11-16T10:36:48.804531348+08:00&quot;</span> level=info msg=<span class="string">&quot;ignoring event&quot;</span> module=libcontainerd namespace=moby topic=/tasks/delete <span class="built_in">type</span>=<span class="string">&quot;*events.TaskDelete&quot;</span></span><br><span class="line">Nov 16 10:37:05 rancher-2 containerd: time=<span class="string">&quot;2020-11-16T10:37:05.032807429+08:00&quot;</span> level=info msg=<span class="string">&quot;shim containerd-shim started&quot;</span> address=/containerd-shim/94327bd1be610aca06fccb2e695d8824d414327a214de3f259d5a8da5ded5188.sock debug=<span class="literal">false</span> pid=3801</span><br></pre></td></tr></table></figure>
+
+<p>可以看到/kubepods/burstable/podfc92664d-3ca9-4a37-8244-7bf1a04da201，其中fc92664d-3ca9-4a37-8244-7bf1a04da201就是<code>pod ID</code>，然后就可以根据pod ID查找pod</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">docker ps |grep fc92664d-3ca9-4a37-8244-7bf1a04da201 |awk <span class="string">&#x27;&#123;print $10&#125;&#x27;</span> |awk -F <span class="string">&#x27;_&#x27;</span> <span class="string">&#x27;&#123;print &quot;namespace: &quot;$4 &quot;\nname: &quot;$3&#125;&#x27;</span></span><br><span class="line">namespace: default</span><br><span class="line">name: memory-demo-2</span><br><span class="line">接着查看CGroup显示的限制，例如：kernel: memory: usage 102400kB, <span class="built_in">limit</span> 102400kB, failcnt 14 。其中内存使用达到102400kB，限制的值为102400kB，且内存超过限制的次数达到14次。</span><br></pre></td></tr></table></figure>
+
+
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://blog.zerchin.xyz/2020/06/11/%E5%9F%BA%E4%BA%8Epid%E5%AF%BB%E6%89%BEpod-%E5%9F%BA%E4%BA%8EID%E6%9F%A5%E6%89%BEpod/" title="基于pid寻找pod&amp;&amp;基于ID查找pod">http://blog.zerchin.xyz/2020/06/11/基于pid寻找pod-基于ID查找pod/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2020/06/02/%E9%80%9A%E8%BF%87API%E6%93%8D%E4%BD%9CRancher-%E7%94%A8%E6%88%B7%E6%9D%83%E9%99%90/" rel="prev" title="通过API操作Rancher 用户权限">
+                  <i class="fa fa-chevron-left"></i> 通过API操作Rancher 用户权限
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2020/06/22/nginx-ingress%E5%9F%BA%E4%BA%8EgRPC%E5%8D%8F%E8%AE%AE%E9%80%9A%E4%BF%A1/" rel="next" title="nginx-ingress基于gRPC协议通信">
+                  nginx-ingress基于gRPC协议通信 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.zerchin.xyz","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="简介如果企业内部有使用LDAP进行用户身份验证，则可以通过配置Rancher与OpenLDAP服务器通信以对用户进行身份验证。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="快速搭建OpenLDAP环境并对接Rancher认证">
+<meta property="og:url" content="http://blog.zerchin.xyz/2021/04/29/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="简介如果企业内部有使用LDAP进行用户身份验证，则可以通过配置Rancher与OpenLDAP服务器通信以对用户进行身份验证。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/login-1.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/login-2.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/ou-1.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/ou-2.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/ou-3.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/ou-4.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/ou-5.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/group-1.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/group-2.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/group-3.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/user-1.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/user-2.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/user-3.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/user-4.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/rancher-1.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/rancher-2.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/rancher-3.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/rancher-4.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/rancher-5.png">
+<meta property="og:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/rancher-6.png">
+<meta property="article:published_time" content="2021-04-29T11:22:39.000Z">
+<meta property="article:modified_time" content="2022-06-18T14:06:45.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="rancher">
+<meta property="article:tag" content="openldap">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://blog.zerchin.xyz/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/login-1.png">
+
+
+<link rel="canonical" href="http://blog.zerchin.xyz/2021/04/29/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>快速搭建OpenLDAP环境并对接Rancher认证 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">42</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">26</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">86</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AE%80%E4%BB%8B"><span class="nav-number">1.</span> <span class="nav-text">简介</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%AD%A5%E9%AA%A4"><span class="nav-number">2.</span> <span class="nav-text">步骤</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E8%A3%85OpenLDAP%E6%9C%8D%E5%8A%A1"><span class="nav-number">2.1.</span> <span class="nav-text">安装OpenLDAP服务</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9F%BA%E4%BA%8Ephpldapadmin%E7%9A%84web%E5%B7%A5%E5%85%B7%E5%88%9B%E5%BB%BA%E7%94%A8%E6%88%B7"><span class="nav-number">2.2.</span> <span class="nav-text">基于phpldapadmin的web工具创建用户</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%88%9B%E5%BB%BAOrganisational-Unit"><span class="nav-number">2.2.1.</span> <span class="nav-text">创建Organisational Unit</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%88%9B%E5%BB%BAGroup"><span class="nav-number">2.2.2.</span> <span class="nav-text">创建Group</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%88%9B%E5%BB%BAUser"><span class="nav-number">2.2.3.</span> <span class="nav-text">创建User</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81"><span class="nav-number">2.3.</span> <span class="nav-text">对接Rancher认证</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%AF%B9%E6%8E%A5OpenLDAP"><span class="nav-number">2.3.1.</span> <span class="nav-text">对接OpenLDAP</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%B5%8B%E8%AF%95LDAP%E7%94%A8%E6%88%B7%E7%99%BB%E5%BD%95"><span class="nav-number">2.3.2.</span> <span class="nav-text">测试LDAP用户登录</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#OpenLDAP%E5%90%AF%E7%94%A8TLS"><span class="nav-number">2.4.</span> <span class="nav-text">OpenLDAP启用TLS</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA%E8%87%AA%E7%AD%BE%E5%90%8D%E8%AF%81%E4%B9%A6"><span class="nav-number">2.4.1.</span> <span class="nav-text">创建自签名证书</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#LDAP-%E6%B7%BB%E5%8A%A0%E7%9B%B8%E5%85%B3-TLS-%E9%85%8D%E7%BD%AE%E5%8F%82%E6%95%B0"><span class="nav-number">2.4.2.</span> <span class="nav-text">LDAP 添加相关 TLS 配置参数</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Rancher%E5%AF%B9%E6%8E%A5TLS-OpenLDAP"><span class="nav-number">2.4.3.</span> <span class="nav-text">Rancher对接TLS OpenLDAP</span></a></li></ol></li></ol></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">86</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">42</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://blog.zerchin.xyz/2021/04/29/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          快速搭建OpenLDAP环境并对接Rancher认证
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2021-04-29 11:22:39" itemprop="dateCreated datePublished" datetime="2021-04-29T11:22:39+00:00">2021-04-29</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">更新于</span>
+        <time title="修改时间：2022-06-18 14:06:45" itemprop="dateModified" datetime="2022-06-18T14:06:45+00:00">2022-06-18</time>
+      </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/openldap/" itemprop="url" rel="index"><span itemprop="name">openldap</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>如果企业内部有使用LDAP进行用户身份验证，则可以通过配置Rancher与OpenLDAP服务器通信以对用户进行身份验证。</p>
+<p>本文将介绍如何通过docker快速搭建OpenLDAP环境，并对接Rancher认证功能</p>
+<p>主要用到两个镜像：</p>
+<ul>
+<li><code>osixia/openldap:1.5.0</code>：LDAP服务端</li>
+<li><code>osixia/phpldapadmin:0.9.0</code>：LDAP web管理工具</li>
+</ul>
+<h2 id="步骤"><a href="#步骤" class="headerlink" title="步骤"></a>步骤</h2><h3 id="安装OpenLDAP服务"><a href="#安装OpenLDAP服务" class="headerlink" title="安装OpenLDAP服务"></a>安装OpenLDAP服务</h3><ol>
+<li><p>基于<code>osixia/openldap:1.5.0</code>镜像，创建OpenLDAP服务</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker run -p 389:389 -p 636:636 --name openldap -itd --env LDAP_ORGANISATION=<span class="string">&quot;rancher&quot;</span> --env LDAP_DOMAIN=<span class="string">&quot;rancherldap.com&quot;</span> --env LDAP_ADMIN_PASSWORD=<span class="string">&quot;Rancher123&quot;</span>   osixia/openldap:1.5.0</span><br></pre></td></tr></table></figure>
+
+<p>参数说明：</p>
+<p>缺省ldap使用389端口，加密使用636端口</p>
+<p><code>LDAP_ORGANISATION</code>：Organisation名称，默认是<code>Example Inc.</code></p>
+<p><code>LDAP_DOMAIN</code>：LDAP domain，例如默认是<code>example.org</code>，则domain为<code>dc=example,dc=org</code></p>
+<p><code>LDAP_ADMIN_PASSWORD</code>：admin用户密码</p>
+</li>
+</ol>
+<ol start="2">
+<li><p>创建<code>osixia/phpldapadmin:0.9.0</code>镜像，创建Web服务</p>
+<p>phpldapadmin是一个基于Web的管理LDAP的工具，可以更加直观的查看和管理LDAP信息</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker run -p 6443:443 --env PHPLDAPADMIN_LDAP_HOSTS=172.16.21.12 -itd --name phpldapadmin osixia/phpldapadmin:0.9.0</span><br></pre></td></tr></table></figure>
+
+<p>参数说明：</p>
+<p><code>PHPLDAPADMIN_LDAP_HOSTS</code>：LDAP服务地址，这里如果是将openLDAP容器启动在相同主机上则填写本机的IP地址即可</p>
+</li>
+<li><p>docker-compose（可选)</p>
+<p>也可以通过docker-compose去创建OpenLDAP环境</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">version:</span> <span class="string">&#x27;2.3&#x27;</span></span><br><span class="line"><span class="attr">services:</span></span><br><span class="line">  <span class="attr">openldap:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">osixia/openldap:1.5.0</span></span><br><span class="line">    <span class="attr">container_name:</span> <span class="string">openldap</span></span><br><span class="line">    <span class="attr">restart:</span> <span class="string">always</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">LDAP_ORGANISATION=rancher</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">LDAP_DOMAIN=rancherldap.com</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">LDAP_ADMIN_PASSWORD=Rancher123</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">389</span><span class="string">:389</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">636</span><span class="string">:636</span></span><br><span class="line">    <span class="attr">volumes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./slapd:/etc/ldap/slapd.d</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./data:/var/lib/ldap</span></span><br><span class="line">  <span class="attr">phpldapadmin:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">osixia/phpldapadmin:0.9.0</span></span><br><span class="line">    <span class="attr">container_name:</span> <span class="string">phpldapadmin</span></span><br><span class="line">    <span class="attr">restart:</span> <span class="string">always</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">PHPLDAPADMIN_LDAP_HOSTS=openldap</span></span><br><span class="line">    <span class="attr">links:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">openldap:openldap</span></span><br><span class="line">    <span class="attr">depends_on:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">openldap</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">6443</span><span class="string">:443</span></span><br><span class="line">    <span class="attr">volumes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./phpldapadmin-certs:/container/service/phpldapadmin/assets/apache2/certs</span></span><br></pre></td></tr></table></figure>
+
+<p>将上诉文件保存到<code>docker-compose.yml</code>中，然后执行<code>docker-compose up -d</code>命令即可</p>
+<p>运行成功后，会在跟<code>docker-compose.yml</code>文件相同的目录下创建三个目录<code>slapd</code>、<code>data</code>、<code>phpldapadmin-certs</code></p>
+<p>默认admin domain账号为：<code>cn=admin,dc=rancherldap,dc=com</code>，密码为：<code>Rancher123</code></p>
+</li>
+<li><p>进入openldap容器中，执行<code>ldapsearch</code>命令尝试搜索</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker <span class="built_in">exec</span> openldap ldapsearch -x -H ldap://localhost -b dc=rancherldap,dc=com -D <span class="string">&quot;cn=admin,dc=rancherldap,dc=com&quot;</span> -w Rancher123</span><br></pre></td></tr></table></figure>
+
+<p>可以得到如下输出结果，则说明部署成功</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># extended LDIF</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"><span class="comment"># LDAPv3</span></span><br><span class="line"><span class="comment"># base &lt;dc=rancherldap,dc=com&gt; with scope subtree</span></span><br><span class="line"><span class="comment"># filter: (objectclass=*)</span></span><br><span class="line"><span class="comment"># requesting: ALL</span></span><br><span class="line"><span class="comment">#</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># rancherldap.com</span></span><br><span class="line">dn: dc=rancherldap,dc=com</span><br><span class="line">objectClass: top</span><br><span class="line">objectClass: dcObject</span><br><span class="line">objectClass: organization</span><br><span class="line">o: rancher</span><br><span class="line">dc: rancherldap</span><br><span class="line"></span><br><span class="line"><span class="comment"># search result</span></span><br><span class="line">search: 2</span><br><span class="line">result: 0 Success</span><br><span class="line"></span><br><span class="line"><span class="comment"># numResponses: 2</span></span><br><span class="line"><span class="comment"># numEntries: 1</span></span><br></pre></td></tr></table></figure>
+
+</li>
+</ol>
+<h3 id="基于phpldapadmin的web工具创建用户"><a href="#基于phpldapadmin的web工具创建用户" class="headerlink" title="基于phpldapadmin的web工具创建用户"></a>基于phpldapadmin的web工具创建用户</h3><p>浏览器访问：<code>https://&lt;IP&gt;:6443</code>，点击左侧login登录</p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/login-1.png" alt="login-1"></p>
+<p>其中账号密码如下：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cn=admin,dc=rancherldap,dc=com</span><br><span class="line">Rancher123</span><br></pre></td></tr></table></figure>
+
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/login-2.png" alt="login-2"></p>
+<p>登录进去后，可以看到domain相关信息</p>
+<h4 id="创建Organisational-Unit"><a href="#创建Organisational-Unit" class="headerlink" title="创建Organisational Unit"></a>创建Organisational Unit</h4><p>点击<code>dc=rancherldap,dc=com</code>，在其目录下点击<code>Create a child entry</code>创建子条目</p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/ou-1.png" alt="ou-1"></p>
+<p>点击 <code>Generic: Organisational Unit</code></p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/ou-2.png" alt="ou-2"></p>
+<p>填写OU名称，例如这里填写rancher，填好之后点击<code>Create Object</code>创建该对象</p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/ou-3.png" alt="ou-3"></p>
+<p>点击Commit二次确认</p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/ou-4.png" alt="ou-4"></p>
+<p>创建成功后，就可以在左侧中看到我们创建的OU对象</p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/ou-5.png" alt="ou-5"></p>
+<h4 id="创建Group"><a href="#创建Group" class="headerlink" title="创建Group"></a>创建Group</h4><p>在<code>ou=rancher</code>下，点击<code>Create a child entry</code>创建子条目，点击 <code>Generic: Posix Group</code>创建Group对象</p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/group-1.png" alt="image-20210429155116459"></p>
+<p>填写Group名称，例如这里填写<code>group</code>，</p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/group-2.png" alt="group-2"></p>
+<p>填好之后点击<code>Create Object</code>创建该对象，点击Commit二次确认，创建成功后，就可以在左侧中看到我们创建的Group对象</p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/group-3.png" alt="group-3"></p>
+<h4 id="创建User"><a href="#创建User" class="headerlink" title="创建User"></a>创建User</h4><p>在<code>cn=group</code>下，点击<code>Create a child entry</code>创建子条目，点击 <code>Generic: User Account</code>创建User对象</p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/user-1.png" alt="user-1"></p>
+<p>填写对应的user信息，填写First name和Last name，会自动生成Common Name和User ID，其中UserID为后续Rancher登录的用户名</p>
+<p>填写Password，后续登录Rancher使用该密码</p>
+<p>选择刚刚创建的group</p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/user-2.png" alt="user-2"></p>
+<p>填好之后点击<code>Create Object</code>创建该对象，点击Commit二次确认，创建成功后，就可以在左侧中看到我们创建的USer对象</p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/user-3.png" alt="user-3"></p>
+<p>同理，我们用相同的方法再创建一个test用户</p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/user-4.png" alt="user-4"></p>
+<h3 id="对接Rancher认证"><a href="#对接Rancher认证" class="headerlink" title="对接Rancher认证"></a>对接Rancher认证</h3><h4 id="对接OpenLDAP"><a href="#对接OpenLDAP" class="headerlink" title="对接OpenLDAP"></a>对接OpenLDAP</h4><p>在Rancher UI中，点击 全局-安全-认证，选择OpenLDAP</p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/rancher-1.png" alt="rancher-1"></p>
+<p>参数说明：</p>
+<p><code>主机名或 IP 地址</code>：OpenLDAP服务器的IP地址</p>
+<p><code>端口</code>：默认端口是389</p>
+<p><code>服务帐户专有名称</code>：<code>cn=admin,dc=rancherldap,dc=com</code>，这里填写admin用户的domain</p>
+<p><code>服务账号密码</code>：admin用户的密码</p>
+<p><code>用户搜索起点</code>：例如刚刚创建的OU为rancher，则这里的搜索起点为<code>ou=rancher,dc=rancherldap,dc=com</code></p>
+<p><code>用户名</code>：这个用户会成为管理员，用户名需要基于<code>User Name</code>填写，例如我们刚刚创建的adminuser，则这里填写<code>auser</code></p>
+<p><code>密码</code>：该用户的密码</p>
+<p>参数填写完之后，点击启用OpenLDAP认证，开启OpenLDAP认证</p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/rancher-2.png" alt="rancher-2"></p>
+<h4 id="测试LDAP用户登录"><a href="#测试LDAP用户登录" class="headerlink" title="测试LDAP用户登录"></a>测试LDAP用户登录</h4><p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/rancher-3.png" alt="rancher-3"></p>
+<p>登录成功，默认该用户没有权限</p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/rancher-4.png" alt="rancher-4"></p>
+<h3 id="OpenLDAP启用TLS"><a href="#OpenLDAP启用TLS" class="headerlink" title="OpenLDAP启用TLS"></a>OpenLDAP启用TLS</h3><p>上述情况下，对接LDAP使用389端口，我们可以使用此端口进行LDAP连接。 但是该端口是非安全和未加密的连接，容易造成安全问题，暴露用户相关信息，一般建议是389仅用在内网或者测试环境。</p>
+<p>针对这个情况，我们可以使用LDAP的另一个tls加密端口：636端口，来对接LDAP。</p>
+<h4 id="创建自签名证书"><a href="#创建自签名证书" class="headerlink" title="创建自签名证书"></a>创建自签名证书</h4><p>在<code>docker-compose.yml</code>同级目录下，新建一个目录，命名为<code>certs</code></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mkdir certs</span><br><span class="line"><span class="built_in">cd</span> certs</span><br></pre></td></tr></table></figure>
+
+<p>新建一个文件<code>create-cert.sh</code>，复制如下脚本至该文件中</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash -e</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">help</span> ()</span><br><span class="line">&#123;</span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; ================================================================ &#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; --ssl-domain: 生成ssl证书需要的主域名，如不指定则默认为www.rancher.local，如果是ip访问服务，则可忽略；&#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; --ssl-trusted-ip: 一般ssl证书只信任域名的访问请求，有时候需要使用ip去访问server，那么需要给ssl证书添加扩展IP，多个IP用逗号隔开；&#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; --ssl-trusted-domain: 如果想多个域名访问，则添加扩展域名（SSL_TRUSTED_DOMAIN）,多个扩展域名用逗号隔开；&#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; --ssl-size: ssl加密位数，默认2048；&#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; --ssl-cn: 国家代码(2个字母的代号),默认CN;&#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; 使用示例:&#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; ./create_self-signed-cert.sh --ssl-domain=www.test.com --ssl-trusted-domain=www.test2.com \ &#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; --ssl-trusted-ip=1.1.1.1,2.2.2.2,3.3.3.3 --ssl-size=2048 --ssl-date=3650&#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; ================================================================&#x27;</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">case</span> <span class="string">&quot;<span class="variable">$1</span>&quot;</span> <span class="keyword">in</span></span><br><span class="line">    -h|--<span class="built_in">help</span>) <span class="built_in">help</span>; <span class="built_in">exit</span>;;</span><br><span class="line"><span class="keyword">esac</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [[ <span class="variable">$1</span> == <span class="string">&#x27;&#x27;</span> ]];<span class="keyword">then</span></span><br><span class="line">    <span class="built_in">help</span>;</span><br><span class="line">    <span class="built_in">exit</span>;</span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line">CMDOPTS=<span class="string">&quot;$*&quot;</span></span><br><span class="line"><span class="keyword">for</span> OPTS <span class="keyword">in</span> <span class="variable">$CMDOPTS</span>;</span><br><span class="line"><span class="keyword">do</span></span><br><span class="line">    key=$(<span class="built_in">echo</span> <span class="variable">$&#123;OPTS&#125;</span> | awk -F<span class="string">&quot;=&quot;</span> <span class="string">&#x27;&#123;print $1&#125;&#x27;</span> )</span><br><span class="line">    value=$(<span class="built_in">echo</span> <span class="variable">$&#123;OPTS&#125;</span> | awk -F<span class="string">&quot;=&quot;</span> <span class="string">&#x27;&#123;print $2&#125;&#x27;</span> )</span><br><span class="line">    <span class="keyword">case</span> <span class="string">&quot;<span class="variable">$key</span>&quot;</span> <span class="keyword">in</span></span><br><span class="line">        --ssl-domain) SSL_DOMAIN=<span class="variable">$value</span> ;;</span><br><span class="line">        --ssl-trusted-ip) SSL_TRUSTED_IP=<span class="variable">$value</span> ;;</span><br><span class="line">        --ssl-trusted-domain) SSL_TRUSTED_DOMAIN=<span class="variable">$value</span> ;;</span><br><span class="line">        --ssl-size) SSL_SIZE=<span class="variable">$value</span> ;;</span><br><span class="line">        --ssl-date) SSL_DATE=<span class="variable">$value</span> ;;</span><br><span class="line">        --ca-date) CA_DATE=<span class="variable">$value</span> ;;</span><br><span class="line">        --ssl-cn) CN=<span class="variable">$value</span> ;;</span><br><span class="line">    <span class="keyword">esac</span></span><br><span class="line"><span class="keyword">done</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># CA相关配置</span></span><br><span class="line">CA_DATE=<span class="variable">$&#123;CA_DATE:-3650&#125;</span></span><br><span class="line">CA_KEY=<span class="variable">$&#123;CA_KEY:-cakey.pem&#125;</span></span><br><span class="line">CA_CERT=<span class="variable">$&#123;CA_CERT:-cacerts.pem&#125;</span></span><br><span class="line">CA_DOMAIN=cattle-ca</span><br><span class="line"></span><br><span class="line"><span class="comment"># ssl相关配置</span></span><br><span class="line">SSL_CONFIG=<span class="variable">$&#123;SSL_CONFIG:-<span class="variable">$PWD</span>/openssl.cnf&#125;</span></span><br><span class="line">SSL_DOMAIN=<span class="variable">$&#123;SSL_DOMAIN:-&#x27;www.rancher.local&#x27;&#125;</span></span><br><span class="line">SSL_DATE=<span class="variable">$&#123;SSL_DATE:-3650&#125;</span></span><br><span class="line">SSL_SIZE=<span class="variable">$&#123;SSL_SIZE:-2048&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">## 国家代码(2个字母的代号),默认CN;</span></span><br><span class="line">CN=<span class="variable">$&#123;CN:-CN&#125;</span></span><br><span class="line"></span><br><span class="line">SSL_KEY=<span class="variable">$SSL_DOMAIN</span>.key</span><br><span class="line">SSL_CSR=<span class="variable">$SSL_DOMAIN</span>.csr</span><br><span class="line">SSL_CERT=<span class="variable">$SSL_DOMAIN</span>.crt</span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ---------------------------- \033[0m&quot;</span></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m       | 生成 SSL Cert |       \033[0m&quot;</span></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ---------------------------- \033[0m&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [[ -e ./<span class="variable">$&#123;CA_KEY&#125;</span> ]]; <span class="keyword">then</span></span><br><span class="line">    <span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 1. 发现已存在CA私钥，备份&quot;</span><span class="variable">$&#123;CA_KEY&#125;</span><span class="string">&quot;为&quot;</span><span class="variable">$&#123;CA_KEY&#125;</span><span class="string">&quot;-bak，然后重新创建 \033[0m&quot;</span></span><br><span class="line">    mv <span class="variable">$&#123;CA_KEY&#125;</span> <span class="string">&quot;<span class="variable">$&#123;CA_KEY&#125;</span>&quot;</span>-bak</span><br><span class="line">    openssl genrsa -out <span class="variable">$&#123;CA_KEY&#125;</span> <span class="variable">$&#123;SSL_SIZE&#125;</span></span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">    <span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 1. 生成新的CA私钥 <span class="variable">$&#123;CA_KEY&#125;</span> \033[0m&quot;</span></span><br><span class="line">    openssl genrsa -out <span class="variable">$&#123;CA_KEY&#125;</span> <span class="variable">$&#123;SSL_SIZE&#125;</span></span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [[ -e ./<span class="variable">$&#123;CA_CERT&#125;</span> ]]; <span class="keyword">then</span></span><br><span class="line">    <span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 2. 发现已存在CA证书，先备份&quot;</span><span class="variable">$&#123;CA_CERT&#125;</span><span class="string">&quot;为&quot;</span><span class="variable">$&#123;CA_CERT&#125;</span><span class="string">&quot;-bak，然后重新创建 \033[0m&quot;</span></span><br><span class="line">    mv <span class="variable">$&#123;CA_CERT&#125;</span> <span class="string">&quot;<span class="variable">$&#123;CA_CERT&#125;</span>&quot;</span>-bak</span><br><span class="line">    openssl req -x509 -sha256 -new -nodes -key <span class="variable">$&#123;CA_KEY&#125;</span> -days <span class="variable">$&#123;CA_DATE&#125;</span> -out <span class="variable">$&#123;CA_CERT&#125;</span> -subj <span class="string">&quot;/C=<span class="variable">$&#123;CN&#125;</span>/CN=<span class="variable">$&#123;CA_DOMAIN&#125;</span>&quot;</span></span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">    <span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 2. 生成新的CA证书 <span class="variable">$&#123;CA_CERT&#125;</span> \033[0m&quot;</span></span><br><span class="line">    openssl req -x509 -sha256 -new -nodes -key <span class="variable">$&#123;CA_KEY&#125;</span> -days <span class="variable">$&#123;CA_DATE&#125;</span> -out <span class="variable">$&#123;CA_CERT&#125;</span> -subj <span class="string">&quot;/C=<span class="variable">$&#123;CN&#125;</span>/CN=<span class="variable">$&#123;CA_DOMAIN&#125;</span>&quot;</span></span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 3. 生成Openssl配置文件 <span class="variable">$&#123;SSL_CONFIG&#125;</span> \033[0m&quot;</span></span><br><span class="line">cat &gt; <span class="variable">$&#123;SSL_CONFIG&#125;</span> &lt;&lt;<span class="string">EOM</span></span><br><span class="line"><span class="string">[req]</span></span><br><span class="line"><span class="string">req_extensions = v3_req</span></span><br><span class="line"><span class="string">distinguished_name = req_distinguished_name</span></span><br><span class="line"><span class="string">[req_distinguished_name]</span></span><br><span class="line"><span class="string">[ v3_req ]</span></span><br><span class="line"><span class="string">basicConstraints = CA:FALSE</span></span><br><span class="line"><span class="string">keyUsage = nonRepudiation, digitalSignature, keyEncipherment</span></span><br><span class="line"><span class="string">extendedKeyUsage = clientAuth, serverAuth</span></span><br><span class="line"><span class="string">EOM</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [[ -n <span class="variable">$&#123;SSL_TRUSTED_IP&#125;</span> || -n <span class="variable">$&#123;SSL_TRUSTED_DOMAIN&#125;</span> || -n <span class="variable">$&#123;SSL_DOMAIN&#125;</span> ]]; <span class="keyword">then</span></span><br><span class="line">    cat &gt;&gt; <span class="variable">$&#123;SSL_CONFIG&#125;</span> &lt;&lt;<span class="string">EOM</span></span><br><span class="line"><span class="string">subjectAltName = @alt_names</span></span><br><span class="line"><span class="string">[alt_names]</span></span><br><span class="line"><span class="string">EOM</span></span><br><span class="line">    IFS=<span class="string">&quot;,&quot;</span></span><br><span class="line">    dns=(<span class="variable">$&#123;SSL_TRUSTED_DOMAIN&#125;</span>)</span><br><span class="line">    dns+=(<span class="variable">$&#123;SSL_DOMAIN&#125;</span>)</span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> <span class="string">&quot;<span class="variable">$&#123;!dns[@]&#125;</span>&quot;</span>; <span class="keyword">do</span></span><br><span class="line">      <span class="built_in">echo</span> DNS.$((i+<span class="number">1</span>)) = <span class="variable">$&#123;dns[$i]&#125;</span> &gt;&gt; <span class="variable">$&#123;SSL_CONFIG&#125;</span></span><br><span class="line">    <span class="keyword">done</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> [[ -n <span class="variable">$&#123;SSL_TRUSTED_IP&#125;</span> ]]; <span class="keyword">then</span></span><br><span class="line">        ip=(<span class="variable">$&#123;SSL_TRUSTED_IP&#125;</span>)</span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="string">&quot;<span class="variable">$&#123;!ip[@]&#125;</span>&quot;</span>; <span class="keyword">do</span></span><br><span class="line">          <span class="built_in">echo</span> IP.$((i+<span class="number">1</span>)) = <span class="variable">$&#123;ip[$i]&#125;</span> &gt;&gt; <span class="variable">$&#123;SSL_CONFIG&#125;</span></span><br><span class="line">        <span class="keyword">done</span></span><br><span class="line">    <span class="keyword">fi</span></span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 4. 生成服务SSL KEY <span class="variable">$&#123;SSL_KEY&#125;</span> \033[0m&quot;</span></span><br><span class="line">openssl genrsa -out <span class="variable">$&#123;SSL_KEY&#125;</span> <span class="variable">$&#123;SSL_SIZE&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 5. 生成服务SSL CSR <span class="variable">$&#123;SSL_CSR&#125;</span> \033[0m&quot;</span></span><br><span class="line">openssl req -sha256 -new -key <span class="variable">$&#123;SSL_KEY&#125;</span> -out <span class="variable">$&#123;SSL_CSR&#125;</span> -subj <span class="string">&quot;/C=<span class="variable">$&#123;CN&#125;</span>/CN=<span class="variable">$&#123;SSL_DOMAIN&#125;</span>&quot;</span> -config <span class="variable">$&#123;SSL_CONFIG&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 6. 生成服务SSL CERT <span class="variable">$&#123;SSL_CERT&#125;</span> \033[0m&quot;</span></span><br><span class="line">openssl x509 -sha256 -req -<span class="keyword">in</span> <span class="variable">$&#123;SSL_CSR&#125;</span> -CA <span class="variable">$&#123;CA_CERT&#125;</span> \</span><br><span class="line">    -CAkey <span class="variable">$&#123;CA_KEY&#125;</span> -CAcreateserial -out <span class="variable">$&#123;SSL_CERT&#125;</span> \</span><br><span class="line">    -days <span class="variable">$&#123;SSL_DATE&#125;</span> -extensions v3_req \</span><br><span class="line">    -extfile <span class="variable">$&#123;SSL_CONFIG&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 7. 证书制作完成 \033[0m&quot;</span></span><br><span class="line"><span class="built_in">echo</span></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 8. 以YAML格式输出结果 \033[0m&quot;</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;----------------------------------------------------------&quot;</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;ca_key: |&quot;</span></span><br><span class="line">cat <span class="variable">$CA_KEY</span> | sed <span class="string">&#x27;s/^/  /&#x27;</span></span><br><span class="line"><span class="built_in">echo</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;ca_cert: |&quot;</span></span><br><span class="line">cat <span class="variable">$CA_CERT</span> | sed <span class="string">&#x27;s/^/  /&#x27;</span></span><br><span class="line"><span class="built_in">echo</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;ssl_key: |&quot;</span></span><br><span class="line">cat <span class="variable">$SSL_KEY</span> | sed <span class="string">&#x27;s/^/  /&#x27;</span></span><br><span class="line"><span class="built_in">echo</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;ssl_csr: |&quot;</span></span><br><span class="line">cat <span class="variable">$SSL_CSR</span> | sed <span class="string">&#x27;s/^/  /&#x27;</span></span><br><span class="line"><span class="built_in">echo</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;ssl_cert: |&quot;</span></span><br><span class="line">cat <span class="variable">$SSL_CERT</span> | sed <span class="string">&#x27;s/^/  /&#x27;</span></span><br><span class="line"><span class="built_in">echo</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 9. 附加CA证书到Cert文件 \033[0m&quot;</span></span><br><span class="line">cat <span class="variable">$&#123;CA_CERT&#125;</span> &gt;&gt; <span class="variable">$&#123;SSL_CERT&#125;</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;ssl_cert: |&quot;</span></span><br><span class="line">cat <span class="variable">$SSL_CERT</span> | sed <span class="string">&#x27;s/^/  /&#x27;</span></span><br><span class="line"><span class="built_in">echo</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 10. 重命名服务证书 \033[0m&quot;</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;cp <span class="variable">$&#123;SSL_DOMAIN&#125;</span>.key tls.key&quot;</span></span><br><span class="line">cp <span class="variable">$&#123;SSL_DOMAIN&#125;</span>.key tls.key</span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;cp <span class="variable">$&#123;SSL_DOMAIN&#125;</span>.crt tls.crt&quot;</span></span><br><span class="line">cp <span class="variable">$&#123;SSL_DOMAIN&#125;</span>.crt tls.crt</span><br></pre></td></tr></table></figure>
+
+<p>使用示例如下，详细参数说明请参考<a target="_blank" rel="noopener" href="https://docs.rancher.cn/docs/rancher2.5/installation/resources/advanced/self-signed-ssl/_index/#41-%E4%B8%80%E9%94%AE%E7%94%9F%E6%88%90-ssl-%E8%87%AA%E7%AD%BE%E5%90%8D%E8%AF%81%E4%B9%A6%E8%84%9A%E6%9C%AC">Rancher一键生成自签名证书脚本</a>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">chmod +x create-cert.sh</span><br><span class="line">./create-cert.sh --ssl-domain=ldap.zerchin.xyz --ssl-trusted-ip=172.16.21.12 --ssl-size=2048 --ssl-date=3650</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="LDAP-添加相关-TLS-配置参数"><a href="#LDAP-添加相关-TLS-配置参数" class="headerlink" title="LDAP 添加相关 TLS 配置参数"></a>LDAP 添加相关 TLS 配置参数</h4><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">version:</span> <span class="string">&#x27;2.3&#x27;</span></span><br><span class="line"><span class="attr">services:</span></span><br><span class="line">  <span class="attr">openldap:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">osixia/openldap:1.5.0</span></span><br><span class="line">    <span class="attr">container_name:</span> <span class="string">openldap</span></span><br><span class="line">    <span class="attr">restart:</span> <span class="string">always</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">LDAP_ORGANISATION=rancher</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">LDAP_DOMAIN=rancherldap.com</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">LDAP_ADMIN_PASSWORD=Rancher123</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">LDAP_TLS_CRT_FILENAME=tls.crt</span>                   <span class="comment">## tls</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">LDAP_TLS_KEY_FILENAME=tls.key</span>                   <span class="comment">## tls</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">LDAP_TLS_CA_CRT_FILENAME=cacerts.pem</span>            <span class="comment">## tls</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">LDAP_TLS_VERIFY_CLIENT=try</span>                      <span class="comment">## tls</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">389</span><span class="string">:389</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">636</span><span class="string">:636</span></span><br><span class="line">    <span class="attr">volumes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./slapd:/etc/ldap/slapd.d</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./data:/var/lib/ldap</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./certs:/container/service/slapd/assets/certs</span>    <span class="comment">## tls</span></span><br><span class="line">  <span class="attr">phpldapadmin:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">osixia/phpldapadmin:0.9.0</span></span><br><span class="line">    <span class="attr">container_name:</span> <span class="string">phpldapadmin</span></span><br><span class="line">    <span class="attr">restart:</span> <span class="string">always</span></span><br><span class="line">    <span class="attr">environment:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">PHPLDAPADMIN_LDAP_HOSTS=openldap</span></span><br><span class="line">    <span class="attr">links:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">openldap:openldap</span></span><br><span class="line">    <span class="attr">depends_on:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">openldap</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="number">6443</span><span class="string">:443</span></span><br><span class="line">    <span class="attr">volumes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./phpldapadmin-certs:/container/service/phpldapadmin/assets/apache2/certs</span></span><br></pre></td></tr></table></figure>
+
+<p>参数说明：</p>
+<p><code>LDAP_TLS_CRT_FILENAME</code>：ldap证书文件名</p>
+<p><code>LDAP_TLS_KEY_FILENAME</code>：ldap证书key文件名</p>
+<p><code>LDAP_TLS_CA_CRT_FILENAME</code>：CA证书文件名</p>
+<p><code>LDAP_TLS_VERIFY_CLIENT</code>：默认是<code>demand</code>，会对传入的 TLS 会话中的客户端证书强制执行检查，在对接的过程中会报证书相关错误，这里设置为<code>try</code>，没有证书也可以正常会话保持。可参考<a target="_blank" rel="noopener" href="https://www.openldap.org/doc/admin24/tls.html">此文档</a>。</p>
+<p>然后重新运行docker-compose命令即可：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker-compose down -v</span><br><span class="line">docker-compose up -d</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="Rancher对接TLS-OpenLDAP"><a href="#Rancher对接TLS-OpenLDAP" class="headerlink" title="Rancher对接TLS OpenLDAP"></a>Rancher对接TLS OpenLDAP</h4><p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/rancher-5.png" alt="rancher-5"></p>
+<p>其中端口要改为636 tls端口，并将加密类型设置为TLS，其中CA证书去certs目录下查看<code>cacerts.pem</code>文件拷贝过来即可，对接成功如下：</p>
+<p><img src="/images/mk/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81.assets/rancher-6.png" alt="rancher-6"></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://blog.zerchin.xyz/2021/04/29/%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAOpenLDAP%E7%8E%AF%E5%A2%83%E5%B9%B6%E5%AF%B9%E6%8E%A5Rancher%E8%AE%A4%E8%AF%81/" title="快速搭建OpenLDAP环境并对接Rancher认证">http://blog.zerchin.xyz/2021/04/29/快速搭建OpenLDAP环境并对接Rancher认证/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/rancher/" rel="tag"># rancher</a>
+              <a href="/tags/openldap/" rel="tag"># openldap</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2021/04/20/%E7%94%9F%E6%88%90%E8%87%AA%E7%AD%BE%E5%90%8D%E8%AF%81%E4%B9%A6%E8%84%9A%E6%9C%AC/" rel="prev" title="生成自签名证书脚本">
+                  <i class="fa fa-chevron-left"></i> 生成自签名证书脚本
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2021/05/07/selinux%E8%B8%A9%E5%9D%91%E7%AF%87-docker%E5%AE%B9%E5%99%A8%E6%97%A0%E6%B3%95%E5%90%AF%E5%8A%A8/" rel="next" title="selinux踩坑篇-docker容器无法启动">
+                  selinux踩坑篇-docker容器无法启动 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"blog.zerchin.xyz","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="概述Rancher应用商店自带的kafka可以方便的对接Rancher日志，但是不支持sasl认证。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="kafka对接Rancher日志">
+<meta property="og:url" content="http://blog.zerchin.xyz/2020/11/26/kafka%E5%AF%B9%E6%8E%A5Rancher%E6%97%A5%E5%BF%97/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="概述Rancher应用商店自带的kafka可以方便的对接Rancher日志，但是不支持sasl认证。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://s3.ax1x.com/2020/11/26/D0Ss2D.png">
+<meta property="og:image" content="https://s3.ax1x.com/2020/11/26/D0ScKH.png">
+<meta property="og:image" content="https://s3.ax1x.com/2020/11/26/D0Sr8O.png">
+<meta property="og:image" content="https://s3.ax1x.com/2020/11/26/D0Syxe.png">
+<meta property="og:image" content="https://s3.ax1x.com/2020/11/26/D0Sgrd.png">
+<meta property="article:published_time" content="2020-11-26T14:39:47.000Z">
+<meta property="article:modified_time" content="2020-11-26T14:39:47.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="rancher">
+<meta property="article:tag" content="kafka">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s3.ax1x.com/2020/11/26/D0Ss2D.png">
+
+
+<link rel="canonical" href="http://blog.zerchin.xyz/2020/11/26/kafka%E5%AF%B9%E6%8E%A5Rancher%E6%97%A5%E5%BF%97/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>kafka对接Rancher日志 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">42</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">26</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">86</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87"><span class="nav-number">2.</span> <span class="nav-text">环境准备</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%AD%A3%E5%B8%B8%E5%AF%B9%E6%8E%A5kafka%E9%9B%86%E7%BE%A4"><span class="nav-number">3.</span> <span class="nav-text">正常对接kafka集群</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81helm%E6%B7%BB%E5%8A%A0bitnami%E5%BA%93"><span class="nav-number">3.1.</span> <span class="nav-text">1、helm添加bitnami库</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E4%B8%8B%E8%BD%BD-kafka-%E5%AF%B9%E5%BA%94%E7%9A%84chart%E5%8E%8B%E7%BC%A9%E6%96%87%E4%BB%B6"><span class="nav-number">3.2.</span> <span class="nav-text">2、下载 kafka 对应的chart压缩文件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81%E5%90%AF%E5%8A%A8kafka%E9%9B%86%E7%BE%A4"><span class="nav-number">3.3.</span> <span class="nav-text">3、启动kafka集群</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4%E3%80%81%E6%93%8D%E4%BD%9Ckafka%E9%9B%86%E7%BE%A4"><span class="nav-number">3.4.</span> <span class="nav-text">4、操作kafka集群</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%94%9F%E4%BA%A7%E8%80%85"><span class="nav-number">3.4.1.</span> <span class="nav-text">生产者</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%B6%88%E8%B4%B9%E8%80%85"><span class="nav-number">3.4.2.</span> <span class="nav-text">消费者</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5%E3%80%81%E5%AF%B9%E6%8E%A5Rancher-logging"><span class="nav-number">3.5.</span> <span class="nav-text">5、对接Rancher logging</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6%E3%80%81%E9%AA%8C%E8%AF%81%E6%95%88%E6%9E%9C"><span class="nav-number">3.6.</span> <span class="nav-text">6、验证效果</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BC%80%E5%90%AFSASL%E8%AE%A4%E8%AF%81%E6%96%B9%E5%BC%8F"><span class="nav-number">4.</span> <span class="nav-text">开启SASL认证方式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81helm-%E5%AE%89%E8%A3%85kafka"><span class="nav-number">4.1.</span> <span class="nav-text">1、helm 安装kafka</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E5%88%9B%E5%BB%BAkafka-client%E7%AB%AF"><span class="nav-number">4.2.</span> <span class="nav-text">2、创建kafka client端</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3%E3%80%81Rancher%E5%AF%B9%E6%8E%A5Kafka"><span class="nav-number">4.3.</span> <span class="nav-text">3、Rancher对接Kafka</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4%E3%80%81%E9%AA%8C%E8%AF%81%E6%95%88%E6%9E%9C"><span class="nav-number">4.4.</span> <span class="nav-text">4、验证效果</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#kafka-client%E7%9B%B8%E5%85%B3%E5%91%BD%E4%BB%A4"><span class="nav-number">5.</span> <span class="nav-text">kafka-client相关命令</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">86</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">42</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://blog.zerchin.xyz/2020/11/26/kafka%E5%AF%B9%E6%8E%A5Rancher%E6%97%A5%E5%BF%97/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          kafka对接Rancher日志
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2020-11-26 14:39:47" itemprop="dateCreated datePublished" datetime="2020-11-26T14:39:47+00:00">2020-11-26</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/rancher/" itemprop="url" rel="index"><span itemprop="name">rancher</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>Rancher应用商店自带的kafka可以方便的对接Rancher日志，但是不支持sasl认证。</p>
+<p>如果有认证需求，可以使用bitnami仓库的kafka，这个kafka带有相关的认证参数，可以很方便的开启sasl相关的认证。</p>
+<blockquote>
+<p>参考：<a target="_blank" rel="noopener" href="https://github.com/bitnami/charts/tree/master/bitnami/kafka">https://github.com/bitnami/charts/tree/master/bitnami/kafka</a></p>
+</blockquote>
+<h2 id="环境准备"><a href="#环境准备" class="headerlink" title="环境准备"></a>环境准备</h2><table>
+<thead>
+<tr>
+<th>软件</th>
+<th>版本</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>kubernetes</td>
+<td>v1.19.3</td>
+</tr>
+<tr>
+<td>Rancher</td>
+<td>v2.4.8 | v2.5.2</td>
+</tr>
+<tr>
+<td>kafka</td>
+<td>2.6.0</td>
+</tr>
+<tr>
+<td>kafka-chart</td>
+<td>11.8.9</td>
+</tr>
+<tr>
+<td>helm</td>
+<td>3.4.0</td>
+</tr>
+</tbody></table>
+<h2 id="正常对接kafka集群"><a href="#正常对接kafka集群" class="headerlink" title="正常对接kafka集群"></a>正常对接kafka集群</h2><p>如果是需要开启SASL认证，可以直接跳到后面<strong>开启SASL认证方式</strong>的内容</p>
+<h3 id="1、helm添加bitnami库"><a href="#1、helm添加bitnami库" class="headerlink" title="1、helm添加bitnami库"></a>1、helm添加bitnami库</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">helm repo add bitnami https://charts.bitnami.com/bitnami</span><br><span class="line">helm repo update</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="2、下载-kafka-对应的chart压缩文件"><a href="#2、下载-kafka-对应的chart压缩文件" class="headerlink" title="2、下载 kafka 对应的chart压缩文件"></a>2、下载 kafka 对应的chart压缩文件</h3><p>bitnami库国内可能访问不太友好，需要翻一下墙。。。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm pull bitnami/kafka --version 11.8.9</span><br></pre></td></tr></table></figure>
+
+<p>上述命令会下载一个<code>kafka-11.8.9-tgz</code>的压缩文件，解压该文件</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tar -zxvf kafka-11.8.9-tgz</span><br></pre></td></tr></table></figure>
+
+<p>查看解压目录内容</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cd kafka/</span></span><br><span class="line"><span class="comment"># ls</span></span><br><span class="line">charts  Chart.yaml  files  README.md  requirements.lock  requirements.yaml  templates  values-production.yaml  values.yaml</span><br></pre></td></tr></table></figure>
+
+<p>可以看到有两个values文件，分别是<code>values.yaml</code>和<code>values-production.yaml</code>，</p>
+<p>其中<code>values.yaml</code>会启动一个最简单的kafka集群，</p>
+<p>而<code>values-production.yaml</code>中的配置会包含更多面向生产的配置，例如启用持久化存储，启用sasl相关认证等。</p>
+<h3 id="3、启动kafka集群"><a href="#3、启动kafka集群" class="headerlink" title="3、启动kafka集群"></a>3、启动kafka集群</h3><p>最简化启动kafka集群，可以添加这两个参数，取消持久化存储</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">kubectl create ns kafka</span><br><span class="line"><span class="comment">## 进入到kafka目录下再执行下面的命令</span></span><br><span class="line">helm install kafka -n kafka -f values.yaml --<span class="built_in">set</span> persistence.enabled=<span class="literal">false</span> --<span class="built_in">set</span> zookeeper.persistence.enabled=<span class="literal">false</span> .</span><br></pre></td></tr></table></figure>
+
+<p>或者如果k8s有持久化存储，可以设置storage Class，将<code>xxx</code>替换为对应的storage Class</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm install kafka -n kafka -f values.yaml --set global.storageClass&#x3D;xxx .</span><br></pre></td></tr></table></figure>
+
+<p>执行完<code>helm install</code>后会输出以下内容</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">NAME: kafka</span><br><span class="line">LAST DEPLOYED: Wed Nov 25 17:04:50 2020</span><br><span class="line">NAMESPACE: kafka</span><br><span class="line">STATUS: deployed</span><br><span class="line">REVISION: 1</span><br><span class="line">TEST SUITE: None</span><br><span class="line">NOTES:</span><br><span class="line">** Please be patient <span class="keyword">while</span> the chart is being deployed **</span><br><span class="line"></span><br><span class="line">Kafka can be accessed by consumers via port 9092 on the following DNS name from within your cluster:</span><br><span class="line"></span><br><span class="line">    kafka.kafka.svc.cluster.local</span><br><span class="line"></span><br><span class="line">Each Kafka broker can be accessed by producers via port 9092 on the following DNS name(s) from within your cluster:</span><br><span class="line"></span><br><span class="line">    kafka-0.kafka-headless.kafka.svc.cluster.local:9092</span><br><span class="line"></span><br><span class="line">To create a pod that you can use as a Kafka client run the following commands:</span><br><span class="line"></span><br><span class="line">    kubectl run kafka-client --restart=<span class="string">&#x27;Never&#x27;</span> --image docker.io/bitnami/kafka:2.6.0-debian-10-r57 --namespace kafka --<span class="built_in">command</span> -- sleep infinity</span><br><span class="line">    kubectl <span class="built_in">exec</span> --tty -i kafka-client --namespace kafka -- bash</span><br><span class="line"></span><br><span class="line">    PRODUCER:</span><br><span class="line">        kafka-console-producer.sh \</span><br><span class="line">            </span><br><span class="line">            --broker-list kafka-0.kafka-headless.kafka.svc.cluster.local:9092 \</span><br><span class="line">            --topic <span class="built_in">test</span></span><br><span class="line"></span><br><span class="line">    CONSUMER:</span><br><span class="line">        kafka-console-consumer.sh \</span><br><span class="line">            </span><br><span class="line">            --bootstrap-server kafka.kafka.svc.cluster.local:9092 \</span><br><span class="line">            --topic <span class="built_in">test</span> \</span><br><span class="line">            --from-beginning</span><br></pre></td></tr></table></figure>
+
+<p>查看pod、svc状态</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl get pod,svc -n kafka</span></span><br><span class="line">NAME                    READY   STATUS    RESTARTS   AGE</span><br><span class="line">pod/kafka-0             0/1     Pending   0          34s</span><br><span class="line">pod/kafka-client        1/1     Running   0          3d21h</span><br><span class="line">pod/kafka-zookeeper-0   1/1     Running   0          34s</span><br><span class="line"></span><br><span class="line">NAME                               TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                      AGE</span><br><span class="line">service/kafka                      ClusterIP   10.43.97.41     &lt;none&gt;        9092/TCP                     34s</span><br><span class="line">service/kafka-headless             ClusterIP   None            &lt;none&gt;        9092/TCP,9093/TCP            34s</span><br><span class="line">service/kafka-zookeeper            ClusterIP   10.43.127.105   &lt;none&gt;        2181/TCP,2888/TCP,3888/TCP   34s</span><br><span class="line">service/kafka-zookeeper-headless   ClusterIP   None            &lt;none&gt;        2181/TCP,2888/TCP,3888/TCP   34s</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="4、操作kafka集群"><a href="#4、操作kafka集群" class="headerlink" title="4、操作kafka集群"></a>4、操作kafka集群</h3><p>根据helm创建成功的提示，我们可以创建客户端去执行kafka相关的操作</p>
+<p>创建kafka-client的pod</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl run kafka-client --restart=<span class="string">&#x27;Never&#x27;</span> --image docker.io/bitnami/kafka:2.6.0-debian-10-r57 --namespace kafka --<span class="built_in">command</span> -- sleep infinity</span><br></pre></td></tr></table></figure>
+
+<p>进入到容器</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n kafka <span class="built_in">exec</span> -it kafka-client bash</span><br></pre></td></tr></table></figure>
+
+<h4 id="生产者"><a href="#生产者" class="headerlink" title="生产者"></a>生产者</h4><p>kafka有生产者和消费者的概念，生产者会生产数据，消费者去消费生产者产生的数据，具体可以先了解一下相关的概念</p>
+<p>首先生产者先生产数据，执行如下命令，可以进入到生产者的input端</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kafka-console-producer.sh --broker-list kafka-0.kafka-headless.kafka.svc.cluster.local:9092 --topic <span class="built_in">test</span></span><br></pre></td></tr></table></figure>
+
+<p>例如我们输入<code>rancher run everywhere</code></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&gt; rancher run everywhere</span><br></pre></td></tr></table></figure>
+
+<h4 id="消费者"><a href="#消费者" class="headerlink" title="消费者"></a>消费者</h4><p>然后消费者消费数据</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kafka-console-consumer.sh --bootstrap-server kafka.kafka.svc.cluster.local:9092 --topic <span class="built_in">test</span> --from-beginning</span><br></pre></td></tr></table></figure>
+
+<p>输入上述命令，就可以查看到刚刚在生产者生产的数据</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rancher run everything</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="5、对接Rancher-logging"><a href="#5、对接Rancher-logging" class="headerlink" title="5、对接Rancher logging"></a>5、对接Rancher logging</h3><p> 首先在Rancher上创建一个项目，并部署一个nginx应用</p>
+<p><a target="_blank" rel="noopener" href="https://imgchr.com/i/D0Ss2D"><img src="https://s3.ax1x.com/2020/11/26/D0Ss2D.png" alt="D0Ss2D.png"></a></p>
+<p>接着在跳转到工具 -&gt; 日志，选择Kafka</p>
+<p>有两种方式连接到kafka集群，分别是zookeeper和broker，这里以zookeeper访问端点类型为例</p>
+<p><a target="_blank" rel="noopener" href="https://imgchr.com/i/D0ScKH"><img src="https://s3.ax1x.com/2020/11/26/D0ScKH.png" alt="D0ScKH.png"></a></p>
+<p>参数解释：</p>
+<p>**<code>访问地址</code>**：<a href="http://kafka-zookeeper.kafka:2181，这里填写对应的访问地址，由于选择的是zookeeper，所以填写zookeeper相关的service访问地址，也可以写clusterIP，默认端口是2181">http://kafka-zookeeper.kafka:2181，这里填写对应的访问地址，由于选择的是zookeeper，所以填写zookeeper相关的service访问地址，也可以写clusterIP，默认端口是2181</a></p>
+<p>**<code>主题</code>**：rancher，日志将会发送到这个主题上</p>
+<p>其他参数：</p>
+<p>**<code>刷新时间间隔</code>**：默认60s，如果是测试环境，可以设置为10s更快的查看效果</p>
+<hr>
+<p>点击测试按钮，等待结果返回验证通过后，点击保存按钮，Rancher会在System项目下创建相应的fluentd工作负载，到这里日志对接基本没问题了</p>
+<h3 id="6、验证效果"><a href="#6、验证效果" class="headerlink" title="6、验证效果"></a>6、验证效果</h3><p>访问nginx应用，然后等待对应的刷新时间间隔后，在kafka-client中查看是否能消费到数据</p>
+<p><a target="_blank" rel="noopener" href="https://imgchr.com/i/D0Sr8O"><img src="https://s3.ax1x.com/2020/11/26/D0Sr8O.png" alt="D0Sr8O.png"></a></p>
+<h2 id="开启SASL认证方式"><a href="#开启SASL认证方式" class="headerlink" title="开启SASL认证方式"></a>开启SASL认证方式</h2><p><code>values-production.yaml</code>中的配置会包含更多面向生产的配置，例如启用持久化存储，启用sasl相关认证等，所以可以直接使用这个配置文件进行创建kafka集群，会自动sasl相关认证的功能</p>
+<h3 id="1、helm-安装kafka"><a href="#1、helm-安装kafka" class="headerlink" title="1、helm 安装kafka"></a>1、helm 安装kafka</h3><p>这里为了方便都关闭了,取消了持久化存储，关闭了相关metric，设置生产环境按需开启</p>
+<p>其中<code>autoCreateTopicsEnable</code>设置为true，作用是开启自动创建topic功能，如果关闭这个，则需要手动创建topic才能对接rancher，生产环境也建议关闭掉</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm install kafka -n kafka -f values-production.yaml --<span class="built_in">set</span> persistence.enabled=<span class="literal">false</span> --<span class="built_in">set</span> zookeeper.persistence.enabled=<span class="literal">false</span> --<span class="built_in">set</span> metrics.kafka.enabled=<span class="literal">false</span> --<span class="built_in">set</span> metrics.jmx.enabled=<span class="literal">false</span> --<span class="built_in">set</span> zookeeper.metrics.enabled=<span class="literal">false</span> --<span class="built_in">set</span> autoCreateTopicsEnable=<span class="literal">true</span> .</span><br></pre></td></tr></table></figure>
+
+<p>执行完<code>helm install</code>后会输出以下内容</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line">NAME: kafka</span><br><span class="line">LAST DEPLOYED: Wed Nov 25 18:49:35 2020</span><br><span class="line">NAMESPACE: kafka</span><br><span class="line">STATUS: deployed</span><br><span class="line">REVISION: 1</span><br><span class="line">TEST SUITE: None</span><br><span class="line">NOTES:</span><br><span class="line">** Please be patient while the chart is being deployed **</span><br><span class="line"></span><br><span class="line">Kafka can be accessed by consumers via port 9092 on the following DNS name from within your cluster:</span><br><span class="line"></span><br><span class="line">    kafka.kafka.svc.cluster.local</span><br><span class="line"></span><br><span class="line">Each Kafka broker can be accessed by producers via port 9092 on the following DNS name(s) from within your cluster:</span><br><span class="line"></span><br><span class="line">    kafka-0.kafka-headless.kafka.svc.cluster.local:9092</span><br><span class="line">    kafka-1.kafka-headless.kafka.svc.cluster.local:9092</span><br><span class="line">    kafka-2.kafka-headless.kafka.svc.cluster.local:9092</span><br><span class="line"></span><br><span class="line">You need to configure your Kafka client to access using SASL authentication. To do so, you need to create the &#39;kafka_jaas.conf&#39; and &#39;client.properties&#39; configuration files by executing these commands:</span><br><span class="line"></span><br><span class="line">    - kafka_jaas.conf:</span><br><span class="line"></span><br><span class="line">cat &gt; kafka_jaas.conf &lt;&lt;EOF</span><br><span class="line">KafkaClient &#123;</span><br><span class="line">org.apache.kafka.common.security.scram.ScramLoginModule required</span><br><span class="line">username&#x3D;&quot;user&quot;</span><br><span class="line">password&#x3D;&quot;$(kubectl get secret kafka-jaas -n kafka -o jsonpath&#x3D;&#39;&#123;.data.client-passwords&#125;&#39; | base64 --decode | cut -d , -f 1)&quot;;</span><br><span class="line">&#125;;</span><br><span class="line">EOF</span><br><span class="line"></span><br><span class="line">    - client.properties:</span><br><span class="line"></span><br><span class="line">cat &gt; client.properties &lt;&lt;EOF</span><br><span class="line">security.protocol&#x3D;SASL_PLAINTEXT</span><br><span class="line">sasl.mechanism&#x3D;SCRAM-SHA-256</span><br><span class="line">EOF</span><br><span class="line"></span><br><span class="line">To create a pod that you can use as a Kafka client run the following commands:</span><br><span class="line"></span><br><span class="line">    kubectl run kafka-client --restart&#x3D;&#39;Never&#39; --image docker.io&#x2F;bitnami&#x2F;kafka:2.6.0-debian-10-r57 --namespace kafka --command -- sleep infinity</span><br><span class="line">    kubectl cp --namespace kafka &#x2F;path&#x2F;to&#x2F;client.properties kafka-client:&#x2F;tmp&#x2F;client.properties</span><br><span class="line">    kubectl cp --namespace kafka &#x2F;path&#x2F;to&#x2F;kafka_jaas.conf kafka-client:&#x2F;tmp&#x2F;kafka_jaas.conf</span><br><span class="line">    kubectl exec --tty -i kafka-client --namespace kafka -- bash</span><br><span class="line">    export KAFKA_OPTS&#x3D;&quot;-Djava.security.auth.login.config&#x3D;&#x2F;tmp&#x2F;kafka_jaas.conf&quot;</span><br><span class="line"></span><br><span class="line">    PRODUCER:</span><br><span class="line">        kafka-console-producer.sh \</span><br><span class="line">            --producer.config &#x2F;tmp&#x2F;client.properties \</span><br><span class="line">            --broker-list kafka-0.kafka-headless.kafka.svc.cluster.local:9092,kafka-1.kafka-headless.kafka.svc.cluster.local:9092,kafka-2.kafka-headless.kafka.svc.cluster.local:9092 \</span><br><span class="line">            --topic test</span><br><span class="line"></span><br><span class="line">    CONSUMER:</span><br><span class="line">        kafka-console-consumer.sh \</span><br><span class="line">            --consumer.config &#x2F;tmp&#x2F;client.properties \</span><br><span class="line">            --bootstrap-server kafka.kafka.svc.cluster.local:9092 \</span><br><span class="line">            --topic test \</span><br><span class="line">            --from-beginning</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，已经在k8s集群中创建了3个节点的kafka集群</p>
+<h3 id="2、创建kafka-client端"><a href="#2、创建kafka-client端" class="headerlink" title="2、创建kafka client端"></a>2、创建kafka client端</h3><p>由于设置了sasl认证，所以需要创建<code>client.properties</code>和<code>kafka_jaas.conf</code>两个文件，并拷贝到client端，client端使用这两个配置文件才能对kafka集群进行相关操作</p>
+<p>创建kafka_jaas.conf</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">cat &gt; kafka_jaas.conf &lt;&lt;<span class="string">EOF</span></span><br><span class="line"><span class="string">KafkaClient &#123;</span></span><br><span class="line"><span class="string">org.apache.kafka.common.security.scram.ScramLoginModule required</span></span><br><span class="line"><span class="string">username=&quot;user&quot;</span></span><br><span class="line"><span class="string">password=&quot;$(kubectl get secret kafka-jaas -n kafka -o jsonpath=&#x27;&#123;.data.client-passwords&#125;&#x27; | base64 --decode | cut -d , -f 1)&quot;;</span></span><br><span class="line"><span class="string">&#125;;</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
+
+<p>创建kafka_jaas.conf</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">cat &gt; kafka_jaas.conf &lt;&lt;<span class="string">EOF</span></span><br><span class="line"><span class="string">KafkaClient &#123;</span></span><br><span class="line"><span class="string">org.apache.kafka.common.security.scram.ScramLoginModule required</span></span><br><span class="line"><span class="string">username=&quot;user&quot;</span></span><br><span class="line"><span class="string">password=&quot;$(kubectl get secret kafka-jaas -n kafka -o jsonpath=&#x27;&#123;.data.client-passwords&#125;&#x27; | base64 --decode | cut -d , -f 1)&quot;;</span></span><br><span class="line"><span class="string">&#125;;</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
+
+<p>拷贝到client端内</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">kubectl run kafka-client --restart=<span class="string">&#x27;Never&#x27;</span> --image docker.io/bitnami/kafka:2.6.0-debian-10-r57 --namespace kafka --<span class="built_in">command</span> -- sleep infinity</span><br><span class="line">kubectl cp --namespace kafka client.properties kafka-client:/tmp/client.properties</span><br><span class="line">kubectl cp --namespace kafka kafka_jaas.conf kafka-client:/tmp/kafka_jaas.conf</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="3、Rancher对接Kafka"><a href="#3、Rancher对接Kafka" class="headerlink" title="3、Rancher对接Kafka"></a>3、Rancher对接Kafka</h3><p>SASL认证，只支持通过broker连接入口，所以需要配置broker相关参数</p>
+<p><a target="_blank" rel="noopener" href="https://imgchr.com/i/D0Syxe"><img src="https://s3.ax1x.com/2020/11/26/D0Syxe.png" alt="D0Syxe.png"></a></p>
+<p><strong>kafka配置</strong></p>
+<p>访问端点类型：选择Broker</p>
+<p>访问地址：填写kafka serviceIP地址，这里填写<code>http://kafka.kafka:9092</code></p>
+<p>主题：日志发送的主题</p>
+<p><strong>SSL配置</strong></p>
+<p>如果SASL类型为Scram，则不用配置SSL，反之当SASL类型为Plain时，需要配置SSL</p>
+<p><strong>SASL配置</strong></p>
+<p>用户名：默认是user，可以在values.yaml中，通过配置<code>auth.jaas.clientUsers</code>修改</p>
+<p>密码：默认是随机值，可以通过<code>kubectl get secret kafka-jaas -n kafka -o jsonpath=&#39;&#123;.data.client-passwords&#125;&#39; | base64 --decode | cut -d , -f 1</code>这个命令查看，另外也可以通过配置<code>auth.jaas.clientPasswords</code>来修改</p>
+<p>类型：Scram</p>
+<p>安全机制：sha256</p>
+<hr>
+<p>点击测试按钮，等待结果返回验证通过后，点击保存按钮，Rancher会在System项目下创建相应的fluentd工作负载，到这里日志对接基本没问题了</p>
+<h3 id="4、验证效果"><a href="#4、验证效果" class="headerlink" title="4、验证效果"></a>4、验证效果</h3><p>通过kafka-client查看日志是否对接成功</p>
+<p>进入kafka-client pod bash环境</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl <span class="built_in">exec</span> -it kafka-client -n kafka -- bash</span><br></pre></td></tr></table></figure>
+
+<p>由于开启了认证，需要export相关环境变量</p>
+<p>最后通过kafka-console-consumer.sh命令查看日志是否发送过来了</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">export</span> KAFKA_OPTS=<span class="string">&quot;-Djava.security.auth.login.config=/tmp/kafka_jaas.conf&quot;</span></span><br><span class="line"></span><br><span class="line">kafka-console-consumer.sh  --consumer.config /tmp/client.properties  --bootstrap-server kafka.kafka.svc.cluster.local:9092  --topic rancher  --from-beginning</span><br></pre></td></tr></table></figure>
+
+<p>效果如下：</p>
+<p><a target="_blank" rel="noopener" href="https://imgchr.com/i/D0Sgrd"><img src="https://s3.ax1x.com/2020/11/26/D0Sgrd.png" alt="D0Sgrd.png"></a></p>
+<h2 id="kafka-client相关命令"><a href="#kafka-client相关命令" class="headerlink" title="kafka-client相关命令"></a>kafka-client相关命令</h2><p>查看topic 列表</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kafka-topics.sh --zookeeper kafka-zookeeper:2181 --list</span><br></pre></td></tr></table></figure>
+
+
+
+<p>创建topic</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kafka-topics.sh --zookeeper kafka-zookeeper:2181 --topic rancher --create --partitions 1 --replication-factor 1</span><br></pre></td></tr></table></figure>
+
+
+
+<p>删除topic</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kafka-topics.sh --delete --zookeeper kafka-zookeeper:2181 --topic <span class="built_in">test</span></span><br></pre></td></tr></table></figure>
+
+<p>如果<code>delete.topic.enable=true</code>，则会直接删除topic，如果<code>delete.topic.enable=false</code>，则只是把这个 topic 标记为删除(marked for deletion)，重启 Kafka Server 后删除</p>
+<p>生产者生产数据</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kafka-console-producer.sh  --producer.config /tmp/client.properties  --broker-list kafka-0.kafka-headless.kafka.svc.cluster.local:9092,kafka-1.kafka-headless.kafka.svc.cluster.local:9092,kafka-2.kafka-headless.kafka.svc.cluster.local:9092  --topic rancher</span><br></pre></td></tr></table></figure>
+
+
+
+<p>消费者消费生产者的数据</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kafka-console-consumer.sh --consumer.config /tmp/client.properties --bootstrap-server kafka.kafka.svc.cluster.local:9092 --topic rancher --from-beginning</span><br></pre></td></tr></table></figure>
+
+
+
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://blog.zerchin.xyz/2020/11/26/kafka%E5%AF%B9%E6%8E%A5Rancher%E6%97%A5%E5%BF%97/" title="kafka对接Rancher日志">http://blog.zerchin.xyz/2020/11/26/kafka对接Rancher日志/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/rancher/" rel="tag"># rancher</a>
+              <a href="/tags/kafka/" rel="tag"># kafka</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2020/10/28/SUSE12-%E5%AE%89%E8%A3%85docker-ce19-03-13%E7%89%88%E6%9C%AC/" rel="prev" title="SUSE12 安装docker-ce19.03.13版本">
+                  <i class="fa fa-chevron-left"></i> SUSE12 安装docker-ce19.03.13版本
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2020/11/29/kubelet-CPU-%E4%BD%BF%E7%94%A8%E7%8E%87%E8%BF%87%E9%AB%98%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/" rel="next" title="kubelet CPU 使用率过高问题排查">
+                  kubelet CPU 使用率过高问题排查 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>
