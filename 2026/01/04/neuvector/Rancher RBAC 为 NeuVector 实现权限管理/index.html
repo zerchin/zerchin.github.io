@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.zerchin.com","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="概述NeuVector 5.4 开始支持与 Rancher RBAC 进行集成，可以通过 Rancher 的 Role Templates 为用户配置不同的 NeuVector 权限。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Rancher RBAC 为 NeuVector 实现权限管理">
+<meta property="og:url" content="http://www.zerchin.com/2026/01/04/neuvector/Rancher%20RBAC%20%E4%B8%BA%20NeuVector%20%E5%AE%9E%E7%8E%B0%E6%9D%83%E9%99%90%E7%AE%A1%E7%90%86/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="概述NeuVector 5.4 开始支持与 Rancher RBAC 进行集成，可以通过 Rancher 的 Role Templates 为用户配置不同的 NeuVector 权限。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-01-04T04:00:00.000Z">
+<meta property="article:modified_time" content="2026-01-04T04:00:00.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="rancher">
+<meta property="article:tag" content="neuvector">
+<meta property="article:tag" content="rbac">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://www.zerchin.com/2026/01/04/neuvector/Rancher%20RBAC%20%E4%B8%BA%20NeuVector%20%E5%AE%9E%E7%8E%B0%E6%9D%83%E9%99%90%E7%AE%A1%E7%90%86/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>Rancher RBAC 为 NeuVector 实现权限管理 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">61</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">35</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">128</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E6%8F%90"><span class="nav-number">2.</span> <span class="nav-text">前提</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%85%8D%E7%BD%AE-NeuVector-Project"><span class="nav-number">3.</span> <span class="nav-text">配置 NeuVector Project</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%85%8D%E7%BD%AE-Cluster-Role"><span class="nav-number">4.</span> <span class="nav-text">配置 Cluster Role</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%85%8D%E7%BD%AE-Project-Namespaces-Role"><span class="nav-number">5.</span> <span class="nav-text">配置 Project&#x2F;Namespaces Role</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BB%91%E5%AE%9A%E7%94%A8%E6%88%B7%E6%9D%83%E9%99%90"><span class="nav-number">6.</span> <span class="nav-text">绑定用户权限</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%AA%8C%E8%AF%81"><span class="nav-number">7.</span> <span class="nav-text">验证</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5"><span class="nav-number">8.</span> <span class="nav-text">参考链接</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">128</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">61</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.zerchin.com/2026/01/04/neuvector/Rancher%20RBAC%20%E4%B8%BA%20NeuVector%20%E5%AE%9E%E7%8E%B0%E6%9D%83%E9%99%90%E7%AE%A1%E7%90%86/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Rancher RBAC 为 NeuVector 实现权限管理
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2026-01-04 12:00:00" itemprop="dateCreated datePublished" datetime="2026-01-04T12:00:00+08:00">2026-01-04</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/neuvector/" itemprop="url" rel="index"><span itemprop="name">neuvector</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>NeuVector 5.4 开始支持与 Rancher RBAC 进行集成，可以通过 Rancher 的 Role Templates 为用户配置不同的 NeuVector 权限。</p>
+<p>也就是说，用户通过 Rancher SSO 跳转到 NeuVector UI 后，NeuVector 会根据该用户在 Rancher 中绑定的 Role，映射成对应的 NeuVector 权限。</p>
+<p>本文主要记录如何通过 Rancher RBAC 为 NeuVector 配置 Readonly 权限。</p>
+<h2 id="前提"><a href="#前提" class="headerlink" title="前提"></a>前提</h2><ul>
+<li>Rancher 已经部署 NeuVector</li>
+<li>用户可以通过 Rancher UI 中的 NeuVector 图标跳转到 NeuVector UI</li>
+<li>NeuVector 所在的命名空间已归属到某个 Project</li>
+</ul>
+<h2 id="配置-NeuVector-Project"><a href="#配置-NeuVector-Project" class="headerlink" title="配置 NeuVector Project"></a>配置 NeuVector Project</h2><p>如果通过 Rancher Apps 安装 NeuVector 后，<code>cattle-neuvector-system</code> 命名空间没有归属到任何 Project，需要先创建一个 Project，然后将该命名空间移动到这个 Project 中。</p>
+<p>在集群中进入 <code>Projects/Namespaces</code>，新建一个 Project，例如 <code>NeuVector</code>。</p>
+<p>创建完成后，将 <code>cattle-neuvector-system</code> 命名空间移动到 <code>NeuVector</code> Project 下。</p>
+<p>这里需要注意，如果 <code>cattle-neuvector-system</code> 没有归属到 Project，那么后续在 <code>Project Membership</code> 中就无法选择 NeuVector 所在的 Project，也就无法绑定 <code>services/proxy</code> 权限。</p>
+<h2 id="配置-Cluster-Role"><a href="#配置-Cluster-Role" class="headerlink" title="配置 Cluster Role"></a>配置 Cluster Role</h2><p>首先在 Rancher UI 中进入 <code>Users &amp; Authentication</code> -&gt; <code>Role Templates</code> -&gt; <code>Cluster</code>，新建一个 Role。</p>
+<p>这里配置 NeuVector 的只读权限，也就是 <code>get</code> 权限，参考如下：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">rules:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">apiGroups:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">read-only.neuvector.api.io</span></span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&#x27;*&#x27;</span></span><br><span class="line">    <span class="attr">verbs:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">get</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">apiGroups:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">neuvector.com</span></span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&#x27;*&#x27;</span></span><br><span class="line">    <span class="attr">verbs:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">get</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="配置-Project-Namespaces-Role"><a href="#配置-Project-Namespaces-Role" class="headerlink" title="配置 Project/Namespaces Role"></a>配置 Project/Namespaces Role</h2><p>同时还需要在 <code>Users &amp; Authentication</code> -&gt; <code>Role Templates</code> -&gt; <code>Project/Namespaces</code> 下新建一个 Role。</p>
+<p>这个 Role 主要用于允许用户通过 Rancher 访问 NeuVector UI，对应的是 <code>services/proxy</code> 权限，参考如下：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">rules:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">apiGroups:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&#x27;&#x27;</span></span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">services/proxy</span></span><br><span class="line">    <span class="attr">verbs:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">create</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">get</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">patch</span></span><br></pre></td></tr></table></figure>
+
+<p>这里是必要权限，如果没有配置该 Project/Namespaces Role，用户无法通过 Rancher 的 NeuVector 图标正常跳转到 NeuVector UI。</p>
+<p>这里需要注意，<code>services/proxy</code> 权限建议只绑定到 NeuVector 专用 Project，不要绑定到包含其他业务命名空间的 Project，否则可能会给用户带来额外的 service proxy 访问权限。</p>
+<h2 id="绑定用户权限"><a href="#绑定用户权限" class="headerlink" title="绑定用户权限"></a>绑定用户权限</h2><p>Role 创建完成后，进入对应集群，打开 <code>Cluster and Project Members</code>。</p>
+<p>分别在下面两个位置为用户绑定上面创建的 Role：</p>
+<ol>
+<li>在 <code>Cluster Membership</code> 中，为用户绑定前面创建的 NeuVector Cluster Role。</li>
+<li>在 <code>Project Membership</code> 中，选择 NeuVector 所在的 Project，为用户绑定前面创建的 Project/Namespaces Role。</li>
+</ol>
+<p>这里需要注意，Project Membership 一定要选择 NeuVector 所在的 Project，否则用户虽然有 Cluster 级别的 NeuVector 权限，但是无法正常通过 Rancher UI 代理访问 NeuVector。</p>
+<h2 id="验证"><a href="#验证" class="headerlink" title="验证"></a>验证</h2><p>使用普通用户重新登录 Rancher。</p>
+<p>进入对应集群后，点击 NeuVector 图标跳转到 NeuVector UI。</p>
+<p>可以看到，用户已经可以正常进入 NeuVector，并且权限为 Readonly。</p>
+<p>尝试进入 NeuVector 中的配置页面或者策略修改页面，Readonly 用户只能查看，不能进行修改操作。</p>
+<h2 id="参考链接"><a href="#参考链接" class="headerlink" title="参考链接"></a>参考链接</h2><blockquote>
+<p>参考：<a target="_blank" rel="noopener" href="https://open-docs.neuvector.com/integration/rancher_sso_rbac/">https://open-docs.neuvector.com/integration/rancher_sso_rbac/</a></p>
+<p>参考：<a target="_blank" rel="noopener" href="https://github.com/horantj/rancher-nv-rbac">https://github.com/horantj/rancher-nv-rbac</a></p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://www.zerchin.com/2026/01/04/neuvector/Rancher%20RBAC%20%E4%B8%BA%20NeuVector%20%E5%AE%9E%E7%8E%B0%E6%9D%83%E9%99%90%E7%AE%A1%E7%90%86/" title="Rancher RBAC 为 NeuVector 实现权限管理">http://www.zerchin.com/2026/01/04/neuvector/Rancher RBAC 为 NeuVector 实现权限管理/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/rancher/" rel="tag"># rancher</a>
+              <a href="/tags/neuvector/" rel="tag"># neuvector</a>
+              <a href="/tags/rbac/" rel="tag"># rbac</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2025/09/16/prometheus/prometheus%20Evaluating%20rule%20failed%20%E9%97%AE%E9%A2%98/" rel="prev" title="prometheus Evaluating rule failed 问题">
+                  <i class="fa fa-chevron-left"></i> prometheus Evaluating rule failed 问题
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2026/06/23/headscale/%E5%90%AF%E7%94%A8%20Tailscale%20%E6%97%A0%E6%B3%95%E5%BC%80%E5%90%AF%20Clash%20Verge%20%E7%9A%84%20TUN%20%E6%A8%A1%E5%BC%8F%E8%A7%A3%E5%86%B3%E6%96%B9%E6%B3%95/" rel="next" title="启用 Tailscale 无法开启 Clash Verge 的 TUN 模式解决方法">
+                  启用 Tailscale 无法开启 Clash Verge 的 TUN 模式解决方法 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

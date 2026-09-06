@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.zerchin.com","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="概述SUSE AI 是一款多功能产品，由多个软件层和组件组成。本文档介绍如何在 RKE2 集群上部署和安装 SUSE AI 的完整工作流程。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SUSE AI 体验">
+<meta property="og:url" content="http://www.zerchin.com/2025/03/05/ai/SUSE%20AI%20%E4%BD%93%E9%AA%8C/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="概述SUSE AI 是一款多功能产品，由多个软件层和组件组成。本文档介绍如何在 RKE2 集群上部署和安装 SUSE AI 的完整工作流程。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://www.zerchin.com/2025/03/05/ai/SUSE%20AI%20%E4%BD%93%E9%AA%8C/access-token.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/03/05/ai/SUSE%20AI%20%E4%BD%93%E9%AA%8C/open-webui-1.png">
+<meta property="article:published_time" content="2025-03-05T01:07:47.000Z">
+<meta property="article:modified_time" content="2025-03-05T01:07:47.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="ai">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://www.zerchin.com/2025/03/05/ai/SUSE%20AI%20%E4%BD%93%E9%AA%8C/access-token.png">
+
+
+<link rel="canonical" href="http://www.zerchin.com/2025/03/05/ai/SUSE%20AI%20%E4%BD%93%E9%AA%8C/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>SUSE AI 体验 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">61</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">35</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">128</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%88%E5%86%B3%E6%9D%A1%E4%BB%B6"><span class="nav-number">2.</span> <span class="nav-text">先决条件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%83%A8%E7%BD%B2-SUSE-AI"><span class="nav-number">3.</span> <span class="nav-text">部署 SUSE AI</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#SUSE-AI-%E6%8E%88%E6%9D%83"><span class="nav-number">3.1.</span> <span class="nav-text">SUSE AI 授权</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E8%A3%85-Milvus"><span class="nav-number">3.2.</span> <span class="nav-text">安装 Milvus</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E8%A3%85-Ollama"><span class="nav-number">3.3.</span> <span class="nav-text">安装 Ollama</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E8%A3%85-Cert-manager"><span class="nav-number">3.4.</span> <span class="nav-text">安装 Cert-manager</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E8%A3%85-Open-WebUI"><span class="nav-number">3.5.</span> <span class="nav-text">安装 Open WebUI</span></a></li></ol></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">128</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">61</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.zerchin.com/2025/03/05/ai/SUSE%20AI%20%E4%BD%93%E9%AA%8C/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          SUSE AI 体验
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2025-03-05 09:07:47" itemprop="dateCreated datePublished" datetime="2025-03-05T09:07:47+08:00">2025-03-05</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/ai/" itemprop="url" rel="index"><span itemprop="name">ai</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>SUSE AI 是一款多功能产品，由多个软件层和组件组成。本文档介绍如何在 RKE2 集群上部署和安装 SUSE AI 的完整工作流程。</p>
+<h2 id="先决条件"><a href="#先决条件" class="headerlink" title="先决条件"></a>先决条件</h2><p>要求先有一个 GPU 的 k8s 环境，可以参考我之前另一篇关于在 <a href="https://www.zerchin.com/2024/12/24/rke2/%E8%A7%A3%E9%94%81%20Harvester%20VM%20%E7%9A%84%20GPU%20%E8%83%BD%E5%8A%9B%EF%BC%9A%E5%9C%A8%20RKE2%20%E9%9B%86%E7%BE%A4%E4%B8%8A%E8%BF%90%E8%A1%8C%20GPU%20%E5%B7%A5%E4%BD%9C%E8%B4%9F%E8%BD%BD/">RKE2 集群上运行 GPU 工作负载</a>的文章。</p>
+<p>根据<a target="_blank" rel="noopener" href="https://documentation.suse.com/suse-ai/1.0/html/AI-requirements/index.html">SUSE AI 官方文档说明</a>，要求主机的内存至少要 32GB，实测使用 20GB 可以实现 demo 运行。</p>
+<table>
+<thead>
+<tr>
+<th>Env</th>
+<th>Version</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>OS</td>
+<td>Ubuntu 22.04.5 LTS</td>
+</tr>
+<tr>
+<td>kernel</td>
+<td>5.15.0-140-generic</td>
+</tr>
+<tr>
+<td>GPU</td>
+<td>NVIDIA GT 710</td>
+</tr>
+<tr>
+<td>Rancher</td>
+<td>V2.9.2</td>
+</tr>
+<tr>
+<td>RKE2</td>
+<td>v1.28.15+rke2r1</td>
+</tr>
+</tbody></table>
+<h2 id="部署-SUSE-AI"><a href="#部署-SUSE-AI" class="headerlink" title="部署 SUSE AI"></a>部署 SUSE AI</h2><p>SUSE AI 提供了一个开放式基础架构平台，用于部署和运行 GenAI 工作负载，该平台提供丰富的部署选项、LLM 以及 AI 工具和组件选择。借助 SUSE AI，可以无缝部署经过安全审查的 AI 工具和组件。此外，由于 SUSE AI 平台在设计上注重安全性，可以获得实时威胁跟踪和跨 AI 应用程序的全栈可观察性。</p>
+<h3 id="SUSE-AI-授权"><a href="#SUSE-AI-授权" class="headerlink" title="SUSE AI 授权"></a>SUSE AI 授权</h3><p>SUSE AI 是独立于 SUSE Rancher Prime 的授权，可以登录 <a target="_blank" rel="noopener" href="https://apps.rancher.io/">https://apps.rancher.io/</a> 查看授权状态。SUSE AI 需要有授权才有权限访问和部署 SUSE AI。登录 SUSE apps UI，创建一个 ACCESS TOKEN，将 token 复制出来备用。</p>
+<img src="/2025/03/05/ai/SUSE%20AI%20%E4%BD%93%E9%AA%8C/access-token.png" class="" title="access-token">
+
+<p>创建命名空间以安装 SUSE AI</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create namespace suse-ai</span><br></pre></td></tr></table></figure>
+
+<p>创建镜像仓库秘钥</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create secret -n suse-ai docker-registry application-collection --docker-server=dp.apps.rancher.io --docker-username=APP_USER --docker-password=APP_PASSWORD</span><br></pre></td></tr></table></figure>
+
+<p>登录 Helm 仓库</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm registry login dp.apps.rancher.io -u APP_USER -p APP_PASSWORD</span><br></pre></td></tr></table></figure>
+
+<h3 id="安装-Milvus"><a href="#安装-Milvus" class="headerlink" title="安装 Milvus"></a>安装 Milvus</h3><p>Milvus 是一款可扩展的高性能矢量数据库，专为 AI 应用而设计。它能够高效地组织和搜索海量非结构化数据集，包括文本、图像和多模态内容。</p>
+<p>查看 Milvus Helm Chart：<a target="_blank" rel="noopener" href="https://apps.rancher.io/applications/milvus">https://apps.rancher.io/applications/milvus</a></p>
+<p>由于 Milvus 依赖与存储，所以我们需要提前安装好相关的持久化存储，这里我们使用 local-path 本地持久化存储。对于生产环境，建议用企业级存储解决方案，例如 Longhorn。</p>
+<p>安装 local-path 本地持久化存储：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.30/deploy/local-path-storage.yaml</span><br></pre></td></tr></table></figure>
+
+<p>确认 local-path 安装成功：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl -n local-path-storage get pods</span></span><br><span class="line">NAME                                      READY   STATUS    RESTARTS   AGE</span><br><span class="line">local-path-provisioner-65d5864f8d-mdfzh   1/1     Running   0          29s</span><br></pre></td></tr></table></figure>
+
+<p>导出 Milvus values.yaml</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm show values oci://dp.apps.rancher.io/charts/milvus --version 4.2.2 &gt; milvus-values.yaml</span><br></pre></td></tr></table></figure>
+
+<p>编辑如下内容：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">global:</span></span><br><span class="line">  <span class="attr">imagePullSecrets:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">application-collection</span></span><br><span class="line"><span class="attr">cluster:</span></span><br><span class="line">  <span class="attr">enabled:</span> <span class="literal">True</span></span><br><span class="line"><span class="attr">standalone:</span></span><br><span class="line">  <span class="attr">persistence:</span></span><br><span class="line">    <span class="attr">persistentVolumeClaim:</span></span><br><span class="line">      <span class="attr">storageClassName:</span> <span class="string">&quot;local-path&quot;</span></span><br><span class="line"><span class="attr">etcd:</span></span><br><span class="line">  <span class="attr">replicaCount:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">persistence:</span></span><br><span class="line">    <span class="attr">storageClassName:</span> <span class="string">&quot;local-path&quot;</span></span><br><span class="line"><span class="attr">minio:</span></span><br><span class="line">  <span class="attr">mode:</span> <span class="string">distributed</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">4</span></span><br><span class="line">  <span class="attr">rootUser:</span> <span class="string">&quot;admin&quot;</span></span><br><span class="line">  <span class="attr">rootPassword:</span> <span class="string">&quot;adminminio&quot;</span></span><br><span class="line">  <span class="attr">persistence:</span></span><br><span class="line">    <span class="attr">storageClass:</span> <span class="string">&quot;local-path&quot;</span></span><br><span class="line">  <span class="attr">resources:</span></span><br><span class="line">    <span class="attr">requests:</span></span><br><span class="line">      <span class="attr">memory:</span> <span class="string">1024Mi</span></span><br><span class="line"><span class="attr">kafka:</span></span><br><span class="line">  <span class="attr">enabled:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">kafka</span></span><br><span class="line">  <span class="attr">replicaCount:</span> <span class="number">3</span></span><br><span class="line">  <span class="attr">broker:</span></span><br><span class="line">    <span class="attr">enabled:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">cluster:</span></span><br><span class="line">    <span class="attr">listeners:</span></span><br><span class="line">      <span class="attr">client:</span></span><br><span class="line">        <span class="attr">protocol:</span> <span class="string">&#x27;PLAINTEXT&#x27;</span></span><br><span class="line">      <span class="attr">controller:</span></span><br><span class="line">        <span class="attr">protocol:</span> <span class="string">&#x27;PLAINTEXT&#x27;</span></span><br><span class="line">  <span class="attr">persistence:</span></span><br><span class="line">    <span class="attr">enabled:</span> <span class="literal">true</span></span><br><span class="line">    <span class="attr">annotations:</span> &#123;&#125;</span><br><span class="line">    <span class="attr">labels:</span> &#123;&#125;</span><br><span class="line">    <span class="attr">existingClaim:</span> <span class="string">&quot;&quot;</span></span><br><span class="line">    <span class="attr">accessModes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">ReadWriteOnce</span></span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">      <span class="attr">requests:</span></span><br><span class="line">        <span class="attr">storage:</span> <span class="string">8Gi</span></span><br><span class="line">    <span class="attr">storageClassName:</span> <span class="string">&quot;local-path&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>安装 Milvus</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm install milvus -n suse-ai oci://dp.apps.rancher.io/charts/milvus --version 4.2.2 -f milvus-values.yaml</span><br></pre></td></tr></table></figure>
+
+<p>检查 Milvus</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl -n suse-ai get pods</span></span><br><span class="line">NAME                                 READY   STATUS    RESTARTS   AGE</span><br><span class="line">milvus-datacoord-6f7b7f87b5-zbpk7    1/1     Running   0          2m16s</span><br><span class="line">milvus-datanode-fdc67776-kt76l       1/1     Running   0          2m18s</span><br><span class="line">milvus-etcd-0                        1/1     Running   0          18m</span><br><span class="line">milvus-indexcoord-588d84d4c8-c8gmz   1/1     Running   0          107s</span><br><span class="line">milvus-indexnode-85f6445f6c-b4gg8    1/1     Running   0          2m17s</span><br><span class="line">milvus-kafka-broker-0                1/1     Running   0          18m</span><br><span class="line">milvus-kafka-broker-1                1/1     Running   0          18m</span><br><span class="line">milvus-kafka-broker-2                1/1     Running   0          18m</span><br><span class="line">milvus-kafka-controller-0            1/1     Running   0          18m</span><br><span class="line">milvus-kafka-controller-1            1/1     Running   0          18m</span><br><span class="line">milvus-kafka-controller-2            1/1     Running   0          18m</span><br><span class="line">milvus-minio-0                       1/1     Running   0          2m7s</span><br><span class="line">milvus-minio-1                       1/1     Running   0          2m9s</span><br><span class="line">milvus-minio-2                       1/1     Running   0          2m13s</span><br><span class="line">milvus-minio-3                       1/1     Running   0          2m15s</span><br><span class="line">milvus-proxy-87f4c65db-tzfj6         1/1     Running   0          2m17s</span><br><span class="line">milvus-querycoord-fc897d46c-686cm    1/1     Running   0          106s</span><br><span class="line">milvus-querynode-5d558c4df7-vbrfw    1/1     Running   0          2m17s</span><br><span class="line">milvus-rootcoord-6bbc66fb45-4552q    1/1     Running   0          106s</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="安装-Ollama"><a href="#安装-Ollama" class="headerlink" title="安装 Ollama"></a>安装 Ollama</h3><p>Ollama 是一款在本地计算机上运行和管理语言模型的工具。它提供了一个简单的界面，无需依赖云资源即可下载、运行和与模型交互。</p>
+<p>查看 Ollama Helm Chart：<a target="_blank" rel="noopener" href="https://apps.rancher.io/applications/ollama">https://apps.rancher.io/applications/ollama</a></p>
+<p>导出 Ollama values.yaml</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm show values oci://dp.apps.rancher.io/charts/ollama --version 1.16.0 &gt; ollama-values.yaml</span><br></pre></td></tr></table></figure>
+
+<p>编辑如下内容，启动时拉取带有 GPU 和 deepseek-r1:1.5b 模型：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">global:</span></span><br><span class="line">  <span class="attr">imagePullSecrets:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">application-collection</span></span><br><span class="line"><span class="attr">ingress:</span></span><br><span class="line">  <span class="attr">enabled:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">hosts:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">host:</span> <span class="string">ollama.zerchin.xyz</span></span><br><span class="line">    <span class="attr">paths:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">path:</span> <span class="string">/</span></span><br><span class="line">        <span class="attr">pathType:</span> <span class="string">Prefix</span></span><br><span class="line"><span class="attr">ollama:</span></span><br><span class="line">  <span class="attr">models:</span></span><br><span class="line">    <span class="attr">pull:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;deepseek-r1:1.5b&quot;</span></span><br><span class="line">    <span class="attr">run:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;deepseek-r1:1.5b&quot;</span></span><br><span class="line">  <span class="attr">gpu:</span></span><br><span class="line">    <span class="attr">enabled:</span> <span class="literal">true</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">&#x27;nvidia&#x27;</span></span><br><span class="line">    <span class="attr">number:</span> <span class="number">1</span></span><br><span class="line"><span class="attr">persistentVolume:</span></span><br><span class="line">  <span class="attr">enabled:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">storageClass:</span> <span class="string">local-path</span></span><br></pre></td></tr></table></figure>
+
+<p>主要参数说明：</p>
+<ul>
+<li><code>ollama.models.pull</code>&amp;<code>ollama.models.run</code>：拉取和运行的模型名称</li>
+<li><code>ollama.gpu</code>：是否启用GPU，以及启用的 GPU 类型，支持<code>nvidia</code>、<code>amd</code></li>
+</ul>
+<p>安装 Ollama</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm install -n suse-ai ollama oci://dp.apps.rancher.io/charts/ollama -n suse-ai --version 1.16.0 -f ollama-values.yaml</span><br></pre></td></tr></table></figure>
+
+<p>检查 Ollama</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl -n suse-ai get pods | grep ollama</span></span><br><span class="line">ollama-6f97458ffc-gdrzz              1/1     Running   0          13m</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># curl $(kubectl -n suse-ai get svc ollama | grep ollama| awk &#x27;&#123;print $3&#125;&#x27;):11434</span></span><br><span class="line">Ollama is running</span><br></pre></td></tr></table></figure>
+
+<h3 id="安装-Cert-manager"><a href="#安装-Cert-manager" class="headerlink" title="安装 Cert-manager"></a>安装 Cert-manager</h3><p>cert-manager 是一个适用于 Kubernetes 工作负载的可扩展 X.509 证书控制器。它支持来自主流公共颁发机构以及私有颁发机构的证书。cert-manager 确保证书有效且最新，并会在证书到期前的指定时间尝试续订证书。</p>
+<p>在之前的版本中，cert-manager 会随 Open WebUI 一起自动安装。目前，cert-manager 已不再包含在 Open WebUI Helm Chart 中，需要单独安装它。</p>
+<p>安装 Cert-manager</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm install cert-manager -n suse-ai oci://dp.apps.rancher.io/charts/cert-manager --create-namespace --<span class="built_in">set</span> crds.enabled=<span class="literal">true</span> --<span class="built_in">set</span> <span class="string">&#x27;global.imagePullSecrets[0].name&#x27;</span>=application-collection</span><br></pre></td></tr></table></figure>
+
+<p>检查 Cert-manager</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl -n suse-ai get pods | grep cert-manager</span></span><br><span class="line">cert-manager-7548665ffb-r8pqj             1/1     Running   0          83s</span><br><span class="line">cert-manager-cainjector-5546f965f-g6tv5   1/1     Running   0          83s</span><br><span class="line">cert-manager-webhook-694974d7b8-7hm7j     1/1     Running   0          83s</span><br></pre></td></tr></table></figure>
+
+<h3 id="安装-Open-WebUI"><a href="#安装-Open-WebUI" class="headerlink" title="安装 Open WebUI"></a>安装 Open WebUI</h3><p>Open WebUI 是一个基于 Web 的用户界面的可扩展、功能丰富且用户友好的自托管 WebUI，旨在完全离线运行，与 AI 模型交互，支持各种 LLM 运行器，包括 Ollama 和兼容 OpenAI 的 API。</p>
+<p>导出 open-webui values.yaml</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm show values oci://dp.apps.rancher.io/charts/open-webui --version 6.13.0 &gt; open-webui-values.yaml</span><br></pre></td></tr></table></figure>
+
+<p>编辑如下内容：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">global:</span></span><br><span class="line">  <span class="attr">imagePullSecrets:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">application-collection</span></span><br><span class="line"><span class="attr">ollamaUrls:</span></span><br><span class="line"><span class="bullet">-</span> <span class="string">http://ollama.suse-ai.svc.cluster.local:11434</span></span><br><span class="line"><span class="attr">persistence:</span></span><br><span class="line">  <span class="attr">enabled:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">storageClass:</span> <span class="string">local-path</span></span><br><span class="line"><span class="attr">ollama:</span></span><br><span class="line">  <span class="attr">enabled:</span> <span class="literal">false</span></span><br><span class="line"><span class="attr">pipelines:</span></span><br><span class="line">  <span class="attr">enabled:</span> <span class="literal">False</span></span><br><span class="line">  <span class="attr">persistence:</span></span><br><span class="line">    <span class="attr">storageClass:</span> <span class="string">local-path</span></span><br><span class="line"><span class="attr">ingress:</span></span><br><span class="line">  <span class="attr">enabled:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">class:</span> <span class="string">&quot;&quot;</span></span><br><span class="line">  <span class="attr">annotations:</span></span><br><span class="line">    <span class="attr">nginx.ingress.kubernetes.io/ssl-redirect:</span> <span class="string">&quot;true&quot;</span></span><br><span class="line">  <span class="attr">host:</span> <span class="string">open-webui.zerchin.xyz</span></span><br><span class="line">  <span class="attr">tls:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">extraEnvVars:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">DEFAULT_MODELS</span></span><br><span class="line">    <span class="attr">value:</span> <span class="string">&quot;deepseek-r1:1.5b&quot;</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">DEFAULT_USER_ROLE</span></span><br><span class="line">    <span class="attr">value:</span> <span class="string">&quot;user&quot;</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">WEBUI_NAME</span></span><br><span class="line">    <span class="attr">value:</span> <span class="string">&quot;SUSE AI&quot;</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">GLOBAL_LOG_LEVEL</span></span><br><span class="line">    <span class="attr">value:</span> <span class="string">INFO</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">VECTOR_DB</span></span><br><span class="line">    <span class="attr">value:</span> <span class="string">&quot;milvus&quot;</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">MILVUS_URI</span></span><br><span class="line">    <span class="attr">value:</span> <span class="string">http://milvus.suse-ai.svc.cluster.local:19530</span></span><br></pre></td></tr></table></figure>
+
+<p>主要参数说明：</p>
+<ul>
+<li><code>ollamaUrls</code>：这里填写前面创建的 ollama 连接地址</li>
+<li><code>ollama.enabled</code>：关闭默认自带的 ollama</li>
+<li><code>DEFAULT_MODELS</code>：这里填写前面配置的模型之一</li>
+</ul>
+<p>安装 open webui</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm install open-webui -n suse-ai oci://dp.apps.rancher.io/charts/open-webui --version 6.13.0 -f open-webui-values.yaml</span><br></pre></td></tr></table></figure>
+
+<p>检查 open webui</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl -n suse-ai get pods |grep open-webui</span></span><br><span class="line">open-webui-0                              1/1     Running   1 (15s ago)   33s</span><br><span class="line">open-webui-redis-665b94d467-zfkbh         1/1     Running   0             23m</span><br></pre></td></tr></table></figure>
+
+<p>打开 <a target="_blank" rel="noopener" href="https://open-webui.zerchin.xyz/">https://open-webui.zerchin.xyz</a> ，这个是我们在 open-webui 中配置的 Ingress 地址。</p>
+<p>首先需要注册管理员用户，注册好之后就可以正式使用了。</p>
+<img src="/2025/03/05/ai/SUSE%20AI%20%E4%BD%93%E9%AA%8C/open-webui-1.png" class="" title="open-webui-1">
+
+
+
+<p><strong>参考链接：</strong></p>
+<p><a target="_blank" rel="noopener" href="https://documentation.suse.com/suse-ai/1.0/html/NVIDIA-Operator-installation/index.html#nvidia-operator-installation">https://documentation.suse.com/suse-ai/1.0/html/NVIDIA-Operator-installation/index.html#nvidia-operator-installation</a></p>
+<p><a target="_blank" rel="noopener" href="https://documentation.suse.com/suse-ai/1.0/html/AI-deployment-intro/index.html#ai-library-installing">https://documentation.suse.com/suse-ai/1.0/html/AI-deployment-intro/index.html#ai-library-installing</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://www.zerchin.com/2025/03/05/ai/SUSE%20AI%20%E4%BD%93%E9%AA%8C/" title="SUSE AI 体验">http://www.zerchin.com/2025/03/05/ai/SUSE AI 体验/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/ai/" rel="tag"># ai</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2025/02/24/ingress/Cilium%20%E5%90%AF%E7%94%A8%20Ingress%20controller%20%E5%B9%B6%E8%87%AA%E5%AE%9A%E4%B9%89%E9%BB%98%E8%AE%A4%20TLS%20%E8%AF%81%E4%B9%A6/" rel="prev" title="Cilium 启用 Ingress controller 并自定义默认 TLS 证书">
+                  <i class="fa fa-chevron-left"></i> Cilium 启用 Ingress controller 并自定义默认 TLS 证书
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/" rel="next" title="Headscale 内网穿透方案">
+                  Headscale 内网穿透方案 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

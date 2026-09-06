@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.zerchin.com","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="HAMI 是什么HAMI 全称是 Heterogeneous AI Computing Virtualization Middleware，是一个面向 Kubernetes 的开源异构 AI 计算虚拟化中间件，前称是 k8s-vGPU-scheduler，是一个设计用于管理 k8s 集群中异构 AI 计算设备的“全合一”图表。它可以提供在任务之间共享异构 AI 设备的能力。截止文章发布时间，HAM">
+<meta property="og:type" content="article">
+<meta property="og:title" content="基于 HAMI 管理异构 GPU 设备">
+<meta property="og:url" content="http://www.zerchin.com/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="HAMI 是什么HAMI 全称是 Heterogeneous AI Computing Virtualization Middleware，是一个面向 Kubernetes 的开源异构 AI 计算虚拟化中间件，前称是 k8s-vGPU-scheduler，是一个设计用于管理 k8s 集群中异构 AI 计算设备的“全合一”图表。它可以提供在任务之间共享异构 AI 设备的能力。截止文章发布时间，HAM">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://www.zerchin.com/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/gpu-resource-limit.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/hami-arch.jpg">
+<meta property="og:image" content="http://www.zerchin.com/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/grafana-ui-1.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/prometheus-ui-1.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/hami-webui-1.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/hami-webui-2.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/hami-webui-3.png">
+<meta property="article:published_time" content="2025-06-25T10:44:23.000Z">
+<meta property="article:modified_time" content="2025-06-25T10:44:23.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="ai">
+<meta property="article:tag" content="hami">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://www.zerchin.com/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/gpu-resource-limit.png">
+
+
+<link rel="canonical" href="http://www.zerchin.com/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>基于 HAMI 管理异构 GPU 设备 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">61</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">35</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">128</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#HAMI-%E6%98%AF%E4%BB%80%E4%B9%88"><span class="nav-number">1.</span> <span class="nav-text">HAMI 是什么</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E8%83%BD%E5%8A%9B"><span class="nav-number">2.</span> <span class="nav-text">核心能力</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#HAMI-%E6%9E%B6%E6%9E%84"><span class="nav-number">3.</span> <span class="nav-text">HAMI 架构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%94%AF%E6%8C%81HAMi%E7%9A%84%E8%AE%BE%E5%A4%87"><span class="nav-number">4.</span> <span class="nav-text">支持HAMi的设备</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9E%E9%AA%8C%E7%8E%AF%E5%A2%83"><span class="nav-number">5.</span> <span class="nav-text">实验环境</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%88%E5%86%B3%E6%9D%A1%E4%BB%B6"><span class="nav-number">6.</span> <span class="nav-text">先决条件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%89%E8%A3%85%E8%BF%87%E7%A8%8B"><span class="nav-number">7.</span> <span class="nav-text">安装过程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%A9%B1%E5%8A%A8%E5%AE%89%E8%A3%85"><span class="nav-number">7.1.</span> <span class="nav-text">驱动安装</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#nvidia-container-toolkit-%E5%AE%89%E8%A3%85"><span class="nav-number">7.2.</span> <span class="nav-text">nvidia-container-toolkit 安装</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%89%E8%A3%85-RKE2-%E9%9B%86%E7%BE%A4"><span class="nav-number">8.</span> <span class="nav-text">安装 RKE2 集群</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%89%E8%A3%85-HAMI"><span class="nav-number">9.</span> <span class="nav-text">安装 HAMI</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%90%AF%E5%8A%A8-GPU-pod"><span class="nav-number">10.</span> <span class="nav-text">启动 GPU pod</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#WebUI-%E5%AE%89%E8%A3%85"><span class="nav-number">11.</span> <span class="nav-text">WebUI 安装</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E8%A3%85-Prometheus"><span class="nav-number">11.1.</span> <span class="nav-text">安装 Prometheus</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E8%A3%85-HAMI-WebUI"><span class="nav-number">11.2.</span> <span class="nav-text">安装 HAMI WebUI</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B8%B8%E7%94%A8%E7%A4%BA%E4%BE%8B"><span class="nav-number">12.</span> <span class="nav-text">常用示例</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%8B%AC%E5%8D%A0-GPU"><span class="nav-number">12.1.</span> <span class="nav-text">独占 GPU</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E5%AE%B9%E5%99%A8%E5%88%86%E9%85%8D%E7%89%B9%E5%AE%9A%E8%AE%BE%E5%A4%87%E5%86%85%E5%AD%98"><span class="nav-number">12.2.</span> <span class="nav-text">为容器分配特定设备内存</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%8C%89%E7%99%BE%E5%88%86%E6%AF%94%E5%88%86%E9%85%8D%E8%AE%BE%E5%A4%87%E5%86%85%E5%AD%98%E7%BB%99%E5%AE%B9%E5%99%A8"><span class="nav-number">12.3.</span> <span class="nav-text">按百分比分配设备内存给容器</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E5%AE%B9%E5%99%A8%E5%88%86%E9%85%8D%E8%AE%BE%E5%A4%87%E6%A0%B8%E5%BF%83%E8%B5%84%E6%BA%90"><span class="nav-number">12.4.</span> <span class="nav-text">为容器分配设备核心资源</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%86%E9%85%8D%E4%BB%BB%E5%8A%A1%E5%88%B0%E7%89%B9%E5%AE%9A%E7%B1%BB%E5%9E%8B"><span class="nav-number">12.5.</span> <span class="nav-text">分配任务到特定类型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B0%86%E4%BB%BB%E5%8A%A1%E5%88%86%E9%85%8D%E7%BB%99%E7%89%B9%E5%AE%9A%E7%9A%84-GPU"><span class="nav-number">12.6.</span> <span class="nav-text">将任务分配给特定的 GPU</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B0%86%E4%BB%BB%E5%8A%A1%E5%88%86%E9%85%8D%E7%BB%99-mig-%E5%AE%9E%E4%BE%8B"><span class="nav-number">12.7.</span> <span class="nav-text">将任务分配给 mig 实例</span></a></li></ol></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">128</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">61</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.zerchin.com/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          基于 HAMI 管理异构 GPU 设备
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2025-06-25 18:44:23" itemprop="dateCreated datePublished" datetime="2025-06-25T18:44:23+08:00">2025-06-25</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/hami/" itemprop="url" rel="index"><span itemprop="name">hami</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="HAMI-是什么"><a href="#HAMI-是什么" class="headerlink" title="HAMI 是什么"></a>HAMI 是什么</h2><p>HAMI 全称是 Heterogeneous AI Computing Virtualization Middleware，是一个面向 Kubernetes 的开源异构 AI 计算虚拟化中间件，前称是 k8s-vGPU-scheduler，是一个设计用于管理 k8s 集群中异构 AI 计算设备的“全合一”图表。它可以提供在任务之间共享异构 AI 设备的能力。截止文章发布时间，HAMi 是 CNCF Sandbox 和 CNAI Landscape 的项目。</p>
+<h2 id="核心能力"><a href="#核心能力" class="headerlink" title="核心能力"></a>核心能力</h2><ol>
+<li><p>设备共享<br>HAMi 提供强大的设备共享功能，使多个任务可以共享同一个 GPU、MLU 或 NPU 设备，最大限度地利用异构 AI 计算资源。可以实现如下能力：</p>
+<ul>
+<li><strong>多任务共享：</strong>同一设备可以由多个任务共享，每个任务仅使用部分设备。</li>
+<li><strong>设备内存控制：</strong>可以按MB或百分比分配内存。</li>
+<li><strong>使用特定设备：</strong>允许选择特定类型的异构 AI 设备或使用其 UUID 定位设备。</li>
+<li><strong>容器内硬限制：</strong>对流式多处理器施加硬限制。</li>
+<li><strong>非侵入控制：</strong>管理资源分配时无需对现有程序进行任何更改。</li>
+<li><strong>动态 MIG 支持：</strong>支持使用 mig-parted 进行动态 MIG 调整。</li>
+</ul>
+</li>
+<li><p>设备资源隔离</p>
+<p>可以实现将一款 GPU 设备隔离显存资源，参考例子：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">resources:</span></span><br><span class="line">  <span class="attr">limits:</span></span><br><span class="line">    <span class="attr">nvidia.com/gpu:</span> <span class="number">1</span> <span class="comment"># 请求1个vGPU</span></span><br><span class="line">    <span class="attr">nvidia.com/gpumem:</span> <span class="number">3000</span> <span class="comment"># 每个vGPU包含3000m设备内存</span></span><br></pre></td></tr></table></figure>
+
+<p>结果如下，拥有 24G 显存的 4090 卡，显存限制在 3000 MiB。</p>
+<img src="/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/gpu-resource-limit.png" class="" title="gpu-resource-limit">
+
+
+
+</li>
+</ol>
+<h2 id="HAMI-架构"><a href="#HAMI-架构" class="headerlink" title="HAMI 架构"></a>HAMI 架构</h2><p>参考下面的 HAMI 架构图，HAMI 主要组件如下：</p>
+<ul>
+<li>HAMi MutatingWebhook：通过扫描每个提交的 pod 的资源字段，判断是否包含 HAMI 资源，存在则将调度器设置为 HAMi-scheduler。</li>
+<li>HAMi scheduler-extender：负责将任务分配给适当的节点和设备。</li>
+<li>HAMi-device-plugin：设备插件层从任务的注释字段获取调度结果，并将相应的设备映射到容器。</li>
+<li>HAMi-Core：容器内资源控制负责监控容器内的资源使用情况，并提供硬隔离能力。</li>
+</ul>
+<img src="/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/hami-arch.jpg" class="" title="hami-arch">
+
+<h2 id="支持HAMi的设备"><a href="#支持HAMi的设备" class="headerlink" title="支持HAMi的设备"></a>支持HAMi的设备</h2><p>截止至 2025-06-26 支持的设备</p>
+<table>
+<thead>
+<tr>
+<th>生产商</th>
+<th>制造商</th>
+<th>类型</th>
+<th>内存隔离</th>
+<th>核心隔离</th>
+<th>多卡支持</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>GPU</td>
+<td>NVIDIA</td>
+<td>全部</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>MLU</td>
+<td>Cambricon</td>
+<td>370, 590</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>DCU</td>
+<td>Hygon</td>
+<td>Z100, Z100L</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>Ascend</td>
+<td>Huawei</td>
+<td>910B, 910B3, 310P</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>GPU</td>
+<td>iluvatar</td>
+<td>全部</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>GPU</td>
+<td>Mthreads</td>
+<td>MTT S4000</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>DPU</td>
+<td>Teco</td>
+<td>检查中</td>
+<td>进行中</td>
+<td>进行中</td>
+<td>❌</td>
+</tr>
+</tbody></table>
+<h2 id="实验环境"><a href="#实验环境" class="headerlink" title="实验环境"></a>实验环境</h2><table>
+<thead>
+<tr>
+<th>Env</th>
+<th>Version</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Ubuntu</td>
+<td>22.04.5</td>
+</tr>
+<tr>
+<td>RKE2</td>
+<td>v1.31.9+rke2r1</td>
+</tr>
+<tr>
+<td>HAMI</td>
+<td>v2.6.0</td>
+</tr>
+<tr>
+<td>Driver</td>
+<td>560.35.03</td>
+</tr>
+<tr>
+<td>CUDA</td>
+<td>12.6</td>
+</tr>
+<tr>
+<td>GPU</td>
+<td>NVIDIA GeForce RTX 4090</td>
+</tr>
+</tbody></table>
+<h2 id="先决条件"><a href="#先决条件" class="headerlink" title="先决条件"></a>先决条件</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://helm.sh/zh/docs/">Helm</a> 版本 v3+</li>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/docs/tasks/tools/install-kubectl/">kubectl</a> 版本 v1.16+</li>
+<li><a target="_blank" rel="noopener" href="https://developer.nvidia.com/cuda-toolkit">CUDA</a> 版本 v10.2+</li>
+<li><a target="_blank" rel="noopener" href="https://www.nvidia.cn/drivers/unix/">NvidiaDriver</a> v440+</li>
+</ul>
+<h2 id="安装过程"><a href="#安装过程" class="headerlink" title="安装过程"></a>安装过程</h2><h3 id="驱动安装"><a href="#驱动安装" class="headerlink" title="驱动安装"></a>驱动安装</h3><p>首先需要安装 NVIDIA 驱动和 CUDA。CUDA 是 NVIDIA 的并行计算平台，它通过利用 GPU 的强大计算能力来处理计算工作负载，从而显著提升性能。</p>
+<p>NVIDIA 官方文档有关于不同操作系统的详细安装教程，我们可以参考 <a target="_blank" rel="noopener" href="https://docs.nvidia.com/datacenter/tesla/driver-installation-guide/index.html#ubuntu-installation">NVIDIA  驱动安装</a>和 <a target="_blank" rel="noopener" href="https://docs.nvidia.com/cuda/cuda-installation-guide-linux/#ubuntu-installation">CUDA 安装</a>文档进行安装即可。（这里由于我拿到机器的时候，驱动已经安装好了，所以驱动安装部分我没有验证过）</p>
+<p>我另一篇文章<a href="https://www.zerchin.com/2024/12/24/rke2/%E8%A7%A3%E9%94%81%20Harvester%20VM%20%E7%9A%84%20GPU%20%E8%83%BD%E5%8A%9B%EF%BC%9A%E5%9C%A8%20RKE2%20%E9%9B%86%E7%BE%A4%E4%B8%8A%E8%BF%90%E8%A1%8C%20GPU%20%E5%B7%A5%E4%BD%9C%E8%B4%9F%E8%BD%BD/">在 RKE2 集群上运行 GPU 工作负载</a>，里面有关于 GT710 显卡的简易安装教程，也可以试一下这个方法可不可行。</p>
+<p>确认驱动是否安装成功，可以执行 nvidia-smi 命令进行查看：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line">root@node2122:~<span class="comment"># nvidia-smi </span></span><br><span class="line">Thu Jun 26 01:26:08 2025       </span><br><span class="line">+-----------------------------------------------------------------------------------------+</span><br><span class="line">| NVIDIA-SMI 560.35.03              Driver Version: 560.35.03      CUDA Version: 12.6     |</span><br><span class="line">|-----------------------------------------+------------------------+----------------------+</span><br><span class="line">| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |</span><br><span class="line">| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |</span><br><span class="line">|                                         |                        |               MIG M. |</span><br><span class="line">|=========================================+========================+======================|</span><br><span class="line">|   0  NVIDIA GeForce RTX 4090        On  |   00000000:01:00.0 Off |                  Off |</span><br><span class="line">| 66%   30C    P8             24W /  450W |   22781MiB /  24564MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">|   1  NVIDIA GeForce RTX 4090        On  |   00000000:23:00.0 Off |                  Off |</span><br><span class="line">| 65%   29C    P8             25W /  450W |   22209MiB /  24564MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">|   2  NVIDIA GeForce RTX 4090        On  |   00000000:41:00.0 Off |                  Off |</span><br><span class="line">| 65%   32C    P8             31W /  450W |   22209MiB /  24564MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">|   3  NVIDIA GeForce RTX 4090        On  |   00000000:61:00.0 Off |                  Off |</span><br><span class="line">| 68%   30C    P8             15W /  450W |   22209MiB /  24564MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">|   4  NVIDIA GeForce RTX 4090        On  |   00000000:81:00.0 Off |                  Off |</span><br><span class="line">| 30%   30C    P8             17W /  450W |    6203MiB /  24564MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">|   5  NVIDIA GeForce RTX 4090        On  |   00000000:A1:00.0 Off |                  Off |</span><br><span class="line">| 30%   31C    P8             24W /  450W |    1861MiB /  24564MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">|   6  NVIDIA GeForce RTX 4090        On  |   00000000:C1:00.0 Off |                  Off |</span><br><span class="line">| 67%   29C    P8             25W /  450W |   22455MiB /  24564MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">|   7  NVIDIA GeForce RTX 4090        On  |   00000000:E1:00.0 Off |                  Off |</span><br><span class="line">| 64%   29C    P8             25W /  450W |   22191MiB /  24564MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">                                                                                         </span><br><span class="line">+-----------------------------------------------------------------------------------------+</span><br><span class="line">| Processes:                                                                              |</span><br><span class="line">|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |</span><br><span class="line">|        ID   ID                                                               Usage      |</span><br><span class="line">|=========================================================================================|</span><br><span class="line">|    1   N/A  N/A    320266      C   Xinf vLLM worker: 1                         22192MiB |</span><br><span class="line">|    2   N/A  N/A    320268      C   Xinf vLLM worker: 2                         22192MiB |</span><br><span class="line">|    3   N/A  N/A    320267      C   Xinf vLLM worker: 3                         22192MiB |</span><br><span class="line">|    4   N/A  N/A    330370      C   python                                       6194MiB |</span><br><span class="line">|    5   N/A  N/A    237239      C   python                                       1852MiB |</span><br><span class="line">|    6   N/A  N/A    321302      C   python                                      22446MiB |</span><br><span class="line">|    7   N/A  N/A    241782      C   ...ntu/miniconda3/envs/xrlf/bin/python      22182MiB |</span><br><span class="line">+-----------------------------------------------------------------------------------------+</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="nvidia-container-toolkit-安装"><a href="#nvidia-container-toolkit-安装" class="headerlink" title="nvidia-container-toolkit 安装"></a>nvidia-container-toolkit 安装</h3><p>nvidia-container-toolkit 是 NVIDIA 提供的一组工具，可帮助用户构建和运行 GPU 加速的容器。也就是可以让我们在容器化环境（Docker/Containerd）中使用 GPU。</p>
+<p>其他操作系统可以参考<a target="_blank" rel="noopener" href="https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html">官方安装文档</a>。我的实验环境是 Ubuntu 22.04，安装 nvidia-container-toolkit 参考如下：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg   &amp;&amp; curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list |     sed <span class="string">&#x27;s#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g&#x27;</span> |     sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list</span><br><span class="line">sed -i -e <span class="string">&#x27;/experimental/ s/^#//g&#x27;</span> /etc/apt/sources.list.d/nvidia-container-toolkit.list</span><br><span class="line">apt-get update</span><br><span class="line">apt-get install -y nvidia-container-toolkit</span><br></pre></td></tr></table></figure>
+
+<p>使用 <code>nvidia-ctk</code> 配置 Docker 默认运行时：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">nvidia-ctk runtime configure --runtime=docker</span><br></pre></td></tr></table></figure>
+
+<p>查看 <code>daemon.json</code> 配置是否生效：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">cat /etc/docker/daemon.json </span><br><span class="line">&#123;</span><br><span class="line">    <span class="string">&quot;runtimes&quot;</span>: &#123;</span><br><span class="line">        <span class="string">&quot;nvidia&quot;</span>: &#123;</span><br><span class="line">            <span class="string">&quot;args&quot;</span>: [],</span><br><span class="line">            <span class="string">&quot;path&quot;</span>: <span class="string">&quot;nvidia-container-runtime&quot;</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>重启 Docker</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl restart docker</span><br></pre></td></tr></table></figure>
+
+<p>验证是否可以使用 Docker</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line">root@node2122:~<span class="comment"># docker run --gpus all --rm --runtime=nvidia docker.m.daocloud.io/nvidia/cuda:11.4.3-runtime-ubuntu20.04 nvidia-smi</span></span><br><span class="line"></span><br><span class="line">==========</span><br><span class="line">== CUDA ==</span><br><span class="line">==========</span><br><span class="line"></span><br><span class="line">CUDA Version 11.4.3</span><br><span class="line"></span><br><span class="line">Container image Copyright (c) 2016-2023, NVIDIA CORPORATION &amp; AFFILIATES. All rights reserved.</span><br><span class="line"></span><br><span class="line">This container image and its contents are governed by the NVIDIA Deep Learning Container License.</span><br><span class="line">By pulling and using the container, you accept the terms and conditions of this license:</span><br><span class="line">https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license</span><br><span class="line"></span><br><span class="line">A copy of this license is made available <span class="keyword">in</span> this container at /NGC-DL-CONTAINER-LICENSE <span class="keyword">for</span> your convenience.</span><br><span class="line"></span><br><span class="line">Wed Jun 25 17:25:14 2025       </span><br><span class="line">+-----------------------------------------------------------------------------------------+</span><br><span class="line">| NVIDIA-SMI 560.35.03              Driver Version: 560.35.03      CUDA Version: 12.6     |</span><br><span class="line">|-----------------------------------------+------------------------+----------------------+</span><br><span class="line">| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |</span><br><span class="line">| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |</span><br><span class="line">|                                         |                        |               MIG M. |</span><br><span class="line">|=========================================+========================+======================|</span><br><span class="line">|   0  NVIDIA GeForce RTX 4090        On  |   00000000:01:00.0 Off |                  Off |</span><br><span class="line">| 66%   29C    P8             24W /  450W |   22781MiB /  24564MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">|   1  NVIDIA GeForce RTX 4090        On  |   00000000:23:00.0 Off |                  Off |</span><br><span class="line">| 65%   29C    P8             24W /  450W |   22209MiB /  24564MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">|   2  NVIDIA GeForce RTX 4090        On  |   00000000:41:00.0 Off |                  Off |</span><br><span class="line">| 66%   32C    P8             31W /  450W |   22209MiB /  24564MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">|   3  NVIDIA GeForce RTX 4090        On  |   00000000:61:00.0 Off |                  Off |</span><br><span class="line">| 68%   30C    P8             16W /  450W |   22209MiB /  24564MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">|   4  NVIDIA GeForce RTX 4090        On  |   00000000:81:00.0 Off |                  Off |</span><br><span class="line">| 30%   29C    P8             17W /  450W |    6203MiB /  24564MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">|   5  NVIDIA GeForce RTX 4090        On  |   00000000:A1:00.0 Off |                  Off |</span><br><span class="line">| 30%   31C    P8             24W /  450W |    1861MiB /  24564MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">|   6  NVIDIA GeForce RTX 4090        On  |   00000000:C1:00.0 Off |                  Off |</span><br><span class="line">|100%   29C    P8             25W /  450W |   22455MiB /  24564MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">|   7  NVIDIA GeForce RTX 4090        On  |   00000000:E1:00.0 Off |                  Off |</span><br><span class="line">| 64%   29C    P8             25W /  450W |   22191MiB /  24564MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">                                                                                         </span><br><span class="line">+-----------------------------------------------------------------------------------------+</span><br><span class="line">| Processes:                                                                              |</span><br><span class="line">|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |</span><br><span class="line">|        ID   ID                                                               Usage      |</span><br><span class="line">|=========================================================================================|</span><br><span class="line">|  No running processes found                                                             |</span><br><span class="line">+-----------------------------------------------------------------------------------------+</span><br></pre></td></tr></table></figure>
+
+<p>containerd 也可以通过 <code>nvidia-ctk</code>去配置，关键参数如下，具体就不演示了。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">version = 2</span><br><span class="line">[plugins]</span><br><span class="line">  [plugins.<span class="string">&quot;io.containerd.grpc.v1.cri&quot;</span>]</span><br><span class="line">    [plugins.<span class="string">&quot;io.containerd.grpc.v1.cri&quot;</span>.containerd]</span><br><span class="line">      default_runtime_name = <span class="string">&quot;nvidia&quot;</span></span><br><span class="line"></span><br><span class="line">      [plugins.<span class="string">&quot;io.containerd.grpc.v1.cri&quot;</span>.containerd.runtimes]</span><br><span class="line">        [plugins.<span class="string">&quot;io.containerd.grpc.v1.cri&quot;</span>.containerd.runtimes.nvidia]</span><br><span class="line">          privileged_without_host_devices = <span class="literal">false</span></span><br><span class="line">          runtime_engine = <span class="string">&quot;&quot;</span></span><br><span class="line">          runtime_root = <span class="string">&quot;&quot;</span></span><br><span class="line">          runtime_type = <span class="string">&quot;io.containerd.runc.v2&quot;</span></span><br><span class="line">          [plugins.<span class="string">&quot;io.containerd.grpc.v1.cri&quot;</span>.containerd.runtimes.nvidia.options]</span><br><span class="line">            BinaryName = <span class="string">&quot;/usr/bin/nvidia-container-runtime&quot;</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="安装-RKE2-集群"><a href="#安装-RKE2-集群" class="headerlink" title="安装 RKE2 集群"></a>安装 RKE2 集群</h2><p>HAMI 毕竟是一个设计用于管理 k8s 集群中异构AI计算设备的平台，所以我们需要有一个 k8s 集群来承载 HAMI，这里我们选择可以快速部署安装的 RKE2 集群。</p>
+<p>基于脚本下载二进制文件：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl -sfL https://get.rke2.io | INSTALL_RKE2_VERSION=v1.31.9+rke2r1 sh -</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>这里踩了一个坑，在 v1.30.4+rke2r1 这个版本上，貌似触发了个 bug，containerd 配置无法生效。所以使用了 v1.31.9+rke2r1 这个版本。</p>
+</blockquote>
+<p>（可选）如果服务器在国内且没有翻墙代理，或者使用本地 Harbor 镜像仓库，可以手动配置镜像仓库源：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># cat /etc/rancher/rke2/registries.yaml </span></span><br><span class="line"></span><br><span class="line">mirrors:</span><br><span class="line">  docker.io:</span><br><span class="line">    endpoint:</span><br><span class="line">      - <span class="string">&quot;https://docker.m.daocloud.io&quot;</span></span><br><span class="line">  quay.io:</span><br><span class="line">    endpoint:</span><br><span class="line">      - <span class="string">&quot;https://swr.cn-north-4.myhuaweicloud.com&quot;</span></span><br><span class="line">    rewrite:</span><br><span class="line">      <span class="string">&quot;(^.+$)&quot;</span>: <span class="string">&quot;ddn-k8s/quay.io/<span class="variable">$1</span>&quot;</span></span><br><span class="line">  registry.k8s.io:</span><br><span class="line">    endpoint:</span><br><span class="line">      - <span class="string">&quot;https://swr.cn-north-4.myhuaweicloud.com&quot;</span></span><br><span class="line">    rewrite:</span><br><span class="line">      <span class="string">&quot;(^.+$)&quot;</span>: <span class="string">&quot;ddn-k8s/registry.k8s.io/<span class="variable">$1</span>&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>启动 rke2-server：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">systemctl <span class="built_in">enable</span> rke2-server.service</span><br><span class="line"></span><br><span class="line">systemctl start rke2-server.service</span><br></pre></td></tr></table></figure>
+
+<p>等待命令集群部署好后，我们执行 kubectl 命令查看集群是否起来了。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl get nodes</span></span><br><span class="line">NAME       STATUS   ROLES                       AGE     VERSION</span><br><span class="line">node2122   Ready    control-plane,etcd,master   7h38m   v1.31.9+rke2r1</span><br></pre></td></tr></table></figure>
+
+<p>设置 NVIDIA 为默认运行时：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">cat &lt;&lt;<span class="string">EOF &gt; /var/lib/rancher/rke2/agent/etc/containerd/config.toml.tmpl </span></span><br><span class="line"><span class="string">&#123;&#123; template &quot;base&quot; . &#125;&#125;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">[plugins.&quot;io.containerd.cri.v1.runtime&quot;.containerd]</span></span><br><span class="line"><span class="string">  default_runtime_name = &quot;nvidia&quot;</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
+
+<p>重启 rke2-server：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl restart rke2-server.service</span><br></pre></td></tr></table></figure>
+
+<p>为 node 设置 标签：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl label node node2122 gpu=on</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="安装-HAMI"><a href="#安装-HAMI" class="headerlink" title="安装 HAMI"></a>安装 HAMI</h2><p>接着我们开始安装 HAMI。</p>
+<p>首先添加 HAMI 仓库：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">helm repo add hami-charts https://project-hami.github.io/HAMi/</span><br><span class="line"></span><br><span class="line">helm repo update</span><br></pre></td></tr></table></figure>
+
+<p>接着我们需要获取当前集群的 k8s 版本，这里我们安装的版本是 <code>v1.31.9</code>。</p>
+<p>在线安装方式：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">helm</span> <span class="string">install</span> <span class="string">hami</span> <span class="string">hami-charts/hami</span> <span class="string">-n</span> <span class="string">hami</span> <span class="string">--create-namespace</span>  <span class="string">--set</span> <span class="string">scheduler.kubeScheduler.imageTag=v1.31.9</span></span><br></pre></td></tr></table></figure>
+
+<p>离线安装方式：如果镜像在本地Harbor，可以设置镜像地址：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">IMG_REG=&lt;Harbor_URL&gt;</span><br><span class="line">helm install hami hami-charts/hami -n hami --create-namespace \</span><br><span class="line"> --<span class="built_in">set</span> scheduler.kubeScheduler.imageTag=v1.30.4 \</span><br><span class="line"> --<span class="built_in">set</span> scheduler.extender.image=<span class="variable">$IMG_REG</span>/projecthami/hami \</span><br><span class="line"> --<span class="built_in">set</span> devicePlugin.image=<span class="variable">$IMG_REG</span>/projecthami/hami \</span><br><span class="line"> --<span class="built_in">set</span> devicePlugin.monitorimage=<span class="variable">$IMG_REG</span>/projecthami/hami \</span><br><span class="line"> --<span class="built_in">set</span> scheduler.image=<span class="variable">$IMG_REG</span>/projecthami/hami \</span><br><span class="line"> --<span class="built_in">set</span> scheduler.patch.image=<span class="variable">$IMG_REG</span>/jettech/kube-webhook-certgen:v1.5.2 \</span><br><span class="line"> --<span class="built_in">set</span> scheduler.patch.imageNew=<span class="variable">$IMG_REG</span>/liangjw/kube-webhook-certgen:v1.1.1</span><br></pre></td></tr></table></figure>
+
+<p>确认组件是否正常运行：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl -n hami get pods</span></span><br><span class="line">NAME                              READY   STATUS    RESTARTS   AGE</span><br><span class="line">hami-device-plugin-9kbz8          2/2     Running   0          7h41m</span><br><span class="line">hami-scheduler-8444dcb567-sfw7c   2/2     Running   0          7h42m</span><br></pre></td></tr></table></figure>
+
+<p>这里 <strong>scheduler</strong> 一般不会有问题，可能会出问题的是 <strong>device-plugin</strong>，如果这个起不来，可以查看日志看看是什么报错，一般可能是没有配置 NVIDIA 为默认运行时。如果直接看不到 <strong>device-plugin</strong>，请确认节点是否有配置<code>gpu=on</code>标签。</p>
+<h2 id="启动-GPU-pod"><a href="#启动-GPU-pod" class="headerlink" title="启动 GPU pod"></a>启动 GPU pod</h2><p>使用下面这段配置创建一个测试工作负载。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">gpu-test</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">gpu-test</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">gpu-test</span></span><br><span class="line">  <span class="attr">strategy:</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">Recreate</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">gpu-test</span></span><br><span class="line">      <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">nvidia/cuda:11.4.3-runtime-ubuntu20.04</span></span><br><span class="line">          <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">          <span class="attr">name:</span> <span class="string">gpu-test</span></span><br><span class="line">          <span class="attr">resources:</span></span><br><span class="line">            <span class="attr">limits:</span></span><br><span class="line">              <span class="attr">nvidia.com/gpu:</span> <span class="string">&#x27;1&#x27;</span></span><br><span class="line">              <span class="attr">nvidia.com/gpumem:</span> <span class="number">10240</span></span><br><span class="line">          <span class="attr">stdin:</span> <span class="literal">true</span></span><br><span class="line">          <span class="attr">tty:</span> <span class="literal">true</span></span><br><span class="line">      <span class="attr">runtimeClassName:</span> <span class="string">nvidia</span></span><br></pre></td></tr></table></figure>
+
+<p>关键参数如下：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">resources:</span><br><span class="line">  limits:</span><br><span class="line">    nvidia.com/gpu: 1 <span class="comment"># 请求 1 个 vGPUs</span></span><br><span class="line">    nvidia.com/gpumem: 10240 <span class="comment"># 每个 vGPU 包含 3000m 设备内存（可选，整数）</span></span><br></pre></td></tr></table></figure>
+
+<p>启动 deployment：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f gpu-test.yaml</span><br></pre></td></tr></table></figure>
+
+<p>确认 pod 是否正常运行：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl get pods</span></span><br><span class="line">NAME                        READY   STATUS    RESTARTS   AGE</span><br><span class="line">gpu-test-758f7877c5-5drv2   1/1     Running   0          4s</span><br></pre></td></tr></table></figure>
+
+<p>验证 pod 是否按照 limit 的大小进行分配：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl exec -it gpu-test-758f7877c5-5drv2 -- nvidia-smi</span></span><br><span class="line">Wed Jun 25 18:02:12 2025       </span><br><span class="line">+-----------------------------------------------------------------------------------------+</span><br><span class="line">| NVIDIA-SMI 560.35.03              Driver Version: 560.35.03      CUDA Version: 12.6     |</span><br><span class="line">|-----------------------------------------+------------------------+----------------------+</span><br><span class="line">| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |</span><br><span class="line">| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |</span><br><span class="line">|                                         |                        |               MIG M. |</span><br><span class="line">|=========================================+========================+======================|</span><br><span class="line">|   0  NVIDIA GeForce RTX 4090        On  |   00000000:23:00.0 Off |                  Off |</span><br><span class="line">| 65%   29C    P8             25W /  450W |       0MiB /  10240MiB |      0%      Default |</span><br><span class="line">|                                         |                        |                  N/A |</span><br><span class="line">+-----------------------------------------+------------------------+----------------------+</span><br><span class="line">                                                                                         </span><br><span class="line">+-----------------------------------------------------------------------------------------+</span><br><span class="line">| Processes:                                                                              |</span><br><span class="line">|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |</span><br><span class="line">|        ID   ID                                                               Usage      |</span><br><span class="line">|=========================================================================================|</span><br><span class="line">|  No running processes found                                                             |</span><br><span class="line">+-----------------------------------------------------------------------------------------+</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，已经正常分配 10240 MiB 显存。</p>
+<h2 id="WebUI-安装"><a href="#WebUI-安装" class="headerlink" title="WebUI 安装"></a>WebUI 安装</h2><p>HAMI 也提供一个可视化的 WebUI 界面，我们可以通过 Helm 进行安装。</p>
+<h3 id="安装-Prometheus"><a href="#安装-Prometheus" class="headerlink" title="安装 Prometheus"></a>安装 Prometheus</h3><p>首先需要先安装 Prometheus，我们可以直接安装社区的 kube-prometheus-stack，里面包含了 prometheus+grafana+alertmanager。</p>
+<p>通过 Helm 进行安装：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">helm repo add prometheus-community https://prometheus-community.github.io/helm-charts</span><br><span class="line">helm repo update</span><br><span class="line">helm install prometheus -n prometheus --create-namespace prometheus-community/kube-prometheus-stack</span><br></pre></td></tr></table></figure>
+
+<p>查看是否安装成功：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl -n prometheus get pods</span></span><br><span class="line">NAME                                                     READY   STATUS    RESTARTS   AGE</span><br><span class="line">alertmanager-prometheus-kube-prometheus-alertmanager-0   2/2     Running   0          19m</span><br><span class="line">prometheus-grafana-788974cbb5-s742s                      3/3     Running   0          19m</span><br><span class="line">prometheus-kube-prometheus-operator-5f4c64f45d-cqv79     1/1     Running   0          19m</span><br><span class="line">prometheus-kube-state-metrics-54f9649f7c-8nfc2           1/1     Running   0          19m</span><br><span class="line">prometheus-prometheus-kube-prometheus-prometheus-0       2/2     Running   0          19m</span><br><span class="line">prometheus-prometheus-node-exporter-8grzd                1/1     Running   0          19m</span><br></pre></td></tr></table></figure>
+
+<p>创建 NodePort 访问 Grafana 和 Prometheus，参考如下：</p>
+<p>Grafana-NodePort：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: v1</span><br><span class="line">kind: Service</span><br><span class="line">metadata:</span><br><span class="line">  name: prometheus-grafana-nodeport</span><br><span class="line">  namespace: prometheus</span><br><span class="line">spec:</span><br><span class="line">  ports:</span><br><span class="line">  - name: http-web</span><br><span class="line">    port: 80</span><br><span class="line">    protocol: TCP</span><br><span class="line">    targetPort: 3000</span><br><span class="line">  selector:</span><br><span class="line">    app.kubernetes.io/instance: prometheus</span><br><span class="line">    app.kubernetes.io/name: grafana</span><br><span class="line">  <span class="built_in">type</span>: NodePort</span><br></pre></td></tr></table></figure>
+
+<p>访问 <code>&lt;Node_IP&gt;:&lt;NodePort&gt;</code>，账号密码默认是<code>admin/prom-operator</code></p>
+<img src="/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/grafana-ui-1.png" class="" title="grafana-ui-1">
+
+<p>Prometheus-NodePort：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Service</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">prometheus-nodeport</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">prometheus</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">ports:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">http-web</span></span><br><span class="line">    <span class="attr">port:</span> <span class="number">9090</span></span><br><span class="line">    <span class="attr">protocol:</span> <span class="string">TCP</span></span><br><span class="line">    <span class="attr">targetPort:</span> <span class="number">9090</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">appProtocol:</span> <span class="string">http</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">reloader-web</span></span><br><span class="line">    <span class="attr">port:</span> <span class="number">8080</span></span><br><span class="line">    <span class="attr">protocol:</span> <span class="string">TCP</span></span><br><span class="line">    <span class="attr">targetPort:</span> <span class="string">reloader-web</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">app.kubernetes.io/name:</span> <span class="string">prometheus</span></span><br><span class="line">    <span class="attr">operator.prometheus.io/name:</span> <span class="string">prometheus-kube-prometheus-prometheus</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">NodePort</span></span><br></pre></td></tr></table></figure>
+
+<img src="/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/prometheus-ui-1.png" class="" title="prometheus-ui-1">
+
+<h3 id="安装-HAMI-WebUI"><a href="#安装-HAMI-WebUI" class="headerlink" title="安装 HAMI WebUI"></a>安装 HAMI WebUI</h3><p>我们通过 Helm 进行安装，首先添加仓库：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm repo add hami-webui https://project-hami.github.io/HAMi-WebUI</span><br></pre></td></tr></table></figure>
+
+<p>这里我们对接刚刚的 Prometheus，我们查询一下 Prometheus 的 Service，我们需要使用这个 Service 进行对接。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n prometheus get svc</span><br><span class="line">...</span><br><span class="line">...</span><br><span class="line">prometheus-kube-prometheus-prometheus     ClusterIP   10.43.153.38    &lt;none&gt;        9090/TCP,8080/TCP               17m</span><br><span class="line">...</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>接着开始安装：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm install hami-webui -n hami hami-webui/hami-webui --create-namespace --<span class="built_in">set</span> externalPrometheus.enabled=<span class="literal">true</span> --<span class="built_in">set</span> externalPrometheus.address=<span class="string">&quot;http://prometheus-kube-prometheus-prometheus.prometheus.svc.cluster.local:9090&quot;</span> --<span class="built_in">set</span> service.type=NodePort</span><br></pre></td></tr></table></figure>
+
+<p>确认 pod 状态都正常：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl -n hami get pods | grep webui</span></span><br><span class="line">hami-webui-5c58b5cff-q8r6t        2/2     Running   0          2m1s</span><br><span class="line">hami-webui-dcgm-exporter-smjrn    1/1     Running   0          2m1s</span><br></pre></td></tr></table></figure>
+
+<p>这里我们已经设置了 NodePort 暴露出去，所以我们直接访问 NodePort 就可以看到了 WebUI 了。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># kubectl -n hami get svc</span></span><br><span class="line">...</span><br><span class="line">...</span><br><span class="line">hami-webui                   NodePort    10.43.171.70   &lt;none&gt;        3000:30686/TCP,8000:31641/TCP   4m20s</span><br><span class="line">...</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>访问 3000 端口对应的 NodePort，效果如下：</p>
+<img src="/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/hami-webui-1.png" class="" title="hami-webui-1">
+
+<p>通过这个 UI，我们可以看到显卡分配情况：</p>
+<img src="/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/hami-webui-2.png" class="" title="hami-webui-2">
+
+<p>在任务管理可以看到具体已运行的任务：</p>
+<img src="/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/hami-webui-3.png" class="" title="hami-webui-3">
+
+
+
+<h2 id="常用示例"><a href="#常用示例" class="headerlink" title="常用示例"></a>常用示例</h2><h3 id="独占-GPU"><a href="#独占-GPU" class="headerlink" title="独占 GPU"></a>独占 GPU</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">resources:</span></span><br><span class="line">  <span class="attr">limits:</span></span><br><span class="line">    <span class="attr">nvidia.com/gpu:</span> <span class="number">2</span> <span class="comment"># 请求 2 个 vGPU</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="为容器分配特定设备内存"><a href="#为容器分配特定设备内存" class="headerlink" title="为容器分配特定设备内存"></a>为容器分配特定设备内存</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">resources:</span></span><br><span class="line">  <span class="attr">limits:</span></span><br><span class="line">    <span class="attr">nvidia.com/gpu:</span> <span class="number">2</span> <span class="comment"># 请求 2 个 vGPU</span></span><br><span class="line">    <span class="attr">nvidia.com/gpumem:</span> <span class="number">3000</span> <span class="comment"># 每个 vGPU 请求 3G 设备内存</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="按百分比分配设备内存给容器"><a href="#按百分比分配设备内存给容器" class="headerlink" title="按百分比分配设备内存给容器"></a>按百分比分配设备内存给容器</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">resources:</span></span><br><span class="line">  <span class="attr">limits:</span></span><br><span class="line">    <span class="attr">nvidia.com/gpu:</span> <span class="number">2</span> <span class="comment"># 请求 2 个 vGPU</span></span><br><span class="line">    <span class="attr">nvidia.com/gpumem-percentage:</span> <span class="number">50</span> <span class="comment"># 每个 vGPU 请求 50% 的设备内存</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="为容器分配设备核心资源"><a href="#为容器分配设备核心资源" class="headerlink" title="为容器分配设备核心资源"></a>为容器分配设备核心资源</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">resources:</span></span><br><span class="line">  <span class="attr">limits:</span></span><br><span class="line">    <span class="attr">nvidia.com/gpu:</span> <span class="number">2</span> <span class="comment"># 请求2个vGPU</span></span><br><span class="line">    <span class="attr">nvidia.com/gpucores:</span> <span class="number">50</span> <span class="comment"># 请求每个vGPU核心资源的50%</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="分配任务到特定类型"><a href="#分配任务到特定类型" class="headerlink" title="分配任务到特定类型"></a>分配任务到特定类型</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">annotations:</span></span><br><span class="line">    <span class="attr">nvidia.com/use-gputype:</span> <span class="string">&quot;A100,V100&quot;</span></span><br><span class="line">    <span class="comment">#在此示例中，我们希望在 A100 或 V100 上运行此作业</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">      <span class="attr">resources:</span></span><br><span class="line">        <span class="attr">limits:</span></span><br><span class="line">          <span class="attr">nvidia.com/gpu:</span> <span class="number">2</span> <span class="comment"># 请求 2 个 vGPU</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="将任务分配给特定的-GPU"><a href="#将任务分配给特定的-GPU" class="headerlink" title="将任务分配给特定的 GPU"></a>将任务分配给特定的 GPU</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">annotations:</span></span><br><span class="line">    <span class="attr">nvidia.com/use-gpuuuid:</span> <span class="string">&quot;GPU-123456&quot;</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">      <span class="attr">resources:</span></span><br><span class="line">        <span class="attr">limits:</span></span><br><span class="line">          <span class="attr">nvidia.com/gpu:</span> <span class="number">2</span> <span class="comment"># 请求 2 个 vGPU</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="将任务分配给-mig-实例"><a href="#将任务分配给-mig-实例" class="headerlink" title="将任务分配给 mig 实例"></a>将任务分配给 mig 实例</h3><p>此示例将为 A100-40GB-PCIE 设备分配 2g.10gb * 2 或为 A100-80GB-XSM 设备分配 1g.10gb * 2。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">annotations:</span></span><br><span class="line">    <span class="attr">nvidia.com/vgpu-mode:</span> <span class="string">&quot;mig&quot;</span></span><br><span class="line">    <span class="attr">hami.io/gpu-scheduler-policy:</span> <span class="string">&quot;binpack&quot;</span> <span class="comment">#(可选)</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line"><span class="string">...</span></span><br><span class="line">      <span class="attr">resources:</span></span><br><span class="line">        <span class="attr">limits:</span></span><br><span class="line">          <span class="attr">nvidia.com/gpu:</span> <span class="number">2</span></span><br><span class="line">          <span class="attr">nvidia.com/gpumem:</span> <span class="number">8000</span></span><br></pre></td></tr></table></figure>
+
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://www.zerchin.com/2025/06/25/hami/%E5%9F%BA%E4%BA%8E%20HAMI%20%E7%AE%A1%E7%90%86%E5%BC%82%E6%9E%84%20GPU%20%E8%AE%BE%E5%A4%87/" title="基于 HAMI 管理异构 GPU 设备">http://www.zerchin.com/2025/06/25/hami/基于 HAMI 管理异构 GPU 设备/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/ai/" rel="tag"># ai</a>
+              <a href="/tags/hami/" rel="tag"># hami</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2025/06/17/rancher/Rancher%202.8.15%20%E8%AE%BE%E7%BD%AE%20Skip%20TLS%20Verifications%20%E6%9C%AA%E7%94%9F%E6%95%88%E8%A7%A3%E5%86%B3%E6%96%B9%E6%B3%95/" rel="prev" title="Rancher 2.8.15 设置 Skip TLS Verifications 未生效解决方法">
+                  <i class="fa fa-chevron-left"></i> Rancher 2.8.15 设置 Skip TLS Verifications 未生效解决方法
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2025/07/01/rke2/%E5%9B%A0%E4%B8%BA%20containerd%20%E7%89%88%E6%9C%AC%E5%B7%AE%E5%BC%82%E5%AF%BC%E8%87%B4%E9%85%8D%E7%BD%AE%E4%B8%8D%E7%94%9F%E6%95%88%E7%9A%84%E9%97%AE%E9%A2%98/" rel="next" title="因为 containerd 版本差异导致配置不生效的问题">
+                  因为 containerd 版本差异导致配置不生效的问题 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

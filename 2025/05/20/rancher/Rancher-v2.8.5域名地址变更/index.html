@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.zerchin.com","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="需求在高可用 Rancher 环境中，变更 Rancher 域名。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Rancher-v2.8.5域名地址变更">
+<meta property="og:url" content="http://www.zerchin.com/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="需求在高可用 Rancher 环境中，变更 Rancher 域名。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://www.zerchin.com/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/update-server-url.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/rke2-machines-list-1.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/rke2-registration.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/rke2-machines-list2.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/rke2-machines-list-3.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/rke-machines-list-1.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/rke-registration.png">
+<meta property="article:published_time" content="2025-05-20T16:07:47.000Z">
+<meta property="article:modified_time" content="2025-05-20T16:07:47.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="rancher">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://www.zerchin.com/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/update-server-url.png">
+
+
+<link rel="canonical" href="http://www.zerchin.com/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>Rancher-v2.8.5域名地址变更 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">61</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">35</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">128</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%9C%80%E6%B1%82"><span class="nav-number">1.</span> <span class="nav-text">需求</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%8E%AF%E5%A2%83"><span class="nav-number">2.</span> <span class="nav-text">环境</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E6%8F%90"><span class="nav-number">3.</span> <span class="nav-text">前提</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%AD%A5%E9%AA%A4"><span class="nav-number">4.</span> <span class="nav-text">步骤</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%87%86%E5%A4%87%E8%AF%81%E4%B9%A6"><span class="nav-number">4.1.</span> <span class="nav-text">准备证书</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9B%B4%E6%96%B0%E8%AF%81%E4%B9%A6"><span class="nav-number">4.2.</span> <span class="nav-text">更新证书</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#4-%E5%B1%82%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1"><span class="nav-number">4.2.1.</span> <span class="nav-text">4 层负载均衡</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#7-%E5%B1%82%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1"><span class="nav-number">4.2.2.</span> <span class="nav-text">7 层负载均衡</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9B%B4%E6%96%B0-Rancher-%E9%85%8D%E7%BD%AE"><span class="nav-number">4.3.</span> <span class="nav-text">更新 Rancher 配置</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9B%B4%E6%96%B0%E4%B8%8B%E6%B8%B8%E9%9B%86%E7%BE%A4"><span class="nav-number">4.4.</span> <span class="nav-text">更新下游集群</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#RKE2-%E9%9B%86%E7%BE%A4"><span class="nav-number">4.4.1.</span> <span class="nav-text">RKE2 集群</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#RKE-%E9%9B%86%E7%BE%A4"><span class="nav-number">4.4.2.</span> <span class="nav-text">RKE 集群</span></a></li></ol></li></ol></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">128</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">61</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.zerchin.com/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Rancher-v2.8.5域名地址变更
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2025-05-21 00:07:47" itemprop="dateCreated datePublished" datetime="2025-05-21T00:07:47+08:00">2025-05-21</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/rancher/" itemprop="url" rel="index"><span itemprop="name">rancher</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="需求"><a href="#需求" class="headerlink" title="需求"></a>需求</h2><p>在高可用 Rancher 环境中，变更 Rancher 域名。</p>
+<h2 id="环境"><a href="#环境" class="headerlink" title="环境"></a>环境</h2><table>
+<thead>
+<tr>
+<th>App</th>
+<th>Version</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Rancher</td>
+<td>v2.8.5-ent</td>
+</tr>
+<tr>
+<td>K8s</td>
+<td>v1.28.15+rke2r1</td>
+</tr>
+</tbody></table>
+<h2 id="前提"><a href="#前提" class="headerlink" title="前提"></a>前提</h2><ul>
+<li>准备好所有集群直连 Apiserver 的 <strong>kubeconfig</strong> 配置文件。(<strong>重要</strong>)</li>
+<li>Rancher 的 local 集群和下游集群的所有节点状态均正常。</li>
+<li>所有的集群已经做好了 etcd 数据备份。</li>
+</ul>
+<h2 id="步骤"><a href="#步骤" class="headerlink" title="步骤"></a>步骤</h2><h3 id="准备证书"><a href="#准备证书" class="headerlink" title="准备证书"></a>准备证书</h3><p>如果是权威证书，直接从证书授信渠道进行下载即可。</p>
+<p>如果是替换自签名证书，则需要先准备好自签名的证书，可以参考这个脚本准备自签名证书。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">help</span> ()</span><br><span class="line">&#123;</span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; ================================================================ &#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; --ssl-domain: 生成ssl证书需要的主域名，如不指定则默认为www.rancher.local，如果是ip访问服务，则可忽略；&#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; --ssl-trusted-ip: 一般ssl证书只信任域名的访问请求，有时候需要使用ip去访问server，那么需要给ssl证书添加扩展IP，多个IP用逗号隔开；&#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; --ssl-trusted-domain: 如果想多个域名访问，则添加扩展域名（SSL_TRUSTED_DOMAIN）,多个扩展域名用逗号隔开；&#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; --ssl-size: ssl加密位数，默认2048；&#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; --ssl-cn: 国家代码(2个字母的代号),默认CN;&#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; --ca-cert-recreate: 是否重新创建 ca-cert，ca 证书默认有效期 10 年，创建的 ssl 证书有效期如果是一年需要续签，那么可以直接复用原来的 ca 证书，默认 false;&#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; 使用示例:&#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; ./create_self-signed-cert.sh --ssl-domain=www.test.com --ssl-trusted-domain=www.test2.com \ &#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; --ssl-trusted-ip=1.1.1.1,2.2.2.2,3.3.3.3 --ssl-size=2048 --ssl-date=3650&#x27;</span></span><br><span class="line">    <span class="built_in">echo</span>  <span class="string">&#x27; ================================================================&#x27;</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">case</span> <span class="string">&quot;<span class="variable">$1</span>&quot;</span> <span class="keyword">in</span></span><br><span class="line">    -h|--<span class="built_in">help</span>) <span class="built_in">help</span>; <span class="built_in">exit</span>;;</span><br><span class="line"><span class="keyword">esac</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [[ <span class="variable">$1</span> == <span class="string">&#x27;&#x27;</span> ]];<span class="keyword">then</span></span><br><span class="line">    <span class="built_in">help</span>;</span><br><span class="line">    <span class="built_in">exit</span>;</span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line">CMDOPTS=<span class="string">&quot;$*&quot;</span></span><br><span class="line"><span class="keyword">for</span> OPTS <span class="keyword">in</span> <span class="variable">$CMDOPTS</span>;</span><br><span class="line"><span class="keyword">do</span></span><br><span class="line">    key=$(<span class="built_in">echo</span> <span class="variable">$&#123;OPTS&#125;</span> | awk -F<span class="string">&quot;=&quot;</span> <span class="string">&#x27;&#123;print $1&#125;&#x27;</span> )</span><br><span class="line">    value=$(<span class="built_in">echo</span> <span class="variable">$&#123;OPTS&#125;</span> | awk -F<span class="string">&quot;=&quot;</span> <span class="string">&#x27;&#123;print $2&#125;&#x27;</span> )</span><br><span class="line">    <span class="keyword">case</span> <span class="string">&quot;<span class="variable">$key</span>&quot;</span> <span class="keyword">in</span></span><br><span class="line">        --ssl-domain) SSL_DOMAIN=<span class="variable">$value</span> ;;</span><br><span class="line">        --ssl-trusted-ip) SSL_TRUSTED_IP=<span class="variable">$value</span> ;;</span><br><span class="line">        --ssl-trusted-domain) SSL_TRUSTED_DOMAIN=<span class="variable">$value</span> ;;</span><br><span class="line">        --ssl-size) SSL_SIZE=<span class="variable">$value</span> ;;</span><br><span class="line">        --ssl-date) SSL_DATE=<span class="variable">$value</span> ;;</span><br><span class="line">        --ca-date) CA_DATE=<span class="variable">$value</span> ;;</span><br><span class="line">        --ssl-cn) CN=<span class="variable">$value</span> ;;</span><br><span class="line">        --ca-cert-recreate) CA_CERT_RECREATE=<span class="variable">$value</span> ;;</span><br><span class="line">        --ca-key-recreate) CA_KEY_RECREATE=<span class="variable">$value</span> ;;</span><br><span class="line">    <span class="keyword">esac</span></span><br><span class="line"><span class="keyword">done</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># CA相关配置</span></span><br><span class="line">CA_KEY_RECREATE=<span class="variable">$&#123;CA_KEY_RECREATE:-false&#125;</span></span><br><span class="line">CA_CERT_RECREATE=<span class="variable">$&#123;CA_CERT_RECREATE:-false&#125;</span></span><br><span class="line"></span><br><span class="line">CA_DATE=<span class="variable">$&#123;CA_DATE:-3650&#125;</span></span><br><span class="line">CA_KEY=<span class="variable">$&#123;CA_KEY:-cakey.pem&#125;</span></span><br><span class="line">CA_CERT=<span class="variable">$&#123;CA_CERT:-cacerts.pem&#125;</span></span><br><span class="line">CA_DOMAIN=cattle-ca</span><br><span class="line"></span><br><span class="line"><span class="comment"># ssl相关配置</span></span><br><span class="line">SSL_CONFIG=<span class="variable">$&#123;SSL_CONFIG:-<span class="variable">$PWD</span>/openssl.cnf&#125;</span></span><br><span class="line">SSL_DOMAIN=<span class="variable">$&#123;SSL_DOMAIN:-&#x27;www.rancher.local&#x27;&#125;</span></span><br><span class="line">SSL_DATE=<span class="variable">$&#123;SSL_DATE:-3650&#125;</span></span><br><span class="line">SSL_SIZE=<span class="variable">$&#123;SSL_SIZE:-2048&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">## 国家代码(2个字母的代号),默认CN;</span></span><br><span class="line">CN=<span class="variable">$&#123;CN:-CN&#125;</span></span><br><span class="line"></span><br><span class="line">SSL_KEY=<span class="variable">$SSL_DOMAIN</span>.key</span><br><span class="line">SSL_CSR=<span class="variable">$SSL_DOMAIN</span>.csr</span><br><span class="line">SSL_CERT=<span class="variable">$SSL_DOMAIN</span>.crt</span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ---------------------------- \033[0m&quot;</span></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m       | 生成 SSL Cert |       \033[0m&quot;</span></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ---------------------------- \033[0m&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 如果存在 ca-key， 并且需要重新创建 ca-key</span></span><br><span class="line"><span class="keyword">if</span> [[ -e ./<span class="variable">$&#123;CA_KEY&#125;</span> ]] &amp;&amp; [[ <span class="variable">$&#123;CA_KEY_RECREATE&#125;</span> == <span class="string">&#x27;true&#x27;</span> ]]; <span class="keyword">then</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># 先备份旧 ca-key，然后重新创建 ca-key</span></span><br><span class="line">    <span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 1. 发现已存在 CA 私钥，备份 &quot;</span><span class="variable">$&#123;CA_KEY&#125;</span><span class="string">&quot; 为 &quot;</span><span class="variable">$&#123;CA_KEY&#125;</span><span class="string">&quot;-bak，然后重新创建 \033[0m&quot;</span></span><br><span class="line">    mv <span class="variable">$&#123;CA_KEY&#125;</span> <span class="string">&quot;<span class="variable">$&#123;CA_KEY&#125;</span>&quot;</span>-bak-$(date +<span class="string">&quot;%Y%m%d%H%M&quot;</span>)</span><br><span class="line">    openssl genrsa -out <span class="variable">$&#123;CA_KEY&#125;</span> <span class="variable">$&#123;SSL_SIZE&#125;</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># 如果存在 ca-cert，因为 ca-key 重新创建，则需要重新创建 ca-cert。先备份然后重新创建 ca-cert</span></span><br><span class="line">    <span class="keyword">if</span> [[ -e ./<span class="variable">$&#123;CA_CERT&#125;</span> ]]; <span class="keyword">then</span></span><br><span class="line">        <span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 2. 发现已存在 CA 证书，先备份 &quot;</span><span class="variable">$&#123;CA_CERT&#125;</span><span class="string">&quot; 为 &quot;</span><span class="variable">$&#123;CA_CERT&#125;</span><span class="string">&quot;-bak，然后重新创建 \033[0m&quot;</span></span><br><span class="line">        mv <span class="variable">$&#123;CA_CERT&#125;</span> <span class="string">&quot;<span class="variable">$&#123;CA_CERT&#125;</span>&quot;</span>-bak-$(date +<span class="string">&quot;%Y%m%d%H%M&quot;</span>)</span><br><span class="line">        openssl req -x509 -sha256 -new -nodes -key <span class="variable">$&#123;CA_KEY&#125;</span> -days <span class="variable">$&#123;CA_DATE&#125;</span> -out <span class="variable">$&#123;CA_CERT&#125;</span> -subj <span class="string">&quot;/C=<span class="variable">$&#123;CN&#125;</span>/CN=<span class="variable">$&#123;CA_DOMAIN&#125;</span>&quot;</span></span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        <span class="comment"># 如果不存在 ca-cert，直接创建 ca-cert</span></span><br><span class="line">        <span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 2. 生成新的 CA 证书 <span class="variable">$&#123;CA_CERT&#125;</span> \033[0m&quot;</span></span><br><span class="line">        openssl req -x509 -sha256 -new -nodes -key <span class="variable">$&#123;CA_KEY&#125;</span> -days <span class="variable">$&#123;CA_DATE&#125;</span> -out <span class="variable">$&#123;CA_CERT&#125;</span> -subj <span class="string">&quot;/C=<span class="variable">$&#123;CN&#125;</span>/CN=<span class="variable">$&#123;CA_DOMAIN&#125;</span>&quot;</span></span><br><span class="line">    <span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 如果存在 ca-key，并且不需要重新创建 ca-key</span></span><br><span class="line"><span class="keyword">elif</span> [[ -e ./<span class="variable">$&#123;CA_KEY&#125;</span> ]] &amp;&amp; [[ <span class="variable">$&#123;CA_KEY_RECREATE&#125;</span> == <span class="string">&#x27;false&#x27;</span> ]]; <span class="keyword">then</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># 存在旧 ca-key，不需要重新创建，直接复用</span></span><br><span class="line">    <span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 1. 发现已存在 CA 私钥，直接复用 CA 私钥 &quot;</span><span class="variable">$&#123;CA_KEY&#125;</span><span class="string">&quot; \033[0m&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># 如果存在 ca-cert，并且需要重新创建 ca-cert。先备份然后重新创建</span></span><br><span class="line">    <span class="keyword">if</span> [[ -e ./<span class="variable">$&#123;CA_CERT&#125;</span> ]] &amp;&amp; [[ <span class="variable">$&#123;CA_CERT_RECREATE&#125;</span> == <span class="string">&#x27;true&#x27;</span> ]]; <span class="keyword">then</span></span><br><span class="line">        <span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 2. 发现已存在 CA 证书，先备份 &quot;</span><span class="variable">$&#123;CA_CERT&#125;</span><span class="string">&quot; 为 &quot;</span><span class="variable">$&#123;CA_CERT&#125;</span><span class="string">&quot;-bak，然后重新创建 \033[0m&quot;</span></span><br><span class="line">        mv <span class="variable">$&#123;CA_CERT&#125;</span> <span class="string">&quot;<span class="variable">$&#123;CA_CERT&#125;</span>&quot;</span>-bak-$(date +<span class="string">&quot;%Y%m%d%H%M&quot;</span>)</span><br><span class="line">        openssl req -x509 -sha256 -new -nodes -key <span class="variable">$&#123;CA_KEY&#125;</span> -days <span class="variable">$&#123;CA_DATE&#125;</span> -out <span class="variable">$&#123;CA_CERT&#125;</span> -subj <span class="string">&quot;/C=<span class="variable">$&#123;CN&#125;</span>/CN=<span class="variable">$&#123;CA_DOMAIN&#125;</span>&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># 如果存在 ca-cert，并且不需要重新创建 ca-cert，直接复用</span></span><br><span class="line">    <span class="keyword">elif</span> [[ -e ./<span class="variable">$&#123;CA_CERT&#125;</span> ]] &amp;&amp; [[ <span class="variable">$&#123;CA_CERT_RECREATE&#125;</span> == <span class="string">&#x27;false&#x27;</span> ]]; <span class="keyword">then</span></span><br><span class="line">        <span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 2. 发现已存在 CA 证书，直接复用 CA 证书 &quot;</span><span class="variable">$&#123;CA_CERT&#125;</span><span class="string">&quot; \033[0m&quot;</span></span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        <span class="comment"># 如果不存在 ca-cert ，直接创建 ca-cert</span></span><br><span class="line">        <span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 2. 生成新的 CA 证书 <span class="variable">$&#123;CA_CERT&#125;</span> \033[0m&quot;</span></span><br><span class="line">        openssl req -x509 -sha256 -new -nodes -key <span class="variable">$&#123;CA_KEY&#125;</span> -days <span class="variable">$&#123;CA_DATE&#125;</span> -out <span class="variable">$&#123;CA_CERT&#125;</span> -subj <span class="string">&quot;/C=<span class="variable">$&#123;CN&#125;</span>/CN=<span class="variable">$&#123;CA_DOMAIN&#125;</span>&quot;</span></span><br><span class="line">    <span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 如果不存在 ca-key</span></span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">    <span class="comment"># ca-key 不存在，直接生成</span></span><br><span class="line">    <span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 1. 生成新的 CA 私钥 <span class="variable">$&#123;CA_KEY&#125;</span> \033[0m&quot;</span></span><br><span class="line">    openssl genrsa -out <span class="variable">$&#123;CA_KEY&#125;</span> <span class="variable">$&#123;SSL_SIZE&#125;</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># 如果存在旧的 ca-cert，先做备份，然后重新生成 ca-cert</span></span><br><span class="line">    <span class="keyword">if</span> [[ -e ./<span class="variable">$&#123;CA_CERT&#125;</span> ]]; <span class="keyword">then</span></span><br><span class="line">        <span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 2. 发现已存在 CA 证书，先备份 &quot;</span><span class="variable">$&#123;CA_CERT&#125;</span><span class="string">&quot; 为 &quot;</span><span class="variable">$&#123;CA_CERT&#125;</span><span class="string">&quot;-bak，然后重新创建 \033[0m&quot;</span></span><br><span class="line">        mv <span class="variable">$&#123;CA_CERT&#125;</span> <span class="string">&quot;<span class="variable">$&#123;CA_CERT&#125;</span>&quot;</span>-bak-$(date +<span class="string">&quot;%Y%m%d%H%M&quot;</span>)</span><br><span class="line">        openssl req -x509 -sha256 -new -nodes -key <span class="variable">$&#123;CA_KEY&#125;</span> -days <span class="variable">$&#123;CA_DATE&#125;</span> -out <span class="variable">$&#123;CA_CERT&#125;</span> -subj <span class="string">&quot;/C=<span class="variable">$&#123;CN&#125;</span>/CN=<span class="variable">$&#123;CA_DOMAIN&#125;</span>&quot;</span></span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        <span class="comment"># 不存在旧的 ca-cert，直接生成 ca-cert</span></span><br><span class="line">        <span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 2. 生成新的 CA 证书 <span class="variable">$&#123;CA_CERT&#125;</span> \033[0m&quot;</span></span><br><span class="line">        openssl req -x509 -sha256 -new -nodes -key <span class="variable">$&#123;CA_KEY&#125;</span> -days <span class="variable">$&#123;CA_DATE&#125;</span> -out <span class="variable">$&#123;CA_CERT&#125;</span> -subj <span class="string">&quot;/C=<span class="variable">$&#123;CN&#125;</span>/CN=<span class="variable">$&#123;CA_DOMAIN&#125;</span>&quot;</span></span><br><span class="line">    <span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 3. 生成 Openssl 配置文件 <span class="variable">$&#123;SSL_CONFIG&#125;</span> \033[0m&quot;</span></span><br><span class="line">cat &gt; <span class="variable">$&#123;SSL_CONFIG&#125;</span> &lt;&lt;<span class="string">EOM</span></span><br><span class="line"><span class="string">[req]</span></span><br><span class="line"><span class="string">req_extensions = v3_req</span></span><br><span class="line"><span class="string">distinguished_name = req_distinguished_name</span></span><br><span class="line"><span class="string">[req_distinguished_name]</span></span><br><span class="line"><span class="string">[ v3_req ]</span></span><br><span class="line"><span class="string">basicConstraints = CA:FALSE</span></span><br><span class="line"><span class="string">keyUsage = nonRepudiation, digitalSignature, keyEncipherment</span></span><br><span class="line"><span class="string">extendedKeyUsage = clientAuth, serverAuth</span></span><br><span class="line"><span class="string">EOM</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [[ -n <span class="variable">$&#123;SSL_TRUSTED_IP&#125;</span> || -n <span class="variable">$&#123;SSL_TRUSTED_DOMAIN&#125;</span> || -n <span class="variable">$&#123;SSL_DOMAIN&#125;</span> ]]; <span class="keyword">then</span></span><br><span class="line">    cat &gt;&gt; <span class="variable">$&#123;SSL_CONFIG&#125;</span> &lt;&lt;<span class="string">EOM</span></span><br><span class="line"><span class="string">subjectAltName = @alt_names</span></span><br><span class="line"><span class="string">[alt_names]</span></span><br><span class="line"><span class="string">EOM</span></span><br><span class="line">    IFS=<span class="string">&quot;,&quot;</span></span><br><span class="line">    dns=(<span class="variable">$&#123;SSL_TRUSTED_DOMAIN&#125;</span>)</span><br><span class="line">    dns+=(<span class="variable">$&#123;SSL_DOMAIN&#125;</span>)</span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> <span class="string">&quot;<span class="variable">$&#123;!dns[@]&#125;</span>&quot;</span>; <span class="keyword">do</span></span><br><span class="line">      <span class="built_in">echo</span> DNS.$((i+<span class="number">1</span>)) = <span class="variable">$&#123;dns[$i]&#125;</span> &gt;&gt; <span class="variable">$&#123;SSL_CONFIG&#125;</span></span><br><span class="line">    <span class="keyword">done</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> [[ -n <span class="variable">$&#123;SSL_TRUSTED_IP&#125;</span> ]]; <span class="keyword">then</span></span><br><span class="line">        ip=(<span class="variable">$&#123;SSL_TRUSTED_IP&#125;</span>)</span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> <span class="string">&quot;<span class="variable">$&#123;!ip[@]&#125;</span>&quot;</span>; <span class="keyword">do</span></span><br><span class="line">          <span class="built_in">echo</span> IP.$((i+<span class="number">1</span>)) = <span class="variable">$&#123;ip[$i]&#125;</span> &gt;&gt; <span class="variable">$&#123;SSL_CONFIG&#125;</span></span><br><span class="line">        <span class="keyword">done</span></span><br><span class="line">    <span class="keyword">fi</span></span><br><span class="line"><span class="keyword">fi</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 4. 生成服务 SSL KEY <span class="variable">$&#123;SSL_KEY&#125;</span> \033[0m&quot;</span></span><br><span class="line">openssl genrsa -out <span class="variable">$&#123;SSL_KEY&#125;</span> <span class="variable">$&#123;SSL_SIZE&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 5. 生成服务 SSL CSR <span class="variable">$&#123;SSL_CSR&#125;</span> \033[0m&quot;</span></span><br><span class="line">openssl req -sha256 -new -key <span class="variable">$&#123;SSL_KEY&#125;</span> -out <span class="variable">$&#123;SSL_CSR&#125;</span> -subj <span class="string">&quot;/C=<span class="variable">$&#123;CN&#125;</span>/CN=<span class="variable">$&#123;SSL_DOMAIN&#125;</span>&quot;</span> -config <span class="variable">$&#123;SSL_CONFIG&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 6. 生成服务 SSL CERT <span class="variable">$&#123;SSL_CERT&#125;</span> \033[0m&quot;</span></span><br><span class="line">openssl x509 -sha256 -req -<span class="keyword">in</span> <span class="variable">$&#123;SSL_CSR&#125;</span> -CA <span class="variable">$&#123;CA_CERT&#125;</span> \</span><br><span class="line">    -CAkey <span class="variable">$&#123;CA_KEY&#125;</span> -CAcreateserial -out <span class="variable">$&#123;SSL_CERT&#125;</span> \</span><br><span class="line">    -days <span class="variable">$&#123;SSL_DATE&#125;</span> -extensions v3_req \</span><br><span class="line">    -extfile <span class="variable">$&#123;SSL_CONFIG&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 7. 证书制作完成 \033[0m&quot;</span></span><br><span class="line"><span class="built_in">echo</span></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 8. 以 YAML 格式输出结果 \033[0m&quot;</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;----------------------------------------------------------&quot;</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;ca_key: |&quot;</span></span><br><span class="line">cat <span class="variable">$CA_KEY</span> | sed <span class="string">&#x27;s/^/  /&#x27;</span></span><br><span class="line"><span class="built_in">echo</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;ca_cert: |&quot;</span></span><br><span class="line">cat <span class="variable">$CA_CERT</span> | sed <span class="string">&#x27;s/^/  /&#x27;</span></span><br><span class="line"><span class="built_in">echo</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;ssl_key: |&quot;</span></span><br><span class="line">cat <span class="variable">$SSL_KEY</span> | sed <span class="string">&#x27;s/^/  /&#x27;</span></span><br><span class="line"><span class="built_in">echo</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;ssl_csr: |&quot;</span></span><br><span class="line">cat <span class="variable">$SSL_CSR</span> | sed <span class="string">&#x27;s/^/  /&#x27;</span></span><br><span class="line"><span class="built_in">echo</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;ssl_cert: |&quot;</span></span><br><span class="line">cat <span class="variable">$SSL_CERT</span> | sed <span class="string">&#x27;s/^/  /&#x27;</span></span><br><span class="line"><span class="built_in">echo</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 9. 附加 CA 证书到 Cert 文件 \033[0m&quot;</span></span><br><span class="line">cat <span class="variable">$&#123;CA_CERT&#125;</span> &gt;&gt; <span class="variable">$&#123;SSL_CERT&#125;</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;ssl_cert: |&quot;</span></span><br><span class="line">cat <span class="variable">$SSL_CERT</span> | sed <span class="string">&#x27;s/^/  /&#x27;</span></span><br><span class="line"><span class="built_in">echo</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> -e <span class="string">&quot;\033[32m ====&gt; 10. 重命名服务证书 \033[0m&quot;</span></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;cp <span class="variable">$&#123;SSL_DOMAIN&#125;</span>.key tls.key&quot;</span></span><br><span class="line">cp <span class="variable">$&#123;SSL_DOMAIN&#125;</span>.key tls.key</span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;cp <span class="variable">$&#123;SSL_DOMAIN&#125;</span>.crt tls.crt&quot;</span></span><br><span class="line">cp <span class="variable">$&#123;SSL_DOMAIN&#125;</span>.crt tls.crt</span><br></pre></td></tr></table></figure>
+
+<p>复制以上代码另存为<code>create_self-signed-cert.sh</code>，脚本参数说明：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">--ssl-domain: 生成ssl证书需要的主域名，如不指定则默认为www.rancher.local，如果是ip访问服务，则可忽略；</span><br><span class="line">--ssl-trusted-ip: 一般ssl证书只信任域名的访问请求，有时候需要使用ip去访问server，那么需要给ssl证书添加扩展IP，多个IP用逗号隔开；</span><br><span class="line">--ssl-trusted-domain: 如果想多个域名访问，则添加扩展域名（TRUSTED_DOMAIN）,多个TRUSTED_DOMAIN用逗号隔开；</span><br><span class="line">--ssl-size: ssl加密位数，默认2048；</span><br><span class="line">--ssl-cn: 国家代码(2个字母的代号),默认CN；</span><br><span class="line">使用示例:</span><br><span class="line">./create_self-signed-cert.sh --ssl-domain=www.test.com --ssl-trusted-domain=www.test2.com \</span><br><span class="line">--ssl-trusted-ip=1.1.1.1,2.2.2.2,3.3.3.3 --ssl-size=2048 --ssl-date=3650</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="更新证书"><a href="#更新证书" class="headerlink" title="更新证书"></a>更新证书</h3><h4 id="4-层负载均衡"><a href="#4-层负载均衡" class="headerlink" title="4 层负载均衡"></a>4 层负载均衡</h4><ol>
+<li>备份并删除旧证书</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">## 备份 Rancher 证书</span></span><br><span class="line">kubectl -n cattle-system get secret tls-rancher-ingress -o yaml &gt; tls-ingress.yml</span><br><span class="line"></span><br><span class="line"><span class="comment">## 备份自签名根证书（可选）</span></span><br><span class="line">kubectl -n cattle-system get secret tls-ca -o yaml &gt; tls-ca.yml</span><br><span class="line"></span><br><span class="line"><span class="comment">## 删除 Rancher 证书</span></span><br><span class="line">kubectl -n cattle-system delete secret tls-rancher-ingress</span><br><span class="line"></span><br><span class="line"><span class="comment">## 删除自签名根证书（可选操作）</span></span><br><span class="line">kubectl -n cattle-system delete secret tls-ca</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>上传新证书</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n cattle-system create secret tls tls-rancher-ingress --cert=./tls.crt --key=./tls.key</span><br><span class="line"></span><br><span class="line"><span class="comment">## 自签名证书需要上传根证书</span></span><br><span class="line">kubectl -n cattle-system create secret generic tls-ca --from-file=cacerts.pem</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="7-层负载均衡"><a href="#7-层负载均衡" class="headerlink" title="7 层负载均衡"></a>7 层负载均衡</h4><ol>
+<li>自签名根证书（可选）</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">## 备份自签名根证书</span></span><br><span class="line">kubectl -n cattle-system get secret tls-ca -o yaml &gt; tls-ca.yml</span><br><span class="line"></span><br><span class="line"><span class="comment">## 删除自签名根证书</span></span><br><span class="line">kubectl -n cattle-system delete secret tls-ca</span><br><span class="line"></span><br><span class="line"><span class="comment">## 上传自签名根证书</span></span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>Rancher 证书</li>
+</ol>
+<p>7 层负载均衡在 Rancher 这边这会管理根证书，Rancher 自己的证书在 7 层负载均衡上，需要在负载均衡上自行更新对应的证书，例如 nginx 可以需要更新如下配置所在的证书：</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">    <span class="section">server</span> &#123;</span><br><span class="line">        <span class="attribute">listen</span> <span class="number">443</span> ssl http2; </span><br><span class="line">        <span class="attribute">server_name</span> FQDN;</span><br><span class="line">        <span class="attribute">ssl_certificate</span> 证书路径;</span><br><span class="line">        <span class="attribute">ssl_certificate_key</span> 证书私钥路径;</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="更新-Rancher-配置"><a href="#更新-Rancher-配置" class="headerlink" title="更新 Rancher 配置"></a>更新 Rancher 配置</h3><ol>
+<li>helm 更新 Rancher 域名</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">## 导出 values</span></span><br><span class="line">helm get values rancher -n cattle-system -o yaml &gt; rancher-values.yaml</span><br><span class="line"></span><br><span class="line"><span class="comment">## 修改其中的 hostname</span></span><br><span class="line">hostname: test2.zerchin.xyz</span><br><span class="line"></span><br><span class="line"><span class="comment">## 更新 Rancher</span></span><br><span class="line">helm upgrade rancher -n cattle-system -f rancher-values.yaml rancher-2.8.5-ent.tgz</span><br></pre></td></tr></table></figure>
+
+
+
+<ol start="2">
+<li>重启 Rancher</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n cattle-system delete pod -l app=rancher</span><br><span class="line"></span><br><span class="line">kubectl -n cattle-system get pod -w</span><br></pre></td></tr></table></figure>
+
+
+
+<ol start="3">
+<li>Rancher UI 修改 Server URL 地址</li>
+</ol>
+<p>访问新的域名，例如这里我需要访问 <a target="_blank" rel="noopener" href="https://test2.zerchin.xyz/">https://test2.zerchin.xyz</a> 这个地址，使用 admin 登录。</p>
+<p>接着进入 Global Settings，找到 <code>server-url</code>，将其修改成新的 Rancher 域名，如下：</p>
+<img src="/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/update-server-url.png" class="" title="update-server-url">
+
+<p>再次重启 Rancher 触发更新</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n cattle-system delete pod -l app=rancher</span><br><span class="line"></span><br><span class="line">kubectl -n cattle-system get pod -w</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="更新下游集群"><a href="#更新下游集群" class="headerlink" title="更新下游集群"></a>更新下游集群</h3><h4 id="RKE2-集群"><a href="#RKE2-集群" class="headerlink" title="RKE2 集群"></a>RKE2 集群</h4><ol>
+<li>进入 Cluster Management，点击进入 RKE2 集群，查看 Machines 列表，其中会有一台 Master 处于 <code>Reconciling</code>状态并伴有<code>Waiting for plan to be applied</code> 日志输出，记录该节点。</li>
+</ol>
+<img src="/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/rke2-machines-list-1.png" class="" title="rke2-machines-list-1">
+
+<ol start="2">
+<li>接着切换到 Registration，根据这台 <code>Reconcilling</code>状态的角色，勾选对应的 Rule，例如我这里的角色是 All，所以所有的角色我都要勾选上。如果有自定义节点名称。这里如果节点自定义了节点名称的话，在执行注册命令时也要加上对应的节点名称，否则可能恢复失败，使得恢复过程出现不可预期的风险！</li>
+</ol>
+<img src="/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/rke2-registration.png" class="" title="rke2-registration">
+
+<ol start="3">
+<li>将这个节点注册的命令，复制到刚刚那台<code>Reconcilling</code>状态的节点上执行即可。</li>
+</ol>
+<p>等待该节点状态恢复<code>Running</code>状态之后，集群也就可以访问了。</p>
+<img src="/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/rke2-machines-list2.png" class="" title="rke2-machines-list2">
+
+<ol start="4">
+<li>此时其他节点的也会进入到<code>Reconcilling</code>状态，按照同样的操作，根据节点的角色勾选对应的 Rule，复制到节点上执行即可。</li>
+</ol>
+<img src="/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/rke2-machines-list-3.png" class="" title="rke2-machines-list-3">
+
+<ol start="5">
+<li>最后进入集群检查各个组件的状态。</li>
+</ol>
+<h4 id="RKE-集群"><a href="#RKE-集群" class="headerlink" title="RKE 集群"></a>RKE 集群</h4><p>RKE 集群需要更新 agent 配置。</p>
+<ol>
+<li>进入 Cluster Management，点击进入 RKE 的集群，查看 Machines 列表，记住其中任意一台 Master 的角色。</li>
+</ol>
+<img src="/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/rke-machines-list-1.png" class="" title="rke-machines-list-1">
+
+<ol start="2">
+<li>接着切换到 Registration，勾选对应的 Rule，例如我这里的角色是 All，所以所有的角色我都要勾选上。(如果只有 control plane、etcd则只勾选这两个) 这里如果节点自定义了节点名称的话，在执行注册命令时也要加上对应的节点名称，否则可能恢复失败，使得恢复过程出现不可预期的风险！</li>
+</ol>
+<img src="/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/rke-registration.png" class="" title="rke-registration">
+
+<ol start="3">
+<li><p>将这个节点注册的命令，复制到刚刚 Master 节点上运行即可。</p>
+</li>
+<li><p>执行如下命令触发 agent 重新部署，等待集群 agent 更新完毕后，集群就能恢复正常访问。</p>
+</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">## 在 local 集群中执行</span></span><br><span class="line"><span class="comment">##  替换其中的 Cluster ID</span></span><br><span class="line">kubectl annotate clusters.management.cattle.io &lt;Cluster ID&gt; io.cattle.agent.force.deploy=<span class="literal">true</span></span><br></pre></td></tr></table></figure>
+
+<ol start="5">
+<li>最后进入集群检查各个组件的状态。</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://www.zerchin.com/2025/05/20/rancher/Rancher-v2.8.5%E5%9F%9F%E5%90%8D%E5%9C%B0%E5%9D%80%E5%8F%98%E6%9B%B4/" title="Rancher-v2.8.5域名地址变更">http://www.zerchin.com/2025/05/20/rancher/Rancher-v2.8.5域名地址变更/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/rancher/" rel="tag"># rancher</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2025/05/15/neuvector/Helm%E5%AE%89%E8%A3%85NeuVector%E5%B9%B6%E9%9B%86%E6%88%90Rancher/" rel="prev" title="Helm安装NeuVector并集成Rancher">
+                  <i class="fa fa-chevron-left"></i> Helm安装NeuVector并集成Rancher
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2025/05/26/neuvector/NeuVector-5.4.4%20allinone%E9%83%A8%E7%BD%B2/" rel="next" title="NeuVector-5.4.4 allinone部署">
+                  NeuVector-5.4.4 allinone部署 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

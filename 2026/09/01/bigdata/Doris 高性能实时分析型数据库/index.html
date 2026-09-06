@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.zerchin.com","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="概述Apache Doris 是一款基于 MPP 架构的高性能、实时分析型数据库，以高效、简单、统一著称：在亚秒级时间内返回海量数据查询结果，一套系统同时支持高并发点查询和高吞吐复杂分析，主要解决大量数据上的聚合、Join、报表、多维分析、日志分析、实时数仓等问题。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Doris 高性能实时分析型数据库">
+<meta property="og:url" content="http://www.zerchin.com/2026/09/01/bigdata/Doris%20%E9%AB%98%E6%80%A7%E8%83%BD%E5%AE%9E%E6%97%B6%E5%88%86%E6%9E%90%E5%9E%8B%E6%95%B0%E6%8D%AE%E5%BA%93/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="概述Apache Doris 是一款基于 MPP 架构的高性能、实时分析型数据库，以高效、简单、统一著称：在亚秒级时间内返回海量数据查询结果，一套系统同时支持高并发点查询和高吞吐复杂分析，主要解决大量数据上的聚合、Join、报表、多维分析、日志分析、实时数仓等问题。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://www.zerchin.com/2026/09/01/bigdata/Doris%20%E9%AB%98%E6%80%A7%E8%83%BD%E5%AE%9E%E6%97%B6%E5%88%86%E6%9E%90%E5%9E%8B%E6%95%B0%E6%8D%AE%E5%BA%93/compute-storage-coupled.jpg">
+<meta property="og:image" content="http://www.zerchin.com/2026/09/01/bigdata/Doris%20%E9%AB%98%E6%80%A7%E8%83%BD%E5%AE%9E%E6%97%B6%E5%88%86%E6%9E%90%E5%9E%8B%E6%95%B0%E6%8D%AE%E5%BA%93/compute-storage-decoupled.jpg">
+<meta property="og:image" content="http://www.zerchin.com/2026/09/01/bigdata/Doris%20%E9%AB%98%E6%80%A7%E8%83%BD%E5%AE%9E%E6%97%B6%E5%88%86%E6%9E%90%E5%9E%8B%E6%95%B0%E6%8D%AE%E5%BA%93/columnar-storage.jpg">
+<meta property="article:published_time" content="2026-09-01T13:05:07.000Z">
+<meta property="article:modified_time" content="2026-09-01T13:05:07.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="hadoop">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://www.zerchin.com/2026/09/01/bigdata/Doris%20%E9%AB%98%E6%80%A7%E8%83%BD%E5%AE%9E%E6%97%B6%E5%88%86%E6%9E%90%E5%9E%8B%E6%95%B0%E6%8D%AE%E5%BA%93/compute-storage-coupled.jpg">
+
+
+<link rel="canonical" href="http://www.zerchin.com/2026/09/01/bigdata/Doris%20%E9%AB%98%E6%80%A7%E8%83%BD%E5%AE%9E%E6%97%B6%E5%88%86%E6%9E%90%E5%9E%8B%E6%95%B0%E6%8D%AE%E5%BA%93/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>Doris 高性能实时分析型数据库 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">61</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">35</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">128</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9E%B6%E6%9E%84"><span class="nav-number">2.</span> <span class="nav-text">架构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AD%98%E7%AE%97%E4%B8%80%E4%BD%93%E6%9E%B6%E6%9E%84"><span class="nav-number">2.1.</span> <span class="nav-text">存算一体架构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AD%98%E7%AE%97%E5%88%86%E7%A6%BB%E6%9E%B6%E6%9E%84"><span class="nav-number">2.2.</span> <span class="nav-text">存算分离架构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%89%E5%9E%8B%E5%BB%BA%E8%AE%AE"><span class="nav-number">2.3.</span> <span class="nav-text">选型建议</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86"><span class="nav-number">3.</span> <span class="nav-text">工作原理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E"><span class="nav-number">4.</span> <span class="nav-text">存储引擎</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B"><span class="nav-number">5.</span> <span class="nav-text">数据模型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%AB%98%E5%8F%AF%E7%94%A8%E6%9C%BA%E5%88%B6"><span class="nav-number">6.</span> <span class="nav-text">高可用机制</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87"><span class="nav-number">7.</span> <span class="nav-text">环境准备</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%89%E8%A3%85%E5%89%8D%E5%87%86%E5%A4%87"><span class="nav-number">8.</span> <span class="nav-text">安装前准备</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AD%98%E7%AE%97%E4%B8%80%E4%BD%93%E9%9B%86%E7%BE%A4%E9%83%A8%E7%BD%B2"><span class="nav-number">9.</span> <span class="nav-text">存算一体集群部署</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#FE-%E8%8A%82%E7%82%B9%E9%83%A8%E7%BD%B2"><span class="nav-number">9.1.</span> <span class="nav-text">FE 节点部署</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#BE-%E8%8A%82%E7%82%B9%E9%83%A8%E7%BD%B2"><span class="nav-number">9.2.</span> <span class="nav-text">BE 节点部署</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BF%AE%E6%94%B9-Doris-%E5%AF%86%E7%A0%81"><span class="nav-number">9.3.</span> <span class="nav-text">修改 Doris 密码</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AD%98%E7%AE%97%E5%88%86%E7%A6%BB%E9%9B%86%E7%BE%A4%E9%83%A8%E7%BD%B2"><span class="nav-number">10.</span> <span class="nav-text">存算分离集群部署</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#FoundationDB-%E9%83%A8%E7%BD%B2"><span class="nav-number">10.1.</span> <span class="nav-text">FoundationDB 部署</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Meta-Service-%E9%83%A8%E7%BD%B2"><span class="nav-number">10.2.</span> <span class="nav-text">Meta Service 部署</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#FE-%E8%8A%82%E7%82%B9%E9%83%A8%E7%BD%B2-1"><span class="nav-number">10.3.</span> <span class="nav-text">FE 节点部署</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#BE-%E8%8A%82%E7%82%B9%E9%83%A8%E7%BD%B2-1"><span class="nav-number">10.4.</span> <span class="nav-text">BE 节点部署</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E8%A3%85-S3-%E6%88%96-HDFS-%E6%9C%8D%E5%8A%A1%EF%BC%88%E5%8F%AF%E9%80%89%EF%BC%89"><span class="nav-number">10.5.</span> <span class="nav-text">安装 S3 或 HDFS 服务（可选）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B7%BB%E5%8A%A0-Storage-Vault"><span class="nav-number">10.6.</span> <span class="nav-text">添加 Storage Vault</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Docker-%E5%BF%AB%E9%80%9F%E5%90%AF%E5%8A%A8"><span class="nav-number">11.</span> <span class="nav-text">Docker 快速启动</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8A%9F%E8%83%BD%E9%AA%8C%E8%AF%81"><span class="nav-number">12.</span> <span class="nav-text">功能验证</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B8%B8%E7%94%A8%E6%93%8D%E4%BD%9C"><span class="nav-number">13.</span> <span class="nav-text">常用操作</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B%E7%89%88%E6%9C%AC"><span class="nav-number">13.1.</span> <span class="nav-text">查看版本</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8BFE-BE%E7%BB%84%E4%BB%B6%E7%8A%B6%E6%80%81"><span class="nav-number">13.2.</span> <span class="nav-text">查看FE&#x2F;BE组件状态</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B-Compute-Group"><span class="nav-number">13.3.</span> <span class="nav-text">查看 Compute Group</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B-Storage-Vault"><span class="nav-number">13.4.</span> <span class="nav-text">查看 Storage Vault</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Doris-PROC-%E7%B3%BB%E7%BB%9F"><span class="nav-number">13.5.</span> <span class="nav-text">Doris PROC 系统</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA-DUPLICATE-KEY-%E8%A1%A8"><span class="nav-number">13.6.</span> <span class="nav-text">创建 DUPLICATE KEY 表</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA-Unique-Key-%E8%A1%A8"><span class="nav-number">13.7.</span> <span class="nav-text">创建 Unique Key 表</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA-Aggregate-Key-%E8%A1%A8"><span class="nav-number">13.8.</span> <span class="nav-text">创建 Aggregate Key 表</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B%E8%A1%A8%E6%95%B0%E6%8D%AE%E9%87%8F"><span class="nav-number">13.9.</span> <span class="nav-text">查看表数据量</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B%E8%A1%A8%E7%9A%84-Tablet"><span class="nav-number">13.10.</span> <span class="nav-text">查看表的 Tablet</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B-Replica-%E7%8A%B6%E6%80%81"><span class="nav-number">13.11.</span> <span class="nav-text">查看  Replica 状态</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%94%A8%E6%88%B7"><span class="nav-number">13.12.</span> <span class="nav-text">用户</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-Stream-Load-%E6%96%B9%E5%BC%8F%E5%AF%BC%E5%85%A5%E6%95%B0%E6%8D%AE"><span class="nav-number">13.13.</span> <span class="nav-text">使用 Stream Load 方式导入数据</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%AF%BB%E5%8F%96-HDFS-%E7%9A%84-CSV-%E6%96%87%E4%BB%B6"><span class="nav-number">13.14.</span> <span class="nav-text">读取 HDFS 的 CSV 文件</span></a></li></ol></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">128</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">61</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.zerchin.com/2026/09/01/bigdata/Doris%20%E9%AB%98%E6%80%A7%E8%83%BD%E5%AE%9E%E6%97%B6%E5%88%86%E6%9E%90%E5%9E%8B%E6%95%B0%E6%8D%AE%E5%BA%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Doris 高性能实时分析型数据库
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2026-09-01 21:05:07" itemprop="dateCreated datePublished" datetime="2026-09-01T21:05:07+08:00">2026-09-01</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/bigdata/" itemprop="url" rel="index"><span itemprop="name">bigdata</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>Apache Doris 是一款基于 MPP 架构的高性能、实时分析型数据库，以<strong>高效、简单、统一</strong>著称：在亚秒级时间内返回海量数据查询结果，一套系统同时支持高并发点查询和高吞吐复杂分析，主要解决大量数据上的聚合、Join、报表、多维分析、日志分析、实时数仓等问题。</p>
+<p>Doris 可以直接支持 MySQL 协议和 SQL 语法，但是底层并不是 MySQL，而是面向 OLAP 重新设计的 列式存储 + 向量化执行 + MPP 分布式计算引擎。</p>
+<p>与 MySQL 相比，MySQL 更适合 OLTP 事务型业务数据库，Doris 更适合 OLAP 实时分析型数据库。</p>
+<p>Doris 应用场景：实时报表与仪表盘、用户行为分析、日志检索分析、统一数仓构建、数据湖联邦查询加速等</p>
+<h2 id="架构"><a href="#架构" class="headerlink" title="架构"></a>架构</h2><p>Doris 官方有两种部署架构：</p>
+<p><strong>存算一体架构</strong></p>
+<ul>
+<li>FE + BE 经典架构，数据存储与计算融合。</li>
+<li>性能优先、运维资源有限、规模可控。</li>
+</ul>
+<p><strong>存算分离架构</strong>：</p>
+<ul>
+<li><p>元数据层、计算层、存储层三层分离。</p>
+</li>
+<li><p>云原生、弹性伸缩、多团队共享数据</p>
+</li>
+</ul>
+<h3 id="存算一体架构"><a href="#存算一体架构" class="headerlink" title="存算一体架构"></a>存算一体架构</h3><p>存算一体架构是 Apache Doris 的经典部署模式，计算和存储位于每个节点上，以实现最大的本地 I/O 和最低的查询延迟，由 Frontend（FE） 和 Backend（BE） 两类进程组成。</p>
+<p><strong>Frontend（FE）</strong>：接收请求、查询解析、元数据管理、节点管理，是 Apache Doris 的入口节点，承担协调和控制职能。生产环境部署多个 FE 节点实现高可用，FE 节点分为 Master、Follower、Observer 三种角色。</p>
+<p><strong>Backend（BE）</strong>：数据存储、查询执行（多副本存储），计算和存储节点，数据直接存储在 BE 的本地磁盘。</p>
+<img src="/2026/09/01/bigdata/Doris%20%E9%AB%98%E6%80%A7%E8%83%BD%E5%AE%9E%E6%97%B6%E5%88%86%E6%9E%90%E5%9E%8B%E6%95%B0%E6%8D%AE%E5%BA%93/compute-storage-coupled.jpg" class="" title="存算一体架构">
+
+<h3 id="存算分离架构"><a href="#存算分离架构" class="headerlink" title="存算分离架构"></a>存算分离架构</h3><p>从 3.0 版本引入，计算层与存储层完全分离，独立扩展存储容量和计算资源。与存算一体架构的不同之处在于：</p>
+<ol>
+<li><p>计算层：在存算分离架构中，FE 节点依然保留，承担用户请求接入和查询解析职责。同时新增了 <strong>Meta Service</strong> 专门负责数据层面的元数据管理。</p>
+</li>
+<li><p>存储层：BE 不再负责持久化存储，主要负责计算，本地磁盘只是 Cache，不再保存持久数据，真正数据存放在 <strong>Storage Layer</strong>。</p>
+</li>
+</ol>
+<img src="/2026/09/01/bigdata/Doris%20%E9%AB%98%E6%80%A7%E8%83%BD%E5%AE%9E%E6%97%B6%E5%88%86%E6%9E%90%E5%9E%8B%E6%95%B0%E6%8D%AE%E5%BA%93/compute-storage-decoupled.jpg" class="" title="存算分离架构">
+
+
+
+<h3 id="选型建议"><a href="#选型建议" class="headerlink" title="选型建议"></a>选型建议</h3><ul>
+<li><p>业务规模可控、追求简单运维  -&gt; 存算一体</p>
+</li>
+<li><p>需要弹性扩缩容 -&gt; 存算分离</p>
+</li>
+</ul>
+<h2 id="工作原理"><a href="#工作原理" class="headerlink" title="工作原理"></a>工作原理</h2><ol>
+<li>FE 解析 SQL 并生成逻辑执行计划</li>
+<li>计划拆分为多个 Fragment（逻辑执行单元）</li>
+<li>每个 Fragment 实例化一个或多个 Instance，分发到多个 BE 节点<strong>并行执行</strong></li>
+<li>不同 Instance 之间通过 Exchange 算子进行网络数据交互</li>
+<li>各节点执行完成后，结果在 FE 汇总</li>
+</ol>
+<h2 id="存储引擎"><a href="#存储引擎" class="headerlink" title="存储引擎"></a>存储引擎</h2><p>Apache Doris 采用列式存储作为其核心存储引擎，具有 I/O 效率高、压缩率高、向量化友好的优势。这是它能胜任海量数据在线分析处理（OLAP）场景的关键技术基石。</p>
+<p>列式存储与传统的行式存储（如MySQL）在数据组织方式上有着根本不同：</p>
+<p>行式存储：将同一行的所有数据连续存放在一起。比如一条用户记录，其ID、姓名、年龄等所有字段是作为一个整体存储的。</p>
+<p>列式存储：将同一列的所有数据集中存放在一起。比如所有用户的ID存放在一个连续区域，所有用户的姓名存放在另一个连续区域。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">行式存储（一行连续存放）:</span><br><span class="line">[row1: id&#x3D;1, name&#x3D;alice, age&#x3D;30] [row2: id&#x3D;2, name&#x3D;bob, age&#x3D;25] ...</span><br><span class="line"></span><br><span class="line">列式存储（一列连续存放）:</span><br><span class="line">[id列: 1, 2, 3, ...] [name列: alice, bob, carol, ...] [age列: 30, 25, 28, ...]</span><br></pre></td></tr></table></figure>
+
+<img src="/2026/09/01/bigdata/Doris%20%E9%AB%98%E6%80%A7%E8%83%BD%E5%AE%9E%E6%97%B6%E5%88%86%E6%9E%90%E5%9E%8B%E6%95%B0%E6%8D%AE%E5%BA%93/columnar-storage.jpg" class="" title="列式存储">
+
+
+
+<h2 id="数据模型"><a href="#数据模型" class="headerlink" title="数据模型"></a>数据模型</h2><p>在 Doris 中建表时必须指定<strong>表模型</strong>（Table Model），它决定了数据的存储、去重、聚合与更新方式。Doris 提供三种表模型：<strong>明细模型</strong>（Duplicate Key）、<strong>主键模型</strong>（Unique Key）和<strong>聚合模型</strong>（Aggregate Key），分别覆盖原始数据保留、按主键更新、预聚合分析三类典型场景。表模型在建表后不可修改，因此选型至关重要。</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>说明</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>明细模型（Duplicate Key）</strong></td>
+<td>保留所有原始数据，相同主键的多条记录全部保留</td>
+<td>事实表明细存储、日志分析</td>
+</tr>
+<tr>
+<td><strong>聚合模型（Aggregate Key）</strong></td>
+<td>相同主键的数据按聚合函数合并（如 SUM、MAX、MIN）</td>
+<td>指标统计、报表预聚合、流量统计</td>
+</tr>
+<tr>
+<td><strong>主键模型（Unique Key）</strong></td>
+<td>主键唯一，相同主键的记录会覆盖（支持行级更新）</td>
+<td>实时维表、订单状态、用户画像</td>
+</tr>
+</tbody></table>
+<p><strong>示例：</strong></p>
+<p>假设有以下原始数据（主键为 <code>user_id</code>）：</p>
+<table>
+<thead>
+<tr>
+<th>user_id</th>
+<th>visit_date</th>
+<th>pv</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>2024-01-01</td>
+<td>5</td>
+</tr>
+<tr>
+<td>1</td>
+<td>2024-01-01</td>
+<td>3</td>
+</tr>
+<tr>
+<td>2</td>
+<td>2024-01-01</td>
+<td>10</td>
+</tr>
+</tbody></table>
+<ul>
+<li><strong>明细模型</strong>：保留所有 3 条记录</li>
+<li><strong>聚合模型</strong>（按 SUM 聚合）：相同主键的 <code>pv</code> 合并 → user_id=1 的 pv=8，user_id=2 的 pv=10</li>
+<li><strong>主键模型</strong>：相同主键的记录按时间戳覆盖，最终只保留最新的一条（如 <code>pv=3</code> 覆盖 <code>pv=5</code>）</li>
+</ul>
+<h2 id="高可用机制"><a href="#高可用机制" class="headerlink" title="高可用机制"></a>高可用机制</h2><p><strong>多副本与 Quorum 协议</strong></p>
+<ul>
+<li>每个 Tablet 默认 3 副本存储</li>
+<li>写入需多数派（如 2 副本）确认成功</li>
+<li>部分节点故障不丢数据，集群仍可服务</li>
+</ul>
+<p><strong>故障自动隔离</strong></p>
+<ol>
+<li>检测节点心跳超时或副本损坏</li>
+<li>标记节点不可用，停止分发任务</li>
+<li>从健康副本自动补齐缺失副本</li>
+<li>恢复后自动同步增量数据</li>
+</ol>
+<p><strong>FE 高可用</strong></p>
+<p>Paxos 类共识协议保证元数据一致性。Master 故障时 Follower 自动选举新 Master，对用户透明。</p>
+<h2 id="环境准备"><a href="#环境准备" class="headerlink" title="环境准备"></a>环境准备</h2><table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Version</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Ubuntu</td>
+<td>22.04.5</td>
+</tr>
+<tr>
+<td>Doris</td>
+<td>4.1.3</td>
+</tr>
+<tr>
+<td>Java</td>
+<td>17</td>
+</tr>
+</tbody></table>
+<table>
+<thead>
+<tr>
+<th>节点</th>
+<th>IP</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>u68</td>
+<td>192.168.2.68</td>
+</tr>
+<tr>
+<td>u69</td>
+<td>192.168.2.69</td>
+</tr>
+<tr>
+<td>u71</td>
+<td>192.168.2.71</td>
+</tr>
+</tbody></table>
+<p>FE：参与选举，Master 宕机时接替，建议 ≥ 3 个。</p>
+<p>BE：保证 3 副本可靠存储，建议≥ 3 个。</p>
+<p>这里我们在三个节点上都安装 FE + BE。</p>
+<h2 id="安装前准备"><a href="#安装前准备" class="headerlink" title="安装前准备"></a>安装前准备</h2><p><strong>CPU 检查</strong></p>
+<p>Doris 利用 AVX2 向量化能力加速查询，建议选择支持 AVX2 指令集的机器。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cat /proc/cpuinfo | grep avx2</span><br></pre></td></tr></table></figure>
+
+<p>若有输出，则表示支持 AVX2。若不支持，可使用 no AVX2 的 Doris 安装包。</p>
+<p><strong>swap 关闭</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">swapoff -a &amp;&amp; sed -i <span class="string">&#x27;/ swap / s/^\(.*\)$/#\1/g&#x27;</span> /etc/fstab</span><br></pre></td></tr></table></figure>
+
+<p><strong>关闭透明大页</strong></p>
+<p>关闭 THP（Transparent Huge Pages）可减少内存碎片，保证 Doris 稳定使用内存。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">echo</span> madvise &gt; /sys/kernel/mm/transparent_hugepage/enabled</span><br><span class="line"><span class="built_in">echo</span> madvise &gt; /sys/kernel/mm/transparent_hugepage/defrag</span><br><span class="line"></span><br><span class="line">cat &gt;&gt; /etc/rc.d/rc.local &lt;&lt; <span class="string">EOF</span></span><br><span class="line"><span class="string">   echo madvise &gt; /sys/kernel/mm/transparent_hugepage/enabled</span></span><br><span class="line"><span class="string">   echo madvise &gt; /sys/kernel/mm/transparent_hugepage/defrag</span></span><br><span class="line"><span class="string">EOF</span></span><br><span class="line">chmod +x /etc/rc.d/rc.local</span><br></pre></td></tr></table></figure>
+
+<p><strong>增大虚拟内存区域</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">cat &gt;&gt; /etc/sysctl.conf &lt;&lt; <span class="string">EOF</span></span><br><span class="line"><span class="string">vm.max_map_count = 2000000</span></span><br><span class="line"><span class="string">EOF</span></span><br><span class="line"></span><br><span class="line">sysctl -p</span><br></pre></td></tr></table></figure>
+
+<p><strong>禁用 CPU 省电模式</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">echo</span> <span class="string">&#x27;performance&#x27;</span> | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor</span><br></pre></td></tr></table></figure>
+
+<p><strong>网络连接溢出时重置</strong></p>
+<p>启用 <code>tcp_abort_on_overflow</code> 可在连接溢出时立即中断，避免高负载下连接长时间挂起。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">cat &gt;&gt; /etc/sysctl.conf &lt;&lt; <span class="string">EOF</span></span><br><span class="line"><span class="string">net.ipv4.tcp_abort_on_overflow=1</span></span><br><span class="line"><span class="string">EOF</span></span><br><span class="line"></span><br><span class="line">sysctl -p</span><br></pre></td></tr></table></figure>
+
+<p><strong>防火墙</strong></p>
+<p>关闭防火墙或者开放对应端口。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ufw <span class="built_in">disable</span></span><br></pre></td></tr></table></figure>
+
+<p>端口列表：</p>
+<table>
+<thead>
+<tr>
+<th>实例</th>
+<th>端口名称</th>
+<th>默认端口</th>
+<th>通信方向</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>BE</td>
+<td>be_port</td>
+<td>9060</td>
+<td>FE → BE</td>
+<td>Thrift Server，接收 FE 请求</td>
+</tr>
+<tr>
+<td>BE</td>
+<td>webserver_port</td>
+<td>8040</td>
+<td>BE ↔ BE</td>
+<td>HTTP Server</td>
+</tr>
+<tr>
+<td>BE</td>
+<td>heartbeat_service_port</td>
+<td>9050</td>
+<td>FE → BE</td>
+<td>心跳服务（Thrift）</td>
+</tr>
+<tr>
+<td>BE</td>
+<td>brpc_port</td>
+<td>8060</td>
+<td>FE ↔ BE，BE ↔ BE</td>
+<td>BRPC 通信</td>
+</tr>
+<tr>
+<td>FE</td>
+<td>http_port</td>
+<td>8030</td>
+<td>FE ↔ FE，Client ↔ FE</td>
+<td>HTTP Server</td>
+</tr>
+<tr>
+<td>FE</td>
+<td>rpc_port</td>
+<td>9020</td>
+<td>BE → FE，FE ↔ FE</td>
+<td>Thrift Server，各 FE 需一致</td>
+</tr>
+<tr>
+<td>FE</td>
+<td>query_port</td>
+<td>9030</td>
+<td>Client ↔ FE</td>
+<td>MySQL Server</td>
+</tr>
+<tr>
+<td>FE</td>
+<td>edit_log_port</td>
+<td>9010</td>
+<td>FE ↔ FE</td>
+<td>bdbje 通信</td>
+</tr>
+</tbody></table>
+<p><strong>增大文件句柄数</strong></p>
+<p>Doris 依赖大量文件管理表数据，需调高文件句柄限制。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">vi /etc/security/limits.conf</span><br><span class="line">* soft nofile 1000000</span><br><span class="line">* hard nofile 1000000</span><br><span class="line"></span><br><span class="line"><span class="comment">## 修改后需重启会话生效</span></span><br><span class="line"></span><br><span class="line"><span class="comment">## 临时生效</span></span><br><span class="line"><span class="built_in">ulimit</span> -n 655350</span><br></pre></td></tr></table></figure>
+
+<p><strong>ntp 时间同步</strong></p>
+<p>保证集群所有机器时钟同步，元数据时间精度需 &lt; 5000ms。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ntpdate ntp.aliyun.com</span><br></pre></td></tr></table></figure>
+
+<p><strong>Java 环境</strong></p>
+<p>参考此<a target="_blank" rel="noopener" href="https://doris.apache.org/zh-CN/docs/4.x/install/preparation/env-checking#java-%E7%8E%AF%E5%A2%83%E6%A3%80%E6%9F%A5">文档说明</a>，Doris 所有进程依赖 Java，其中 Doris 3.0 及之后的版本建议使用 Java 17 版本。</p>
+<p>如果主机上已安装其他版本的 JDK，不用担心，一台主机可以安装多个版本，直接安装即可。</p>
+<p>其中 Ubuntu 安装如下：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">apt install -y openjdk-17-jdk-headless</span><br></pre></td></tr></table></figure>
+
+<p>配置环境变量：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">vi ~/.bashrc</span><br><span class="line"></span><br><span class="line"><span class="built_in">export</span> JAVA_HOME=/usr/lib/jvm/java-17-openjdk</span><br><span class="line"><span class="built_in">export</span> PATH=<span class="variable">$JAVA_HOME</span>/bin</span><br></pre></td></tr></table></figure>
+
+<p>验证：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">java -version</span><br></pre></td></tr></table></figure>
+
+<p><strong>下载软件包</strong></p>
+<p>可以在<a target="_blank" rel="noopener" href="https://doris.apache.org/download/">官方网站</a>获取软件包，这里根据前面 CPU 检查的结果，如果 CPU 支持 AVX2，就下载 avx2 的包。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">mkdir /opt/package &amp;&amp; <span class="built_in">cd</span> /opt/package</span><br><span class="line">wget https://apache-doris-releases.oss-accelerate.aliyuncs.com/apache-doris-4.1.3-bin-x64.tar.gz</span><br><span class="line"></span><br><span class="line">tar -zxvf apache-doris-4.1.3-bin-x64.tar.gz -C /opt</span><br><span class="line">mv /opt/apache-doris-4.1.3-bin-x64.tar.gz /opt/apache-doris</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="存算一体集群部署"><a href="#存算一体集群部署" class="headerlink" title="存算一体集群部署"></a>存算一体集群部署</h2><h3 id="FE-节点部署"><a href="#FE-节点部署" class="headerlink" title="FE 节点部署"></a>FE 节点部署</h3><ol>
+<li>创建元数据路径（可选）</li>
+</ol>
+<p>默认是在 <code>fe/doris-meta</code>路径下，生产环境建议分离 doris-meta 元数据路径，使用单独的 SSD 硬盘；开发和测试环境可以使用默认配置。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /opt/apache-doris/fe</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mkdir -p &lt;doris_meta_created&gt;</span><br><span class="line">ln -s &lt;doris_meta_created&gt; &lt;doris_meta_original&gt;</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>在所有节点上，编辑 <code>fe.conf</code> 配置文件</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vi conf/fe.conf</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">## 指定参数 -Xmx、-Xms，调整 Java Heap，生产环境建议 16G 以上</span></span><br><span class="line">JAVA_OPTS=<span class="string">&quot;-Xmx2048m -Xms2048m ... ... ...(略)&quot;</span></span><br><span class="line">   </span><br><span class="line"><span class="comment">## 设置大小写敏感，建议调整为 1，即大小写不敏感。（该参数在集群创建后不能再修改）</span></span><br><span class="line">lower_case_table_names = 1</span><br><span class="line">  </span><br><span class="line"><span class="comment">## 网络 CIDR，根据网络 IP 地址指定。在 FQDN 环境中可以忽略。</span></span><br><span class="line">priority_networks = 192.168.2.0/24</span><br><span class="line"></span><br><span class="line"><span class="comment">## 元数据路径，如果默认则不用修改</span></span><br><span class="line"><span class="comment">## meta_dir = $&#123;DORIS_HOME&#125;/doris-meta</span></span><br><span class="line">   </span><br><span class="line"><span class="comment">## 指定 Java 路径</span></span><br><span class="line">JAVA_HOME = /usr/lib/jvm/java-17-openjdk-amd64</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>在第一个节点（u68），启动 FE Master 节点</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">bin/start_fe.sh --daemon</span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li>检查 FE 启动状态</li>
+</ol>
+<p>可以使用 MySQL 命令行工具连入到 Doris 数据库中，并使用 MySQL 的语法。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql -uroot -P9030 -h192.168.2.68</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">show</span> frontends;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p>Alive 为 true 表示节点存活；</p>
+</li>
+<li><p>Join 为 true 表示节点加入到集群中，但不代表当前还在集群内（可能已失联）；</p>
+</li>
+<li><p>IsMaster 为 true 表示当前节点为 Master 节点。</p>
+</li>
+</ul>
+<ol start="5">
+<li>添加 FE Follower 节点</li>
+</ol>
+<p>通过 MySQL 命令行工具，将另外两个节点（u69、u71）注册为 FE Follower 节点：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ALTER</span> <span class="keyword">SYSTEM</span> <span class="keyword">ADD</span> FOLLOWER <span class="string">&quot;192.168.2.69:9010&quot;</span>;</span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">SYSTEM</span> <span class="keyword">ADD</span> FOLLOWER <span class="string">&quot;192.168.2.71:9010&quot;</span>;</span><br></pre></td></tr></table></figure>
+
+<ol start="6">
+<li>接着启动 u69、u71 的 FE Follower 节点。</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">bin/start_fe.sh --helper 192.168.2.68:9010 --daemon</span><br></pre></td></tr></table></figure>
+
+<p>这里的 –helper 要填写集群中任意存活的 FE 节点的 IP，这里可以填写 u68 的 IP，该参数仅在第一次启动 FE 时需要，之后重启无需指定。</p>
+<ol start="7">
+<li>检查 FE 所有节点状态</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">show</span> frontends;</span><br></pre></td></tr></table></figure>
+
+<p>同样检查 Alive、Join、IsMaster参数，其中只有 u68 的 IsMaster 为 true。</p>
+<h3 id="BE-节点部署"><a href="#BE-节点部署" class="headerlink" title="BE 节点部署"></a>BE 节点部署</h3><ol>
+<li>创建数据目录</li>
+</ol>
+<p>数据目录默认放在 <code>be/storage</code>  路径下，如果有多块高性能磁盘，BE 支持数据分布在多盘上以更好的利用多块硬盘的 I/O 能力。这里假设有两个磁盘，并挂载在 <code>be/storage-1</code>  和 <code>be/storage-2</code> 路径下。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /opt/apache-doris/be</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mkdir -p storage-1 storage-2</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>在所有节点上，编辑 <code>be.conf</code> 配置文件</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vi conf/be.conf</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">## 指定数据目录</span></span><br><span class="line">storage_root_path=/opt/apache-doris/be/sotrage-1,/opt/apache-doris/be/sotrage-2</span><br><span class="line"></span><br><span class="line"><span class="comment">## 指定参数 -Xmx，调整 Java Heap，生产环境建议 2G 以上</span></span><br><span class="line">JAVA_OPTS_FOR_JDK_17=<span class="string">&quot;... ... -Xmx1024m ... ...&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">## 网络 CIDR，根据网络 IP 地址指定。在 FQDN 环境中可以忽略</span></span><br><span class="line">priority_networks = 192.168.2.0/24</span><br><span class="line"></span><br><span class="line"><span class="comment">## 指定 Java 路径</span></span><br><span class="line">JAVA_HOME = /usr/lib/jvm/java-17-openjdk-amd64</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>先在 FE 中，注册所有 BE 节点</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql -uroot -P9030 -h192.168.2.68</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ALTER</span> <span class="keyword">SYSTEM</span> <span class="keyword">ADD</span> BACKEND <span class="string">&quot;192.168.2.68:9050&quot;</span>;</span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">SYSTEM</span> <span class="keyword">ADD</span> BACKEND <span class="string">&quot;192.168.2.69:9050&quot;</span>;</span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">SYSTEM</span> <span class="keyword">ADD</span> BACKEND <span class="string">&quot;192.168.2.71:9050&quot;</span>;</span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li>接着所有节点，逐台启动 BE 进程</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">bin/start_be.sh --daemon</span><br></pre></td></tr></table></figure>
+
+<ol start="5">
+<li>查看 BE 启动状态</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql -uroot -P9030 -h192.168.2.68</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">show</span> backends;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p>live 为 true 表示节点存活</p>
+</li>
+<li><p>TabletNum 表示该节点上的分片数量，新加入的节点会进行数据均衡，TabletNum 逐渐趋于平均。</p>
+</li>
+</ul>
+<h3 id="修改-Doris-密码"><a href="#修改-Doris-密码" class="headerlink" title="修改 Doris 密码"></a>修改 Doris 密码</h3><p>默认 root 用户的密码为空，为了提高安全性，可以为 root 设置密码。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">user</span>();  </span><br><span class="line"></span><br><span class="line"><span class="keyword">SET</span> <span class="keyword">PASSWORD</span> = <span class="keyword">PASSWORD</span>(<span class="string">&#x27;doris_new_passwd&#x27;</span>);</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="存算分离集群部署"><a href="#存算分离集群部署" class="headerlink" title="存算分离集群部署"></a>存算分离集群部署</h2><h3 id="FoundationDB-部署"><a href="#FoundationDB-部署" class="headerlink" title="FoundationDB 部署"></a>FoundationDB 部署</h3><p>官方的软件包，默认自带了 FoundationDB 的安装脚本，可以直接配置和使用。</p>
+<ol>
+<li>配置 <code>fdb_vars.sh</code> 脚本</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /opt/apache-doris/tools/fdb</span><br><span class="line">vi fdb_vars.sh</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 以下参数必须指定</span></span><br><span class="line"><span class="comment">## 指定 FoundationDB 存储的数据目录，运行脚本前确保目录已创建，生产环境建议使用 SSD 和独立目录</span></span><br><span class="line">DATA_DIRS=<span class="string">&quot;/opt/apache-doris/fdb_data1,/opt/apache-doris/fdb_data2,/opt/apache-doris/fdb_data3&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">## 指定集群 IP，生产环境至少三个，第一个 IP 地址将用作协调器</span></span><br><span class="line">FDB_CLUSTER_IPS=<span class="string">&quot;192.168.2.68,192.168.2.69,192.168.2.71&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">## 指定 FoundationDB 主目录</span></span><br><span class="line">FDB_HOME=<span class="string">&quot;/opt/apache-doris/fdbhome&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">## 指定集群 ID，每个集群的 ID 必须唯一，可使用 mktemp -u XXXXXXXX 生成</span></span><br><span class="line">FDB_CLUSTER_ID=<span class="string">&quot;ra7eOp7x&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">## 指定 FDB 集群的描述</span></span><br><span class="line">FDB_CLUSTER_DESC=<span class="string">&quot;mycluster&quot;</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 可选参数</span></span><br><span class="line"><span class="comment">## 设置 FDB 进程的内存限制，单位为 GB</span></span><br><span class="line">MEMORY_LIMIT_GB=4</span><br><span class="line"></span><br><span class="line"><span class="comment">## 设置 FDB 进程的 CPU 核心限制</span></span><br><span class="line">CPU_CORES_LIMIT=4</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>部署 FDB 集群</li>
+</ol>
+<p>由于 Doris 软件包里默认不带 FDB 相关的包，在部署过程中如果检测到本地没有 FDB 的包会自动从外网拉取。如果是离线环境，可以提前将这个包拉下来。</p>
+<p>仅<strong>离线环境</strong>需要手动拉取 FDB 包：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">## FDB_VERSION 具体版本可以在 fdb_vars.sh 配置文件里获取</span></span><br><span class="line">FDB_VERSION=<span class="string">&quot;7.3.69&quot;</span></span><br><span class="line">URL=<span class="string">&quot;https://github.com/apple/foundationdb/releases/download/<span class="variable">$&#123;FDB_VERSION&#125;</span>/&quot;</span></span><br><span class="line"><span class="built_in">cd</span> /opt/apache-doris/tools/fdb</span><br><span class="line">mkdir pkgs</span><br><span class="line">        wget <span class="string">&quot;<span class="variable">$&#123;URL&#125;</span>/fdbbackup.x86_64&quot;</span> -O <span class="string">&quot;pkgs/fdbbackup&quot;</span></span><br><span class="line">        wget <span class="string">&quot;<span class="variable">$&#123;URL&#125;</span>/fdbserver.x86_64&quot;</span> -O <span class="string">&quot;pkgs/fdbserver&quot;</span></span><br><span class="line">        wget <span class="string">&quot;<span class="variable">$&#123;URL&#125;</span>/fdbcli.x86_64&quot;</span> -O <span class="string">&quot;pkgs/fdbcli&quot;</span></span><br><span class="line">        wget <span class="string">&quot;<span class="variable">$&#123;URL&#125;</span>/fdbmonitor.x86_64&quot;</span> -O <span class="string">&quot;pkgs/fdbmonitor&quot;</span></span><br><span class="line">        wget <span class="string">&quot;<span class="variable">$&#123;URL&#125;</span>/libfdb_c.x86_64.so&quot;</span> -O <span class="string">&quot;pkgs/libfdb_c.x86_64.so&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>接着执行该命令部署 FDB 集群</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./fdb_ctl.sh deploy</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>所有节点逐台启动 FDB 集群</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./fdb_ctl.sh start</span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li>检查 FDB 集群</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pkgs/7.3.69/fdbcli -C /opt/apache-doris/fdbhome/conf/fdb.cluster --<span class="built_in">exec</span> <span class="string">&quot;status&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>确认在 Cluster - Machines 是 3 即可。</p>
+<h3 id="Meta-Service-部署"><a href="#Meta-Service-部署" class="headerlink" title="Meta Service 部署"></a>Meta Service 部署</h3><ol>
+<li>在所有节点上，编辑 <code>doris_cloud.conf</code> 配置文件</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /opt/apache-doris/ms</span><br><span class="line">vi conf/doris_cloud.conf </span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">## Meta Service 的监听端口，默认为 5000</span></span><br><span class="line">brpc_listen_port = 5000</span><br><span class="line"></span><br><span class="line"><span class="comment">## FoundationDB 集群的连接信息，可以在 /opt/apache-doris/fdbhome/conf/fdb.cluster 获取</span></span><br><span class="line">fdb_cluster = mycluster:ra7eOp7x@192.168.2.68:4500,192.168.2.69:4500,192.168.2.71:4500</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>启动 ms</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">export</span> JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64</span><br><span class="line">bin/start.sh --daemon</span><br></pre></td></tr></table></figure>
+
+<p>启动脚本返回值为 0 表示启动成功，否则启动失败。启动成功同时标准输出的最后一行文本信息为 “doris_cloud start successfully”。</p>
+<p>生产环境中请确保至少有 3 个 Meta Service 节点。</p>
+<blockquote>
+<p>关于数据回收功能（Recycler），Meta Service 本身具备了元数据管理和回收功能，这两个功能也可以分开部署，小规模集群不用单独部署 Recycler，具体可查看官方文档，这里不在赘述。</p>
+</blockquote>
+<h3 id="FE-节点部署-1"><a href="#FE-节点部署-1" class="headerlink" title="FE 节点部署"></a>FE 节点部署</h3><ol>
+<li>所有节点配置 <code>fe.conf</code></li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /opt/apache-doris/fe</span><br><span class="line">vi conf/fe.conf</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">## 指定参数 -Xmx、-Xms，调整 Java Heap，生产环境建议 16G 以上</span></span><br><span class="line">JAVA_OPTS=<span class="string">&quot;-Xmx2048m -Xms2048m ... ... ...(略)&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">## 指定 Java 路径</span></span><br><span class="line">JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64</span><br><span class="line"></span><br><span class="line"><span class="comment">## 网络 CIDR，根据网络 IP 地址指定。在 FQDN 环境中可以忽略。</span></span><br><span class="line">priority_networks=192.168.2.0/24</span><br><span class="line"></span><br><span class="line"><span class="comment">## 指定 doris 启动模式，cloud 表示存算分离模式，其它存算一体模式</span></span><br><span class="line">deploy_mode=cloud</span><br><span class="line"></span><br><span class="line"><span class="comment">## 存算分离架构下集群的唯一标识符，不同的集群必须设置不同的 cluster_id</span></span><br><span class="line"><span class="comment">## 生成一个随机 id 命令</span></span><br><span class="line"><span class="comment">## echo $(($((RANDOM &lt;&lt; 15)) | $RANDOM)) </span></span><br><span class="line">cluster_id=18273645</span><br><span class="line"></span><br><span class="line"><span class="comment">## Meta Service 的地址和端口</span></span><br><span class="line">meta_service_endpoint=192.168.2.68:5000,192.168.2.69:5000,192.168.2.71:5000</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>在第一个节点（u68），启动 FE Master 节点</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">bin/start_fe.sh --daemon</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>检查 FE 启动状态</li>
+</ol>
+<p>可以使用 MySQL 命令行工具连入到 Doris 数据库中，并使用 MySQL 的语法。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql -uroot -P9030 -h192.168.2.68</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">show</span> frontends;</span><br></pre></td></tr></table></figure>
+
+<p>第一个 FE 会自动初始化集群并成为 Master，同时以 <strong>FOLLOWER</strong> 角色工作。</p>
+<ol start="4">
+<li>注册 FE Follower/Observer 节点</li>
+</ol>
+<p>还是需要先通过 sql 命令添加进来</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql -uroot -P9030 -h192.168.2.68</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ALTER</span> <span class="keyword">SYSTEM</span> <span class="keyword">ADD</span> FOLLOWER <span class="string">&quot;192.168.2.69:9010&quot;</span>;</span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">SYSTEM</span> <span class="keyword">ADD</span> FOLLOWER <span class="string">&quot;192.168.2.71:9010&quot;</span>;</span><br></pre></td></tr></table></figure>
+
+<p>在另外两台（u69、u71）启动 fe 进程</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">bin/start_fe.sh --helper 192.168.2.68:9010 --daemon</span><br></pre></td></tr></table></figure>
+
+<ol start="5">
+<li>检查 FE 所有节点状态</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">show</span> frontends;</span><br></pre></td></tr></table></figure>
+
+<p>能看到三个节点都是 FOLLOWER 角色，Alive 都为 true，并且 u68 是 Master。</p>
+<p>官方建议生产 FE Follower 数量保持奇数，一般三个 Follower 即可。Observer 可以是任意数量。</p>
+<h3 id="BE-节点部署-1"><a href="#BE-节点部署-1" class="headerlink" title="BE 节点部署"></a>BE 节点部署</h3><ol>
+<li>所有节点配置 <code>be.conf</code></li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /opt/apache-doris/be</span><br><span class="line">vi conf/be.conf</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">## 指定参数 -Xmx，调整 Java Heap，生产环境建议 2G 以上</span></span><br><span class="line">JAVA_OPTS_FOR_JDK_17=<span class="string">&quot;... ... -Xmx1024m ... ...&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">## 指定 Java 路径</span></span><br><span class="line">JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64</span><br><span class="line"></span><br><span class="line"><span class="comment">## 网络 CIDR，根据网络 IP 地址指定。在 FQDN 环境中可以忽略</span></span><br><span class="line">priority_networks=192.168.2.0/24</span><br><span class="line"></span><br><span class="line"><span class="comment">## 指定 doris 启动模式，cloud 表示存算分离模式，其它存算一体模式</span></span><br><span class="line">deploy_mode=cloud</span><br><span class="line"></span><br><span class="line"><span class="comment">## 文件缓存的磁盘路径和参数</span></span><br><span class="line"><span class="comment">## path 指定磁盘路径，total_size 限制缓存的大小；-1 或 0 将使用整个磁盘空间。</span></span><br><span class="line"><span class="comment">## 计算方法：21474836480/1024/1024/1024=20G </span></span><br><span class="line">file_cache_path=[&#123;<span class="string">&quot;path&quot;</span>:<span class="string">&quot;//opt/apache-doris/be/file_cache&quot;</span>,<span class="string">&quot;total_size&quot;</span>:21474836480&#125;]</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>接着启动 BE 进程</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">bin/start_be.sh --daemon</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>创建 Compute Group，并将三个 BE 加入同一个 Compute Group</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql -uroot -P9030 -h192.168.2.68</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ALTER</span> <span class="keyword">SYSTEM</span> <span class="keyword">ADD</span> BACKEND <span class="string">&quot;192.168.2.68:9050&quot;</span></span><br><span class="line">PROPERTIES (<span class="string">&quot;tag.compute_group_name&quot;</span> = <span class="string">&quot;cg_default&quot;</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">SYSTEM</span> <span class="keyword">ADD</span> BACKEND <span class="string">&quot;192.168.2.69:9050&quot;</span></span><br><span class="line">PROPERTIES (<span class="string">&quot;tag.compute_group_name&quot;</span> = <span class="string">&quot;cg_default&quot;</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">ALTER</span> <span class="keyword">SYSTEM</span> <span class="keyword">ADD</span> BACKEND <span class="string">&quot;192.168.2.71:9050&quot;</span></span><br><span class="line">PROPERTIES (<span class="string">&quot;tag.compute_group_name&quot;</span> = <span class="string">&quot;cg_default&quot;</span>);</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>查看 BE 启动状态</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql -uroot -P9030 -h192.168.2.68</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">show</span> backends;</span><br><span class="line"></span><br><span class="line"><span class="keyword">SHOW</span> <span class="keyword">COMPUTE</span> <span class="keyword">GROUPS</span>;</span><br></pre></td></tr></table></figure>
+
+<p>查看 Compute Group 可以看到有 3 个节点。</p>
+<h3 id="安装-S3-或-HDFS-服务（可选）"><a href="#安装-S3-或-HDFS-服务（可选）" class="headerlink" title="安装 S3 或 HDFS 服务（可选）"></a>安装 S3 或 HDFS 服务（可选）</h3><p>Doris 的存算分离模式依赖于 S3 或 HDFS 服务来存储数据，如果已有相关存储服务，直接使用即可。这里可以参考我另一篇关于 [Hadoop3.5.0 集群搭建](<a href="https://www.zerchin.com/2026/08/29/hadoop/Hadoop3.5.0">https://www.zerchin.com/2026/08/29/hadoop/Hadoop3.5.0</a> 集群搭建/) 文档。</p>
+<p>或者官方也提供简单的 MinIO的部署教程：</p>
+<ol>
+<li><p>在 MinIO 的<a target="_blank" rel="noopener" href="https://min.io/download?license=agpl&platform=linux">下载页面</a>选择合适的版本以及操作系统，下载对应的 Server 以及 Client 的二进制包或安装包。</p>
+</li>
+<li><p>启动 MinIO Server</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">export</span> MINIO_REGION_NAME=us-east-1</span><br><span class="line"><span class="built_in">export</span> MINIO_ROOT_USER=minio <span class="comment"># 在较老版本中，该配置为 MINIO_ACCESS_KEY=minio</span></span><br><span class="line"><span class="built_in">export</span> MINIO_ROOT_PASSWORD=minioadmin <span class="comment"># 在较老版本中，该配置为 MINIO_SECRET_KEY=minioadmin</span></span><br><span class="line">nohup ./minio server /mnt/data 2&gt;&amp;1 &amp;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>配置 MinIO Client</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 如果你使用的是安装包安装的客户端，那么客户端名为 mcli，直接下载客户端二进制包，则其名为 mc</span></span><br><span class="line">./mc config host add myminio http://127.0.0.1:9000 minio minioadmin</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>创建一个桶</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./mc mb myminio/doris</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>验证是否正常工作</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 上传一个文件</span></span><br><span class="line">./mc mv test_file myminio/doris</span><br><span class="line"><span class="comment"># 查看这个文件</span></span><br><span class="line">./mc ls myminio/doris</span><br></pre></td></tr></table></figure>
+
+
+
+</li>
+</ol>
+<h3 id="添加-Storage-Vault"><a href="#添加-Storage-Vault" class="headerlink" title="添加 Storage Vault"></a>添加 Storage Vault</h3><p>Storage Vault 是 Doris 存算分离架构中的重要组件。它们代表了存储数据的共享存储层。</p>
+<p>可以使用 HDFS 或兼容 S3 的对象存储创建一个或多个 Storage Vault。可以将一个 Storage Vault 设置为默认 Storage Vault，系统表和未指定 Storage Vault 的表都将存储在这个默认 Storage Vault 中。默认 Storage Vault 不能被删除。</p>
+<p>可以在<a target="_blank" rel="noopener" href="https://doris.apache.org/zh-CN/docs/4.x/sql-manual/sql-statements/cluster-management/storage-management/CREATE-STORAGE-VAULT">这里</a>找到 S3 Vault 和 HDFS Vault 的参数。这里我们以 HDFS 为例。</p>
+<ol>
+<li>进入 HDFS，确认当前的用户和组是什么</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">hdfs dfs -mkdir /<span class="built_in">test</span></span><br><span class="line">hdfs dfs -ls /</span><br></pre></td></tr></table></figure>
+
+<p>例如可以看到：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">drwxr-xr-x   - hadoop supergroup          0 2026-08-31 10:30 /<span class="built_in">test</span></span><br></pre></td></tr></table></figure>
+
+<p>说明是 user:group 是 hadoop 和 supergroup</p>
+<ol start="2">
+<li>创建 HDFS Storage Vault</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">STORAGE</span> VAULT <span class="keyword">IF</span> <span class="keyword">NOT</span> <span class="keyword">EXISTS</span> hdfs_vault</span><br><span class="line">PROPERTIES (</span><br><span class="line">    <span class="string">&quot;type&quot;</span> = <span class="string">&quot;hdfs&quot;</span>,</span><br><span class="line">    <span class="string">&quot;fs.defaultFS&quot;</span> = <span class="string">&quot;hdfs://192.168.2.68:9000&quot;</span>,</span><br><span class="line">    <span class="string">&quot;path_prefix&quot;</span> = <span class="string">&quot;doris&quot;</span>,</span><br><span class="line">    <span class="string">&quot;hadoop.username&quot;</span> = <span class="string">&quot;hadoop&quot;</span></span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<p>参数说明：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>type</td>
+<td>对接的 Storage Vault 类型，这里填写的 hdfs</td>
+</tr>
+<tr>
+<td>fs.defaultFS</td>
+<td>HDFS 地址</td>
+</tr>
+<tr>
+<td>path_prefix</td>
+<td>Doris 数据路径前缀</td>
+</tr>
+<tr>
+<td>hadoop.username</td>
+<td>访问 HDFS 的用户</td>
+</tr>
+</tbody></table>
+<p>这里如果 hdfs 对接的时候用户名写错，在创建数据库和表时不会报错，但是会在写入数据的时候提示没权限。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; insert into mytable values</span><br><span class="line">    -&gt; (1, 0.14, &#39;a1&#39;, 20),</span><br><span class="line">    -&gt; (2, 1.04, &#39;b2&#39;, 21),</span><br><span class="line">    -&gt; (3, 3.14, &#39;c3&#39;, 22),</span><br><span class="line">    -&gt; (4, 4.35, &#39;d4&#39;, 23);</span><br><span class="line">ERROR 1105 (HY000): errCode &#x3D; 2, detailMessage &#x3D; (192.168.2.68)[INTERNAL_ERROR][INTERNAL_ERROR]VNodeChannel[1788285981857-1788285974034], load_id&#x3D;bc388c6f2fcc4266-8b419c756d3496d4, txn_id&#x3D;3225801484288, node&#x3D;192.168.2.71:8060, add batch req success but status isn&#39;t ok, err: [INTERNAL_ERROR]PStatus: (192.168.2.71)[INTERNAL_ERROR]open file failed.  fs_name:hdfs:&#x2F;&#x2F;192.168.2.68:9000 path:&quot;&#x2F;doris_61AF1C33-F055-84AC-E24B-97EE55CAE64B&#x2F;data&#x2F;1788285981860&#x2F;020000000000000f2c4480fe6c5a825bf8db9d0ef9f2b3a1_0.dat&quot;, err: (13), Permission d</span><br></pre></td></tr></table></figure>
+
+<p>可以使用这条命令修改成正确的用户名：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ALTER</span> <span class="keyword">STORAGE</span> VAULT hdfs_vault</span><br><span class="line">PROPERTIES (</span><br><span class="line">    <span class="string">&quot;type&quot;</span> = <span class="string">&quot;hdfs&quot;</span>,</span><br><span class="line">    <span class="string">&quot;hadoop.username&quot;</span> = <span class="string">&quot;hadoop&quot;</span></span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+
+<ol start="3">
+<li>设置默认 Vault</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SET</span> hdfs_vault <span class="keyword">AS</span> <span class="keyword">DEFAULT</span> <span class="keyword">STORAGE</span> VAULT;</span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li>检查 Storage Vault状态</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SHOW</span> <span class="keyword">STORAGE</span> VAULTS;</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="Docker-快速启动"><a href="#Docker-快速启动" class="headerlink" title="Docker 快速启动"></a>Docker 快速启动</h2><p>官方有个<a target="_blank" rel="noopener" href="https://doris.apache.org/zh-CN/docs/4.x/getting-started/quick-start#%E4%BD%BF%E7%94%A8-docker-%E5%BF%AB%E9%80%9F%E9%83%A8%E7%BD%B2">一键启动</a>的脚本，会部署一个单点的 FE + BE 双容器的 docker compose 应用，但是这两个镜像里默认 HEAP 的内存比较大，如果内存比较小的虚拟机会无法启动容器。</p>
+<p>但 Doris 还提供了个 all-in-one 镜像，默认 <code>FE_HEAP=2048m</code>、<code>BE_HEAP=1024m</code>，虚拟机大于 2G 即可启动并验证功能。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker run -d   --name doris   -p 9030:9030   -p 8030:8030   -p 8040:8040   apache/doris:all-in-one-4.1.3</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="功能验证"><a href="#功能验证" class="headerlink" title="功能验证"></a>功能验证</h2><ol>
+<li>创建数据库</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">database</span> demo;</span><br><span class="line"><span class="keyword">use</span> demo;</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>创建表</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> mytable</span><br><span class="line">(</span><br><span class="line">    k1 <span class="built_in">TINYINT</span>,</span><br><span class="line">    k2 <span class="built_in">DECIMAL</span>(<span class="number">10</span>, <span class="number">2</span>) <span class="keyword">DEFAULT</span> <span class="string">&quot;10.05&quot;</span>,</span><br><span class="line">    k3 <span class="built_in">CHAR</span>(<span class="number">10</span>) <span class="keyword">COMMENT</span> <span class="string">&quot;string column&quot;</span>,</span><br><span class="line">    k4 <span class="built_in">INT</span> <span class="keyword">NOT</span> <span class="literal">NULL</span> <span class="keyword">DEFAULT</span> <span class="string">&quot;1&quot;</span> <span class="keyword">COMMENT</span> <span class="string">&quot;int column&quot;</span></span><br><span class="line">)</span><br><span class="line"><span class="keyword">COMMENT</span> <span class="string">&quot;my first table&quot;</span></span><br><span class="line"><span class="keyword">DISTRIBUTED</span> <span class="keyword">BY</span> <span class="keyword">HASH</span>(k1) BUCKETS <span class="number">1</span></span><br><span class="line">PROPERTIES (<span class="string">&quot;replication_num&quot;</span> = <span class="string">&quot;1&quot;</span>);</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>导入测试数据</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> mytable <span class="keyword">values</span></span><br><span class="line">(<span class="number">1</span>, <span class="number">0.14</span>, <span class="string">&#x27;a1&#x27;</span>, <span class="number">20</span>),</span><br><span class="line">(<span class="number">2</span>, <span class="number">1.04</span>, <span class="string">&#x27;b2&#x27;</span>, <span class="number">21</span>),</span><br><span class="line">(<span class="number">3</span>, <span class="number">3.14</span>, <span class="string">&#x27;c3&#x27;</span>, <span class="number">22</span>),</span><br><span class="line">(<span class="number">4</span>, <span class="number">4.35</span>, <span class="string">&#x27;d4&#x27;</span>, <span class="number">23</span>);</span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li>查询</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> demo.mytable;</span><br></pre></td></tr></table></figure>
+
+<p>这里如果是存算分离集群，那么就可以在对接的存储里看到数据，例如 HDFS</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># hdfs dfs -ls /</span></span><br><span class="line">Found 2 items</span><br><span class="line">drwxr-xr-x   - hadoop supergroup          0 2026-09-01 02:41 /doris_61AF1C33-F055-84AC-E24B-97EE55CAE64B</span><br><span class="line">drwxr-xr-x   - hadoop supergroup          0 2026-08-31 10:30 /<span class="built_in">test</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># hdfs dfs -ls /doris_61AF1C33-F055-84AC-E24B-97EE55CAE64B</span></span><br><span class="line">Found 1 items</span><br><span class="line">drwxr-xr-x   - hadoop supergroup          0 2026-09-01 03:30 /doris_61AF1C33-F055-84AC-E24B-97EE55CAE64B/data</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="常用操作"><a href="#常用操作" class="headerlink" title="常用操作"></a>常用操作</h2><h3 id="查看版本"><a href="#查看版本" class="headerlink" title="查看版本"></a>查看版本</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="keyword">VERSION</span>();</span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span> @@VERSION_COMMENT;</span><br></pre></td></tr></table></figure>
+
+<h3 id="查看FE-BE组件状态"><a href="#查看FE-BE组件状态" class="headerlink" title="查看FE/BE组件状态"></a>查看FE/BE组件状态</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SHOW</span> FRONTENDS;</span><br><span class="line"><span class="keyword">SHOW</span> BACKENDS;</span><br></pre></td></tr></table></figure>
+
+<h3 id="查看-Compute-Group"><a href="#查看-Compute-Group" class="headerlink" title="查看 Compute Group"></a>查看 Compute Group</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SHOW</span> <span class="keyword">COMPUTE</span> <span class="keyword">GROUPS</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="查看-Storage-Vault"><a href="#查看-Storage-Vault" class="headerlink" title="查看 Storage Vault"></a>查看 Storage Vault</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SHOW</span> <span class="keyword">STORAGE</span> VAULTS;</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="Doris-PROC-系统"><a href="#Doris-PROC-系统" class="headerlink" title="Doris PROC 系统"></a>Doris PROC 系统</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SHOW</span> PROC <span class="string">&quot;/&quot;</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">SHOW</span> PROC <span class="string">&quot;/backends&quot;</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">SHOW</span> PROC <span class="string">&quot;/statistic&quot;</span>;</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="创建-DUPLICATE-KEY-表"><a href="#创建-DUPLICATE-KEY-表" class="headerlink" title="创建 DUPLICATE KEY 表"></a>创建 DUPLICATE KEY 表</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> user_behavior (</span><br><span class="line">    user_id <span class="built_in">BIGINT</span>,</span><br><span class="line">    item_id <span class="built_in">BIGINT</span>,</span><br><span class="line">    behavior <span class="built_in">VARCHAR</span>(<span class="number">20</span>),</span><br><span class="line">    event_time DATETIME</span><br><span class="line">)</span><br><span class="line"><span class="keyword">DUPLICATE</span> <span class="keyword">KEY</span>(user_id, item_id)</span><br><span class="line"><span class="keyword">DISTRIBUTED</span> <span class="keyword">BY</span> <span class="keyword">HASH</span>(user_id) BUCKETS <span class="number">3</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="创建-Unique-Key-表"><a href="#创建-Unique-Key-表" class="headerlink" title="创建 Unique Key 表"></a>创建 Unique Key 表</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> <span class="keyword">users</span> (</span><br><span class="line">    user_id <span class="built_in">BIGINT</span>,</span><br><span class="line">    username <span class="built_in">VARCHAR</span>(<span class="number">100</span>),</span><br><span class="line">    age <span class="built_in">INT</span></span><br><span class="line">)</span><br><span class="line"><span class="keyword">UNIQUE</span> <span class="keyword">KEY</span>(user_id)</span><br><span class="line"><span class="keyword">DISTRIBUTED</span> <span class="keyword">BY</span> <span class="keyword">HASH</span>(user_id) BUCKETS <span class="number">3</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="创建-Aggregate-Key-表"><a href="#创建-Aggregate-Key-表" class="headerlink" title="创建 Aggregate Key 表"></a>创建 Aggregate Key 表</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> sales (</span><br><span class="line">    dt <span class="built_in">DATE</span>,</span><br><span class="line">    product_id <span class="built_in">BIGINT</span>,</span><br><span class="line">    sales_count <span class="built_in">BIGINT</span> <span class="keyword">SUM</span>,</span><br><span class="line">    sales_amount <span class="built_in">DECIMAL</span>(<span class="number">18</span>,<span class="number">2</span>) <span class="keyword">SUM</span></span><br><span class="line">)</span><br><span class="line"><span class="keyword">AGGREGATE</span> <span class="keyword">KEY</span>(dt, product_id)</span><br><span class="line"><span class="keyword">DISTRIBUTED</span> <span class="keyword">BY</span> <span class="keyword">HASH</span>(product_id) BUCKETS <span class="number">3</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="查看表数据量"><a href="#查看表数据量" class="headerlink" title="查看表数据量"></a>查看表数据量</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SHOW</span> <span class="keyword">DATA</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">SHOW</span> <span class="keyword">DATA</span> <span class="keyword">FROM</span> <span class="keyword">users</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="查看表的-Tablet"><a href="#查看表的-Tablet" class="headerlink" title="查看表的 Tablet"></a>查看表的 Tablet</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SHOW</span> TABLETS <span class="keyword">FROM</span> ecommerce_demo.users;</span><br><span class="line"></span><br><span class="line"><span class="keyword">SHOW</span> TABLET <span class="number">1788285981713</span>;</span><br><span class="line"></span><br><span class="line">DESC ecommerce_demo.users;</span><br><span class="line"><span class="keyword">SHOW</span> <span class="keyword">CREATE</span> <span class="keyword">TABLE</span> ecommerce_demo.users;</span><br><span class="line"><span class="keyword">SHOW</span> <span class="keyword">PARTITIONS</span> <span class="keyword">FROM</span> ecommerce_demo.users;</span><br><span class="line"><span class="keyword">SHOW</span> <span class="keyword">DATA</span> <span class="keyword">FROM</span> ecommerce_demo.users;</span><br></pre></td></tr></table></figure>
+
+<h3 id="查看-Replica-状态"><a href="#查看-Replica-状态" class="headerlink" title="查看  Replica 状态"></a>查看  Replica 状态</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SHOW</span> REPLICA <span class="keyword">STATUS</span> <span class="keyword">FROM</span> <span class="keyword">users</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="用户"><a href="#用户" class="headerlink" title="用户"></a>用户</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="keyword">User</span>, Host</span><br><span class="line"><span class="keyword">FROM</span> mysql.user;</span><br><span class="line"></span><br><span class="line"><span class="keyword">select</span> <span class="keyword">user</span>();  </span><br><span class="line"><span class="keyword">SELECT</span> <span class="keyword">CURRENT_USER</span>();</span><br><span class="line"></span><br><span class="line"><span class="keyword">SET</span> <span class="keyword">PASSWORD</span> = <span class="keyword">PASSWORD</span>(<span class="string">&#x27;doris_new_passwd&#x27;</span>);</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="使用-Stream-Load-方式导入数据"><a href="#使用-Stream-Load-方式导入数据" class="headerlink" title="使用 Stream Load 方式导入数据"></a>使用 Stream Load 方式导入数据</h3><p>接口：<code>http://FE_IP:8030/api/&#123;db&#125;/&#123;table&#125;/_stream_load</code></p>
+<p>假设有个数据库和表：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">DATABASE</span> testdb;</span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> testdb.test_streamload(</span><br><span class="line">    user_id            <span class="built_in">BIGINT</span>       <span class="keyword">NOT</span> <span class="literal">NULL</span> <span class="keyword">COMMENT</span> <span class="string">&quot;user id&quot;</span>,</span><br><span class="line">    <span class="keyword">name</span>               <span class="built_in">VARCHAR</span>(<span class="number">20</span>)           <span class="keyword">COMMENT</span> <span class="string">&quot;name&quot;</span>,</span><br><span class="line">    age                <span class="built_in">INT</span>                   <span class="keyword">COMMENT</span> <span class="string">&quot;age&quot;</span></span><br><span class="line">)</span><br><span class="line"><span class="keyword">DUPLICATE</span> <span class="keyword">KEY</span>(user_id)</span><br><span class="line"><span class="keyword">DISTRIBUTED</span> <span class="keyword">BY</span> <span class="keyword">HASH</span>(user_id) BUCKETS <span class="number">10</span>;</span><br></pre></td></tr></table></figure>
+
+<p>本地有个 <code>test.csv</code> 文件：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">1,Emily,25</span><br><span class="line">2,Benjamin,35</span><br><span class="line">3,Olivia,28</span><br><span class="line">4,Alexander,60</span><br><span class="line">5,Ava,17</span><br><span class="line">6,William,69</span><br><span class="line">7,Sophia,32</span><br><span class="line">8,James,64</span><br><span class="line">9,Emma,37</span><br><span class="line">10,Liam,64</span><br></pre></td></tr></table></figure>
+
+<p>导入数据：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">curl --location-trusted -u &lt;doris_user&gt;:&lt;doris_password&gt; \</span><br><span class="line">    -H <span class="string">&quot;Expect:100-continue&quot;</span> \</span><br><span class="line">    -H <span class="string">&quot;column_separator:,&quot;</span> \</span><br><span class="line">    -H <span class="string">&quot;columns:user_id,name,age&quot;</span> \</span><br><span class="line">    -T test.csv \</span><br><span class="line">    -XPUT http://192.168.2.68:8030/api/testdb/test_streamload/_stream_load</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="读取-HDFS-的-CSV-文件"><a href="#读取-HDFS-的-CSV-文件" class="headerlink" title="读取 HDFS 的 CSV 文件"></a>读取 HDFS 的 CSV 文件</h3><p>假设 HDFS 在 /test 路径下有个 <code>test.csv</code> 文件</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">hdfs dfs -mkdir /<span class="built_in">test</span></span><br><span class="line">hdfs dfs -put users.csv /<span class="built_in">test</span>/</span><br><span class="line">hdfs dfs -ls /<span class="built_in">test</span></span><br></pre></td></tr></table></figure>
+
+<p>在 Doris 中读取该文件</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> hdfs(</span><br><span class="line">              <span class="string">&quot;uri&quot;</span> = <span class="string">&quot;hdfs://192.168.2.68:9000/test/users.csv&quot;</span>,</span><br><span class="line">              <span class="string">&quot;fs.defaultFS&quot;</span> = <span class="string">&quot;hdfs://192.168.2.68:9000&quot;</span>,</span><br><span class="line">              <span class="string">&quot;hadoop.username&quot;</span> = <span class="string">&quot;hadoop&quot;</span>,</span><br><span class="line">              <span class="string">&quot;format&quot;</span> = <span class="string">&quot;csv&quot;</span>);</span><br></pre></td></tr></table></figure>
+
+
+
+<p>参考链接：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://doris.apache.org/zh-CN/docs/4.x/features-architecture/system-architecture">https://doris.apache.org/zh-CN/docs/4.x/features-architecture/system-architecture</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://www.zerchin.com/2026/09/01/bigdata/Doris%20%E9%AB%98%E6%80%A7%E8%83%BD%E5%AE%9E%E6%97%B6%E5%88%86%E6%9E%90%E5%9E%8B%E6%95%B0%E6%8D%AE%E5%BA%93/" title="Doris 高性能实时分析型数据库">http://www.zerchin.com/2026/09/01/bigdata/Doris 高性能实时分析型数据库/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/hadoop/" rel="tag"># hadoop</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2026/09/01/bigdata/NiFi%20%E6%95%B0%E6%8D%AE%E6%B5%81%E5%A4%84%E7%90%86%E5%B9%B3%E5%8F%B0/" rel="prev" title="NiFi 数据流处理平台">
+                  <i class="fa fa-chevron-left"></i> NiFi 数据流处理平台
+                </a>
+            </div>
+            <div class="post-nav-item">
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

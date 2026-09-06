@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.zerchin.com","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="概述Syslog 是一种消息日志记录的标准，用于在网络设备和应用程序之间发送和接收日志消息。它允许将生成消息的软件、存储消息的系统以及报告和分析消息的软件进行分离。每条消息都标有一个设备代码，指示生成该消息的系统类型，并分配一个严重性级别。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="syslog 随笔">
+<meta property="og:url" content="http://www.zerchin.com/2024/11/01/syslog/syslog%20%E9%9A%8F%E7%AC%94/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="概述Syslog 是一种消息日志记录的标准，用于在网络设备和应用程序之间发送和接收日志消息。它允许将生成消息的软件、存储消息的系统以及报告和分析消息的软件进行分离。每条消息都标有一个设备代码，指示生成该消息的系统类型，并分配一个严重性级别。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-11-01T11:09:15.000Z">
+<meta property="article:modified_time" content="2024-11-01T11:09:15.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="neuvector">
+<meta property="article:tag" content="syslog">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://www.zerchin.com/2024/11/01/syslog/syslog%20%E9%9A%8F%E7%AC%94/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>syslog 随笔 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">61</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">35</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">128</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#syslog-%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5"><span class="nav-number">2.</span> <span class="nav-text">syslog 基本概念</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%AE%BE%E6%96%BD%E5%B1%82%E7%BA%A7-Facility"><span class="nav-number">2.1.</span> <span class="nav-text">设施层级 (Facility)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%A5%E9%87%8D%E6%80%A7%E7%BA%A7%E5%88%AB-Severity-Level"><span class="nav-number">2.2.</span> <span class="nav-text">严重性级别 (Severity Level)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BC%98%E5%85%88%E7%BA%A7-Priority"><span class="nav-number">2.3.</span> <span class="nav-text">优先级 (Priority)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Syslog-%E6%B6%88%E6%81%AF%E6%A0%BC%E5%BC%8F"><span class="nav-number">2.4.</span> <span class="nav-text">Syslog 消息格式</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Rsyslog"><span class="nav-number">3.</span> <span class="nav-text">Rsyslog</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%90%AF%E5%8A%A8-Rsyslog"><span class="nav-number">3.1.</span> <span class="nav-text">启动 Rsyslog</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%AA%8C%E8%AF%81%E6%98%AF%E5%90%A6%E6%8E%A5%E6%94%B6%E5%88%B0%E6%97%A5%E5%BF%97"><span class="nav-number">3.2.</span> <span class="nav-text">验证是否接收到日志</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Fluentd-%E6%8E%A5%E6%94%B6-syslog"><span class="nav-number">4.</span> <span class="nav-text">Fluentd 接收 syslog</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%90%AF%E5%8A%A8-Fluentd"><span class="nav-number">4.1.</span> <span class="nav-text">启动 Fluentd</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%AA%8C%E8%AF%81%E6%98%AF%E5%90%A6%E6%8E%A5%E6%94%B6%E5%88%B0%E6%97%A5%E5%BF%97-1"><span class="nav-number">4.2.</span> <span class="nav-text">验证是否接收到日志</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Fluentd-%E5%AF%B9%E6%8E%A5-NeuVector"><span class="nav-number">4.3.</span> <span class="nav-text">Fluentd 对接 NeuVector</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%B6%E4%BB%96"><span class="nav-number">5.</span> <span class="nav-text">其他</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">128</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">61</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.zerchin.com/2024/11/01/syslog/syslog%20%E9%9A%8F%E7%AC%94/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          syslog 随笔
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2024-11-01 19:09:15" itemprop="dateCreated datePublished" datetime="2024-11-01T19:09:15+08:00">2024-11-01</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/syslog/" itemprop="url" rel="index"><span itemprop="name">syslog</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>Syslog 是一种消息日志记录的标准，用于在网络设备和应用程序之间发送和接收日志消息。它允许将生成消息的软件、存储消息的系统以及报告和分析消息的软件进行分离。每条消息都标有一个设备代码，指示生成该消息的系统类型，并分配一个严重性级别。</p>
+<p>简单来说，它是一个用于集中记录和管理系统日志的标准方法。﻿Syslog 消息具有预定义的结构，包括优先级、时间戳、主机名、应用程序名称和消息文本等元素。﻿可以通过UDP 或TCP 协议发送。UDP 通常用于快速、无连接的传输，而TCP 提供更可靠的连接。﻿</p>
+<h2 id="syslog-基本概念"><a href="#syslog-基本概念" class="headerlink" title="syslog 基本概念"></a>syslog 基本概念</h2><p>Syslog 消息的发起者提供的信息包括设备代码和严重性级别。Syslog 软件会在将条目传递给 Syslog 接收器之前将信息添加到信息头中。这些组件包括发起者进程 ID、 时间戳以及设备的主机名或 IP 地址。</p>
+<p>常用端口：</p>
+<ul>
+<li><p>UDP：514 端口。</p>
+</li>
+<li><p>TCP：由于 UDP 缺乏拥塞控制机制，因此建议使用 TCP 的 6514 端口。</p>
+</li>
+</ul>
+<h3 id="设施层级-Facility"><a href="#设施层级-Facility" class="headerlink" title="设施层级 (Facility)"></a>设施层级 (Facility)</h3><p>表示日志消息的来源系统组件，用 0-23 的数字或预定义关键字表示：</p>
+<table>
+<thead>
+<tr>
+<th align="center">Facility code</th>
+<th align="center">Keyword</th>
+<th align="center">Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">0</td>
+<td align="center">kern</td>
+<td align="center">内核消息，例如内核错误、驱动问题</td>
+</tr>
+<tr>
+<td align="center">1</td>
+<td align="center">user</td>
+<td align="center">用户级消息，普通应用程序日志</td>
+</tr>
+<tr>
+<td align="center">2</td>
+<td align="center">mail</td>
+<td align="center">邮件系统</td>
+</tr>
+<tr>
+<td align="center">3</td>
+<td align="center">daemon</td>
+<td align="center">守护进程，例如sshd/crond 等后台服务</td>
+</tr>
+<tr>
+<td align="center">4</td>
+<td align="center">auth</td>
+<td align="center">安全/身份验证消息，例如登录、sudo 操作</td>
+</tr>
+<tr>
+<td align="center">5</td>
+<td align="center">syslog</td>
+<td align="center">syslog 自身消息，syslog 服务内部日志</td>
+</tr>
+<tr>
+<td align="center">6</td>
+<td align="center">lpr</td>
+<td align="center">Line printer subsystem</td>
+</tr>
+<tr>
+<td align="center">7</td>
+<td align="center">news</td>
+<td align="center">Network news subsystem</td>
+</tr>
+<tr>
+<td align="center">8</td>
+<td align="center">uucp</td>
+<td align="center">UUCP subsystem</td>
+</tr>
+<tr>
+<td align="center">9</td>
+<td align="center">cron</td>
+<td align="center">定时任务，cron 作业日志</td>
+</tr>
+<tr>
+<td align="center">10</td>
+<td align="center">authpriv</td>
+<td align="center">Security and authentication messages</td>
+</tr>
+<tr>
+<td align="center">11</td>
+<td align="center">ftp</td>
+<td align="center">FTP 守护进程</td>
+</tr>
+<tr>
+<td align="center">12</td>
+<td align="center">ntp</td>
+<td align="center">NTP 子系统</td>
+</tr>
+<tr>
+<td align="center">13</td>
+<td align="center">security</td>
+<td align="center">Log audit</td>
+</tr>
+<tr>
+<td align="center">14</td>
+<td align="center">console</td>
+<td align="center">Log alert</td>
+</tr>
+<tr>
+<td align="center">15</td>
+<td align="center">solaris-cron</td>
+<td align="center">Scheduling daemon</td>
+</tr>
+<tr>
+<td align="center">16–23</td>
+<td align="center">local0 – local7</td>
+<td align="center">本地使用的设施，0：预留自定义用途，7：通常用于引导日志 (boot.log)</td>
+</tr>
+</tbody></table>
+<p><strong>特点</strong>：</p>
+<ul>
+<li>设施层级用于日志分类过滤（如：<code>auth.*</code> 表示所有认证日志）</li>
+<li><code>local0-local7</code> 专供用户自定义应用使用</li>
+</ul>
+<blockquote>
+<p>在不同的操作系统和 syslog 实现中，设施代码和关键字之间的映射并不统一。</p>
+</blockquote>
+<h3 id="严重性级别-Severity-Level"><a href="#严重性级别-Severity-Level" class="headerlink" title="严重性级别 (Severity Level)"></a>严重性级别 (Severity Level)</h3><p>表示日志的紧急程度，从 0（最高）到 7（最低）：</p>
+<table>
+<thead>
+<tr>
+<th align="left">数值</th>
+<th align="left">关键字</th>
+<th align="left">说明</th>
+<th align="left">典型场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">0</td>
+<td align="left">emerg</td>
+<td align="left">系统不可用</td>
+<td align="left">硬件故障、核心服务崩溃</td>
+</tr>
+<tr>
+<td align="left">1</td>
+<td align="left">alert</td>
+<td align="left">需立即处理</td>
+<td align="left">磁盘满、关键安全事件</td>
+</tr>
+<tr>
+<td align="left">2</td>
+<td align="left">crit</td>
+<td align="left">严重错误</td>
+<td align="left">服务启动失败、配置错误</td>
+</tr>
+<tr>
+<td align="left">3</td>
+<td align="left">err</td>
+<td align="left">普通错误</td>
+<td align="left">连接超时、文件访问失败</td>
+</tr>
+<tr>
+<td align="left">4</td>
+<td align="left">warning</td>
+<td align="left">警告</td>
+<td align="left">资源使用率高、非关键异常</td>
+</tr>
+<tr>
+<td align="left">5</td>
+<td align="left">notice</td>
+<td align="left">正常但重要事件</td>
+<td align="left">服务启动/停止、配置重载</td>
+</tr>
+<tr>
+<td align="left">6</td>
+<td align="left">info</td>
+<td align="left">信息性消息</td>
+<td align="left">操作记录、状态变更</td>
+</tr>
+<tr>
+<td align="left">7</td>
+<td align="left">debug</td>
+<td align="left">调试消息</td>
+<td align="left">开发/排错详细输出</td>
+</tr>
+</tbody></table>
+<p><strong>特点</strong>：</p>
+<ul>
+<li>决定日志的处理优先级（如 <code>alert</code> 级日志可能触发告警）</li>
+<li>日志过滤语法：<code>facility.severity</code>（如 <code>mail.err</code> 表示邮件服务的错误及以上级别日志）</li>
+</ul>
+<h3 id="优先级-Priority"><a href="#优先级-Priority" class="headerlink" title="优先级 (Priority)"></a>优先级 (Priority)</h3><p>由 <strong>设施 + 严重性</strong> 组合计算得出：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">优先级（PRI） = Facility * 8 + Severity</span><br></pre></td></tr></table></figure>
+
+<p><strong>示例</strong>：</p>
+<ul>
+<li><code>auth.info</code>（设施=4，严重性=6） → 优先级 = <code>4*8 + 6 = 38</code></li>
+<li>在日志中显示为 <code>&lt;38&gt;</code>（消息头部尖括号内）</li>
+</ul>
+<p><strong>特点</strong>：</p>
+<ul>
+<li>优先级是 syslog 消息的第一个字段</li>
+<li>接收端通过优先级反向解析出设施和严重性</li>
+</ul>
+<h3 id="Syslog-消息格式"><a href="#Syslog-消息格式" class="headerlink" title="Syslog 消息格式"></a>Syslog 消息格式</h3><p><strong>RFC 3164 (旧格式)</strong></p>
+<p>RFC3164相对来说格式较为简单，消息长度不超过 1024，能适应大部分使用场景，但是已废弃。</p>
+<p>在 RFC 3164 中，消息组件（称为 MSG）被指定为具有以下字段： <em>TAG</em> ，它应该是生成消息的程序或进程的名称，以及 <em>CONTENT</em> ，其中包含消息的详细信息。</p>
+<p><strong>RFC 5424 (新格式)</strong>:</p>
+<p>RFC5424已作为Syslog的业界规范。RFC 5424 中 MSG 就是 RFC 3164 中所说的 CONTENT。TAG 现在是报头的一部分，但不再是一个单独的字段。TAG 被拆分成了 APP-NAME、PROCID 和 MSGID。这与 TAG 的用法并不完全一样，但在大多数情况下提供了相同的功能。</p>
+<h2 id="Rsyslog"><a href="#Rsyslog" class="headerlink" title="Rsyslog"></a>Rsyslog</h2><p>Rsyslog 是一款开源软件实用程序，用于在 UNIX 和类 Unix 计算机系统上通过IP网络转发日志消息。它实现了基本的 syslog 协议，并对其进行了扩展，包括基于内容的过滤、丰富的过滤功能、用于处理离线输出的队列操作、支持不同的模块输出、灵活的配置选项，以及使用 TCP 进行传输等功能。</p>
+<h3 id="启动-Rsyslog"><a href="#启动-Rsyslog" class="headerlink" title="启动 Rsyslog"></a>启动 Rsyslog</h3><p>ubuntu 默认安装了 rsyslog，我们可以直接修改配置文件进行安装，参考如下：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">vi /etc/rsyslog.conf </span><br><span class="line"></span><br><span class="line"><span class="comment">#################</span></span><br><span class="line"><span class="comment">#### MODULES ####</span></span><br><span class="line"><span class="comment">#################</span></span><br><span class="line"></span><br><span class="line">module(load=<span class="string">&quot;imudp&quot;</span>)</span><br><span class="line">input(<span class="built_in">type</span>=<span class="string">&quot;imudp&quot;</span> port=<span class="string">&quot;514&quot;</span>)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">###########################</span></span><br><span class="line"><span class="comment">#### GLOBAL DIRECTIVES ####</span></span><br><span class="line"><span class="comment">###########################</span></span><br><span class="line"></span><br><span class="line"><span class="variable">$template</span> RemoteLogs,<span class="string">&quot;/var/log/%HOSTNAME%/%PROGRAMNAME%.log&quot;</span> *</span><br><span class="line">*.* ?RemoteLogs</span><br><span class="line">&amp; ~</span><br></pre></td></tr></table></figure>
+
+<p>参数说明：</p>
+<ol>
+<li><p><code>imudp</code>： Input Module for UDP，用于接收通过 UDP 协议发送的日志消息，加载该模块后，Rsyslog 才能通过 UDP 网络协议接收日志。</p>
+</li>
+<li><p><code>$template</code>：用来定义模板，模板名称叫做 RemoteLogs，模板的作用是定义日志文件的存储路径格式。其中：</p>
+<ul>
+<li><p><code>%HOSTNAME%</code> 是一个动态变量，表示发送日志的主机名。</p>
+</li>
+<li><p><code>%PROGRAMNAME%</code> 是另一个动态变量，表示生成日志的程序名称。</p>
+</li>
+<li><p>日志文件的路径格式为 <code>/var/log/&#123;主机名&#125;/&#123;程序名&#125;.log</code>。</p>
+</li>
+</ul>
+</li>
+<li><p><code>*.*</code>：表示匹配所有设施（facility）和所有优先级（priority）的日志。</p>
+</li>
+<li><p><code>?RemoteLogs</code> ：表示将匹配到的日志按照 <code>RemoteLogs</code> 模板定义的路径存储。</p>
+</li>
+<li><p><code>&amp; ~</code>：这是一个特殊的语法，表示在处理完当前规则后，停止进一步处理该日志消息。可以防止日志消息被重复处理或写入到其他地方。</p>
+</li>
+</ol>
+<p>接着重启 rsyslog</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl restart rsyslog</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="验证是否接收到日志"><a href="#验证是否接收到日志" class="headerlink" title="验证是否接收到日志"></a>验证是否接收到日志</h3><p>方法一：</p>
+<p>找另一台 Ubuntu 主机，配置如下：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vi /etc/rsyslog.conf </span><br><span class="line"></span><br><span class="line">*.* @192.168.2.65:514</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl restart rsyslog</span><br></pre></td></tr></table></figure>
+
+<p>这个配置会发送所有的的日志到 Server 端。</p>
+<p>接着在 Server 端的  <code>/var/log/&#123;主机名&#125;/&#123;程序名&#125;.log</code> 路径查看日志是否接收到。</p>
+<p>方法二：</p>
+<p>使用 logger 发送日志进行测试：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">## 基于 udp （-d 指定 udp，默认是 udp，也可以不写这个参数）</span></span><br><span class="line">logger -n 192.168.2.65 -P 514 -d <span class="string">&quot;Test from logger client&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">## 基于 tcp</span></span><br><span class="line">logger -n 192.168.2.65 -P 514 -T <span class="string">&quot;Test from logger client&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># ，发送给自己（使用默认设施 user 和严重性 notice）</span></span><br><span class="line">logger <span class="string">&quot;Default log&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 指定设施和严重性</span></span><br><span class="line">logger -p local0.err <span class="string">&quot;Custom facility error&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 指定标签（替代默认进程名）</span></span><br><span class="line">logger -t MY_APP <span class="string">&quot;Starting MY_APP service&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 发送 RFC 5424 格式消息</span></span><br><span class="line">logger --rfc5424 -t WEB_APP <span class="string">&quot;This is RFC 5424&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 发送 RFC 3164 格式消息</span></span><br><span class="line">logger -n 127.0.0.1 -P 5140 --rfc3164  <span class="string">&quot;This is RFC 3164&quot;</span> </span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="Fluentd-接收-syslog"><a href="#Fluentd-接收-syslog" class="headerlink" title="Fluentd 接收 syslog"></a>Fluentd 接收 syslog</h2><p>除了 rsyslog，Fuentd 内置了输入插件 <code>in_syslog</code>， 使 Fluentd 能够通过 UDP 或 TCP 上的 syslog 协议检索日志。</p>
+<h3 id="启动-Fluentd"><a href="#启动-Fluentd" class="headerlink" title="启动 Fluentd"></a>启动 Fluentd</h3><p>首先新建一个目录，然后在创建一个 <code>fluentd.conf</code> 文件，配置如下：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">cat fluentd.conf </span><br><span class="line">&lt;<span class="built_in">source</span>&gt;</span><br><span class="line">  @<span class="built_in">type</span> syslog</span><br><span class="line">  port 5140</span><br><span class="line">  <span class="built_in">bind</span> 0.0.0.0</span><br><span class="line">  tag system</span><br><span class="line">&lt;/<span class="built_in">source</span>&gt;</span><br><span class="line"></span><br><span class="line">&lt;match system.**&gt;</span><br><span class="line">  @<span class="built_in">type</span> stdout</span><br><span class="line">  @id stdout_output</span><br><span class="line">&lt;/match&gt;</span><br></pre></td></tr></table></figure>
+
+<p>可以使用 docker 来启动 Fluentd：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker run -itd -p 5140:5140/udp --name fluentd-test -v $(PWD)/fluentd.conf:/fluentd/etc/fluent.conf fluent/fluentd:latest</span><br></pre></td></tr></table></figure>
+
+<h3 id="验证是否接收到日志-1"><a href="#验证是否接收到日志-1" class="headerlink" title="验证是否接收到日志"></a>验证是否接收到日志</h3><p>输入</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">logger -n 127.0.0.1 -P 5140 --rfc3164  <span class="string">&quot;Hello Fluentd Demo&quot;</span> </span><br></pre></td></tr></table></figure>
+
+<p>输出</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">2024-11-01 01:45:01.000000000 +0000 system.user.notice: &#123;<span class="string">&quot;host&quot;</span>:<span class="string">&quot;node51&quot;</span>,<span class="string">&quot;ident&quot;</span>:<span class="string">&quot;root&quot;</span>,<span class="string">&quot;message&quot;</span>:<span class="string">&quot;Hello Fluentd Demo&quot;</span>&#125;</span><br></pre></td></tr></table></figure>
+
+<p>输入</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">logger -n 127.0.0.1 -P 5140 --rfc3164 -t my_app  <span class="string">&quot;Hello Fluentd Demo&quot;</span> </span><br></pre></td></tr></table></figure>
+
+<p>输出</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">2024-11-01 01:47:18.000000000 +0000 system.user.notice: &#123;<span class="string">&quot;host&quot;</span>:<span class="string">&quot;node51&quot;</span>,<span class="string">&quot;ident&quot;</span>:<span class="string">&quot;my_app&quot;</span>,<span class="string">&quot;message&quot;</span>:<span class="string">&quot;Hello Fluentd Demo&quot;</span>&#125;</span><br></pre></td></tr></table></figure>
+
+<p>输入</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">logger -n 192.168.2.51 -P 5140 -p local0.notice -t myapp -d --rfc3164 <span class="string">&quot;test&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>输出</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">2024-11-01 01:48:27.000000000 +0000 system.local0.notice: &#123;<span class="string">&quot;host&quot;</span>:<span class="string">&quot;u65&quot;</span>,<span class="string">&quot;ident&quot;</span>:<span class="string">&quot;myapp&quot;</span>,<span class="string">&quot;message&quot;</span>:<span class="string">&quot;test&quot;</span>&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="Fluentd-对接-NeuVector"><a href="#Fluentd-对接-NeuVector" class="headerlink" title="Fluentd 对接 NeuVector"></a>Fluentd 对接 NeuVector</h3><p>NeuVector 支持通过 syslog 将相关的安全事件和CVE 数据（可以针对每个 CVE 单独发送，也可以包含分层扫描结果）发送到 syslog 服务器，例如 Fluentd。</p>
+<p>这里配置稍微有些不同，参考如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">&lt;source&gt;</span><br><span class="line">  @type syslog</span><br><span class="line">  port 5140</span><br><span class="line">  bind 0.0.0.0</span><br><span class="line">  tag system</span><br><span class="line">  &lt;parse&gt;</span><br><span class="line">    @type syslog</span><br><span class="line">    message_format rfc5424  # 明确指定RFC 5424格式</span><br><span class="line">    with_priority true      # 包含优先级字段</span><br><span class="line">  &lt;&#x2F;parse&gt;</span><br><span class="line">&lt;&#x2F;source&gt;</span><br><span class="line"></span><br><span class="line">&lt;match system.**&gt;</span><br><span class="line">  @type stdout</span><br><span class="line">  @id stdout_output</span><br><span class="line">&lt;&#x2F;match&gt;</span><br></pre></td></tr></table></figure>
+
+<p>接着在 NeuVector 的 Settings -&gt; Configuration 页面，配置 syslog 对应的参数即可。</p>
+<h2 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h2><p>相关参考链接：</p>
+<p><a target="_blank" rel="noopener" href="https://datatracker.ietf.org/doc/html/rfc5424">https://datatracker.ietf.org/doc/html/rfc5424</a></p>
+<p><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Syslog">https://en.wikipedia.org/wiki/Syslog</a></p>
+<p><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Rsyslog">https://en.wikipedia.org/wiki/Rsyslog</a></p>
+<p><a target="_blank" rel="noopener" href="https://docs.redhat.com/zh-cn/documentation/red_hat_enterprise_linux/7/html/system_administrators_guide/s1-basic_configuration_of_rsyslog">https://docs.redhat.com/zh-cn/documentation/red_hat_enterprise_linux/7/html/system_administrators_guide/s1-basic_configuration_of_rsyslog</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.rsyslog.com/doc/configuration/conf_formats.html">https://www.rsyslog.com/doc/configuration/conf_formats.html</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.cnblogs.com/shu-sheng/p/13275474.html">https://www.cnblogs.com/shu-sheng/p/13275474.html</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://www.zerchin.com/2024/11/01/syslog/syslog%20%E9%9A%8F%E7%AC%94/" title="syslog 随笔">http://www.zerchin.com/2024/11/01/syslog/syslog 随笔/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/neuvector/" rel="tag"># neuvector</a>
+              <a href="/tags/syslog/" rel="tag"># syslog</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2024/06/10/neuvector/NeuVector%20%E9%9A%8F%E7%AC%94/" rel="prev" title="NeuVector随笔">
+                  <i class="fa fa-chevron-left"></i> NeuVector随笔
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2024/12/24/rke2/%E8%A7%A3%E9%94%81%20Harvester%20VM%20%E7%9A%84%20GPU%20%E8%83%BD%E5%8A%9B%EF%BC%9A%E5%9C%A8%20RKE2%20%E9%9B%86%E7%BE%A4%E4%B8%8A%E8%BF%90%E8%A1%8C%20GPU%20%E5%B7%A5%E4%BD%9C%E8%B4%9F%E8%BD%BD/" rel="next" title="解锁 Harvester VM 的 GPU 能力：在 RKE2 集群上运行 GPU 工作负载">
+                  解锁 Harvester VM 的 GPU 能力：在 RKE2 集群上运行 GPU 工作负载 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

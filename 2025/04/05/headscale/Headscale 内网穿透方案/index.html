@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.zerchin.com","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="概述Tailscale 基于用户态 WireGuard 协议构建，通过三层穿透策略实现高效组网，在所有节点间流量通过 WireGuard 实现高性能的端到端加密隧道。但是控制端是闭源的，子网无法自定义，免费版只能使用 20 台设备。这些都能忍受，因为个人使用完全足以。最大的缺点是官方中继 DERP 服务器全都在海外，之前个人使用时，还能稳定在 50ms 左右，但是最近延迟突然变得很大，于是需要找到">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Headscale 内网穿透方案">
+<meta property="og:url" content="http://www.zerchin.com/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="概述Tailscale 基于用户态 WireGuard 协议构建，通过三层穿透策略实现高效组网，在所有节点间流量通过 WireGuard 实现高性能的端到端加密隧道。但是控制端是闭源的，子网无法自定义，免费版只能使用 20 台设备。这些都能忍受，因为个人使用完全足以。最大的缺点是官方中继 DERP 服务器全都在海外，之前个人使用时，还能稳定在 50ms 左右，但是最近延迟突然变得很大，于是需要找到">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://www.zerchin.com/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/webui-1.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/webui-2.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/create-user.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/mac-register-1.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/test-speed.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/relay.png">
+<meta property="article:published_time" content="2025-04-05T04:24:01.000Z">
+<meta property="article:modified_time" content="2025-06-08T09:45:13.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="headscale">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://www.zerchin.com/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/webui-1.png">
+
+
+<link rel="canonical" href="http://www.zerchin.com/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>Headscale 内网穿透方案 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">61</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">35</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">128</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%88%E5%86%B3%E6%9D%A1%E4%BB%B6"><span class="nav-number">2.</span> <span class="nav-text">先决条件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#headscale-%E5%AE%89%E8%A3%85"><span class="nav-number">3.</span> <span class="nav-text">headscale 安装</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B8%B8%E8%A7%84%E5%AE%89%E8%A3%85%E6%96%B9%E6%B3%95"><span class="nav-number">3.1.</span> <span class="nav-text">常规安装方法</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#headscale"><span class="nav-number">3.1.1.</span> <span class="nav-text">headscale</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#headscale-ui"><span class="nav-number">3.1.2.</span> <span class="nav-text">headscale-ui</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#nginx"><span class="nav-number">3.1.3.</span> <span class="nav-text">nginx</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E9%AA%8C%E8%AF%81"><span class="nav-number">3.1.4.</span> <span class="nav-text">验证</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Docker-Compose-%E5%AE%89%E8%A3%85%E6%96%B9%E6%B3%95"><span class="nav-number">3.2.</span> <span class="nav-text">Docker Compose 安装方法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#http-%E5%AE%89%E8%A3%85%E6%96%B9%E6%B3%95"><span class="nav-number">3.3.</span> <span class="nav-text">http 安装方法</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA%E7%94%A8%E6%88%B7"><span class="nav-number">4.</span> <span class="nav-text">创建用户</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%A2%E6%88%B7%E7%AB%AF%E8%8A%82%E7%82%B9%E6%B3%A8%E5%86%8C"><span class="nav-number">5.</span> <span class="nav-text">客户端节点注册</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Ubuntu"><span class="nav-number">5.1.</span> <span class="nav-text">Ubuntu</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Mac"><span class="nav-number">5.2.</span> <span class="nav-text">Mac</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DERP"><span class="nav-number">6.</span> <span class="nav-text">DERP</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%BA%90%E7%A0%81%E7%BC%96%E8%AF%91"><span class="nav-number">6.1.</span> <span class="nav-text">源码编译</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BA%AF-IP-%E6%96%B9%E5%BC%8F"><span class="nav-number">6.2.</span> <span class="nav-text">纯 IP 方式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AF%B9%E6%8E%A5-Headscale"><span class="nav-number">6.3.</span> <span class="nav-text">对接 Headscale</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AF%B9%E6%8E%A5%E5%AE%98%E6%96%B9-Tailscale"><span class="nav-number">6.4.</span> <span class="nav-text">对接官方 Tailscale</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9E%84%E5%BB%BA-Docker-%E9%95%9C%E5%83%8F"><span class="nav-number">6.5.</span> <span class="nav-text">构建 Docker 镜像</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">7.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">128</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">61</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.zerchin.com/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Headscale 内网穿透方案
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2025-04-05 12:24:01" itemprop="dateCreated datePublished" datetime="2025-04-05T12:24:01+08:00">2025-04-05</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">更新于</span>
+        <time title="修改时间：2025-06-08 17:45:13" itemprop="dateModified" datetime="2025-06-08T17:45:13+08:00">2025-06-08</time>
+      </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/headscale/" itemprop="url" rel="index"><span itemprop="name">headscale</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>Tailscale 基于用户态 WireGuard 协议构建，通过三层穿透策略实现高效组网，在所有节点间流量通过 WireGuard 实现高性能的端到端加密隧道。但是控制端是闭源的，子网无法自定义，免费版只能使用 20 台设备。这些都能忍受，因为个人使用完全足以。最大的缺点是官方中继 DERP 服务器全都在海外，之前个人使用时，还能稳定在 50ms 左右，但是最近延迟突然变得很大，于是需要找到了开源替代解决方案——Headscale。</p>
+<p>Headscale 是 Tailscale 的开源控制平面，复刻 Tailscale 控制服务器逻辑，支持无限设备、私有化部署、自定义子网段。非常适合个人使用或小型开源组织。</p>
+<p>DERP 是 Tailscale 自研的一个协议，但是官方中继 DERP 服务器全都在海外，为了实现低延迟、高安全性，我们可以参考 <a target="_blank" rel="noopener" href="https://tailscale.com/kb/1118/custom-derp-servers">Tailscale 官方文档</a>自建私有的 DERP 服务器。官方提供的部署方法，默认仅支持基于域名访问，对于国内的服务器，域名需要备案。</p>
+<p>本文会介绍如何自建 Headsale 实现控制平面，并基于公有云服务器实现自定义 DERP 服务器。</p>
+<h2 id="先决条件"><a href="#先决条件" class="headerlink" title="先决条件"></a>先决条件</h2><ul>
+<li><p>带有公网 IP 的主机</p>
+</li>
+<li><p>可以公网解析的域名</p>
+</li>
+<li><p>权威证书</p>
+</li>
+</ul>
+<h2 id="headscale-安装"><a href="#headscale-安装" class="headerlink" title="headscale 安装"></a>headscale 安装</h2><h3 id="常规安装方法"><a href="#常规安装方法" class="headerlink" title="常规安装方法"></a>常规安装方法</h3><h4 id="headscale"><a href="#headscale" class="headerlink" title="headscale"></a>headscale</h4><p>该方法需要有可以公网解析的域名，同时如果服务器在国内的话，域名需要备案。</p>
+<ol>
+<li>从官方 <a target="_blank" rel="noopener" href="https://github.com/juanfont/headscale/releases">Release</a> 页面，根据你的操作系统选择对应的安装包，例如我的是 Ubuntu 系统，所以下载 <code>headscale_0.26.1_linux_amd64.deb</code> 这个包。</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">wget https://github.com/juanfont/headscale/releases/download/v0.26.1/headscale_0.26.1_linux_amd64.deb -O headscale.deb</span><br><span class="line">apt install ./headscale.deb </span><br></pre></td></tr></table></figure>
+
+<p>通过这种方式，可以自动初始化 <code>config.yaml</code> 和 <code>headscale.service</code>这两个配置文件。并自动创建对应的用户和用户组。</p>
+<ol start="2">
+<li>配置<code>/etc/headscale/config.yaml </code>，这里需要关注几个配置</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">## 访问的域名</span><br><span class="line">server_url: https:&#x2F;&#x2F;headscale.zerchin.xyz</span><br><span class="line"></span><br><span class="line">## API 监听端口</span><br><span class="line">listen_addr: 0.0.0.0:8080</span><br><span class="line"></span><br><span class="line">## </span><br><span class="line">grpc_listen_addr: 0.0.0.0:50443</span><br><span class="line"></span><br><span class="line">## 根据查询到的资料，建议打开随机端口，否则可能会出现连接不稳定的问题</span><br><span class="line">randomize_client_port: true</span><br><span class="line"></span><br><span class="line">## 自定义子网，如果跟现有网段不冲突，可以不修改</span><br><span class="line">prefixes:</span><br><span class="line">  v4: 100.64.0.0&#x2F;10</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>启动 headscale 服务</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl <span class="built_in">enable</span> --now headscale</span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li>检查 headscale 服务状态</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">systemctl status headscale</span><br><span class="line">journalctl -xef -u headscale</span><br></pre></td></tr></table></figure>
+
+
+
+<h4 id="headscale-ui"><a href="#headscale-ui" class="headerlink" title="headscale-ui"></a>headscale-ui</h4><p>默认 headscale 不提供 Web UI 界面，但是<a target="_blank" rel="noopener" href="https://headscale.net/stable/ref/integration/web-ui/">社区</a>提供了很多实现 UI 的工具，例如这里可以使用 Headscale-ui 为 headscale 提供 Web UI 展示。</p>
+<blockquote>
+<p>需要安装 docker 环境</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker run -itd -p 3000:8080 --name headscale-ui   ghcr.io&#x2F;gurucomputing&#x2F;headscale-ui:latest</span><br></pre></td></tr></table></figure>
+
+<p>安装好之后，访问 <code>http://&lt;your_IP&gt;:3000/web</code></p>
+<blockquote>
+<p>如果使用的是 headscale-admin，则访问的地址是 /admin</p>
+</blockquote>
+<p>此时 UI 还对接不上 headscale，会有跨域问题，所以要做个反向代理把他俩串起来。</p>
+<h4 id="nginx"><a href="#nginx" class="headerlink" title="nginx"></a>nginx</h4><p>社区有很多种反向代理的实现方案，例如使用 caddy、traefik、nginx 等实现反向代理。这里使用我最熟悉的 nginx 来实现。</p>
+<p>具体参考配置如下：</p>
+<figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">worker_processes</span> auto;</span><br><span class="line"><span class="attribute">worker_rlimit_nofile</span> <span class="number">40000</span>;</span><br><span class="line"></span><br><span class="line"><span class="section">events</span> &#123;</span><br><span class="line">    <span class="attribute">worker_connections</span> <span class="number">8192</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="section">http</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="attribute">map</span> $http_upgrade $connection_upgrade &#123;</span><br><span class="line">        <span class="attribute">default</span> Upgrade;</span><br><span class="line">        &#x27;&#x27;      close;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="section">server</span> &#123;</span><br><span class="line">        <span class="attribute">listen</span> <span class="number">443</span> ssl http2;</span><br><span class="line">        <span class="attribute">server_name</span> headscale.zerchin.xyz;</span><br><span class="line"></span><br><span class="line">        <span class="attribute">ssl_certificate</span> /etc/nginx/ssl/tls.crt;</span><br><span class="line">        <span class="attribute">ssl_certificate_key</span> /etc/nginx/ssl/tls.key;</span><br><span class="line">        <span class="attribute">ssl_protocols</span> TLSv1.<span class="number">2</span> TLSv1.<span class="number">3</span>;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="attribute">location</span> / &#123;</span><br><span class="line">        <span class="attribute">proxy_pass</span> http://127.0.0.1:8080;</span><br><span class="line">        <span class="attribute">proxy_http_version</span> <span class="number">1</span>.<span class="number">1</span>;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> Upgrade $http_upgrade;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> Connection $connection_upgrade;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> Host $server_name;</span><br><span class="line">        <span class="attribute">proxy_redirect</span> http:// https://;</span><br><span class="line">        <span class="attribute">proxy_buffering</span> <span class="literal">off</span>;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> X-Real-IP $remote_addr;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> X-Forwarded-For $proxy_add_x_forwarded_for;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> X-Forwarded-Proto $scheme;</span><br><span class="line">        <span class="attribute">add_header</span> Strict-Transport-Security <span class="string">&quot;max-age=15552000; includeSubDomains&quot;</span> always;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="attribute">location</span> /web/ &#123;</span><br><span class="line">        <span class="attribute">proxy_pass</span> http://127.0.0.1:3000/web;</span><br><span class="line">        <span class="attribute">proxy_http_version</span> <span class="number">1</span>.<span class="number">1</span>;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> Upgrade $http_upgrade;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> Connection $connection_upgrade;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> Host $server_name;</span><br><span class="line">        <span class="attribute">proxy_redirect</span> http:// https://;</span><br><span class="line">        <span class="attribute">proxy_buffering</span> <span class="literal">off</span>;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> X-Real-IP $remote_addr;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> X-Forwarded-For $proxy_add_x_forwarded_for;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> X-Forwarded-Proto $scheme;</span><br><span class="line">        <span class="attribute">add_header</span> Strict-Transport-Security <span class="string">&quot;max-age=15552000; includeSubDomains&quot;</span> always;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">    <span class="section">server</span> &#123;</span><br><span class="line">        <span class="attribute">listen</span> <span class="number">80</span>;</span><br><span class="line">        <span class="attribute">server_name</span> headscale.zerchin.xyz;</span><br><span class="line">        <span class="attribute">return</span> <span class="number">301</span> https://$host$request_uri;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里需要修改这几个地方：</p>
+<ul>
+<li><code>server_name</code>：修改为访问的域名名称，不要带 http/https。</li>
+<li><code>proxy_pass</code>：这里填写 headscale 和 headscale-ui 的地址，如果前面按照我的步骤操作，则不用修改。</li>
+</ul>
+<p>将上述文件保存到<code>/root/headscale/nginx/</code>路径下。</p>
+<p>接着我们要准备好域名的权威证书，并将域名的权威证书放到 <code>/root/headscale/nginx/ssl</code>路径下，并重命名为 <code>tls.crt</code> 和 <code>tls.key</code>。</p>
+<p>最后通过 docker 启动 nginx 服务。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">docker run -itd \</span><br><span class="line"> --name headscale-proxy \</span><br><span class="line"> -p 80:80 -p 443:443 \</span><br><span class="line"> -v /root/headscale/nginx/ssl:/etc/nginx/ssl \</span><br><span class="line"> -v /root/headscale/nginx/nginx.conf:/etc/nginx/nginx.conf \</span><br><span class="line"> nginx</span><br></pre></td></tr></table></figure>
+
+<h4 id="验证"><a href="#验证" class="headerlink" title="验证"></a>验证</h4><p>首先我们需要创建一个 key</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">headscale apikeys create</span><br></pre></td></tr></table></figure>
+
+<p>接着访问 UI：<code>http://&lt;your_domain&gt;/web</code>，在 Settings下填写配置。</p>
+<p>其中：</p>
+<ul>
+<li>Headscale URL 填写 <code>https://&lt;your_domain&gt;</code></li>
+<li>Headscale API Key 填写 前面刚刚创建的 apikey</li>
+</ul>
+<p>接着点击 <strong>Test Server Settings</strong>，当旁边出现绿色的<strong>√</strong>时，说明对接成功，我们可以通过 UI 管理 User、Device。</p>
+<img src="/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/webui-1.png" class="" title="webui-1">
+
+
+
+<h3 id="Docker-Compose-安装方法"><a href="#Docker-Compose-安装方法" class="headerlink" title="Docker Compose 安装方法"></a>Docker Compose 安装方法</h3><p>前面我们在安装 headscale-ui 和 nginx 时，我们使用了 docker 去启动。实际上，headscale 本身也有 docker 镜像，所以我们可以直接通过 docker compose 一键启动所有的服务。</p>
+<ol>
+<li>首先新建一个存放配置的目录</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">cd ~</span><br><span class="line">mkdir headscale</span><br><span class="line">cd headscale</span><br><span class="line">mkdir -p &#123;nginx,nginx&#x2F;ssl,config,lib,run&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>接着在 nginx 目录下，配置 <code>nginx.conf</code>文件，在 nginx/ssl 目录下，存放证书文件，如下：</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># ls nginx&#x2F;*</span><br><span class="line">nginx&#x2F;nginx.conf</span><br><span class="line"></span><br><span class="line">nginx&#x2F;ssl:</span><br><span class="line">tls.crt  tls.key</span><br></pre></td></tr></table></figure>
+
+<p><code>nginx.conf</code> 参考写法稍微有些不同，直接复制下面这个配置，修改一下 <code>server_name</code> 即可使用：</p>
+<figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">worker_processes</span> auto;</span><br><span class="line"><span class="attribute">worker_rlimit_nofile</span> <span class="number">40000</span>;</span><br><span class="line"></span><br><span class="line"><span class="section">events</span> &#123;</span><br><span class="line">    <span class="attribute">worker_connections</span> <span class="number">8192</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="section">http</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="attribute">map</span> $http_upgrade $connection_upgrade &#123;</span><br><span class="line">        <span class="attribute">default</span> Upgrade;</span><br><span class="line">        &#x27;&#x27;      close;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="section">server</span> &#123;</span><br><span class="line">        <span class="attribute">listen</span> <span class="number">443</span> ssl http2;</span><br><span class="line">        <span class="attribute">server_name</span> headscale.zerchin.xyz;</span><br><span class="line"></span><br><span class="line">        <span class="attribute">ssl_certificate</span> /etc/nginx/ssl/tls.crt;</span><br><span class="line">        <span class="attribute">ssl_certificate_key</span> /etc/nginx/ssl/tls.key;</span><br><span class="line">        <span class="attribute">ssl_protocols</span> TLSv1.<span class="number">2</span> TLSv1.<span class="number">3</span>;</span><br><span class="line"></span><br><span class="line">    <span class="attribute">location</span> / &#123;</span><br><span class="line">        <span class="attribute">proxy_pass</span> http://headscale:8080;</span><br><span class="line">        <span class="attribute">proxy_http_version</span> <span class="number">1</span>.<span class="number">1</span>;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> Upgrade $http_upgrade;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> Connection $connection_upgrade;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> Host $server_name;</span><br><span class="line">        <span class="attribute">proxy_redirect</span> http:// https://;</span><br><span class="line">        <span class="attribute">proxy_buffering</span> <span class="literal">off</span>;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> X-Real-IP $remote_addr;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> X-Forwarded-For $proxy_add_x_forwarded_for;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> X-Forwarded-Proto $scheme;</span><br><span class="line">        <span class="attribute">add_header</span> Strict-Transport-Security <span class="string">&quot;max-age=15552000; includeSubDomains&quot;</span> always;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="attribute">location</span> /web/ &#123;</span><br><span class="line">        <span class="attribute">proxy_pass</span> http://headscale-ui:8080/web;</span><br><span class="line">        <span class="attribute">proxy_http_version</span> <span class="number">1</span>.<span class="number">1</span>;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> Upgrade $http_upgrade;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> Connection $connection_upgrade;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> Host $server_name;</span><br><span class="line">        <span class="attribute">proxy_redirect</span> http:// https://;</span><br><span class="line">        <span class="attribute">proxy_buffering</span> <span class="literal">off</span>;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> X-Real-IP $remote_addr;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> X-Forwarded-For $proxy_add_x_forwarded_for;</span><br><span class="line">        <span class="attribute">proxy_set_header</span> X-Forwarded-Proto $scheme;</span><br><span class="line">        <span class="attribute">add_header</span> Strict-Transport-Security <span class="string">&quot;max-age=15552000; includeSubDomains&quot;</span> always;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">    <span class="section">server</span> &#123;</span><br><span class="line">        <span class="attribute">listen</span> <span class="number">80</span>;</span><br><span class="line">        <span class="attribute">server_name</span> headscale.zerchin.xyz;</span><br><span class="line">        <span class="attribute">return</span> <span class="number">301</span> https://$host$request_uri;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>配置 <code>docker-compose.yml</code></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">services:</span></span><br><span class="line">  <span class="attr">headscale:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">docker.io/headscale/headscale:v0.26.1-debug</span></span><br><span class="line">    <span class="attr">restart:</span> <span class="string">unless-stopped</span></span><br><span class="line">    <span class="attr">container_name:</span> <span class="string">headscale</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;8080:8080&quot;</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;9090:9090&quot;</span></span><br><span class="line">    <span class="attr">volumes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./config:/etc/headscale</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./lib:/var/lib/headscale</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./run:/var/run/headscale</span></span><br><span class="line">    <span class="attr">command:</span> <span class="string">serve</span></span><br><span class="line">  <span class="attr">headscale-ui:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">ghcr.io/gurucomputing/headscale-ui:latest</span></span><br><span class="line">    <span class="attr">restart:</span> <span class="string">unless-stopped</span></span><br><span class="line">    <span class="attr">container_name:</span> <span class="string">headscale-ui</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;3000:8080&quot;</span></span><br><span class="line">  <span class="attr">headscale-proxy:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">nginx</span></span><br><span class="line">    <span class="attr">restart:</span> <span class="string">unless-stopped</span></span><br><span class="line">    <span class="attr">container_name:</span> <span class="string">headscale-proxy</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;443:443&quot;</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;80:80&quot;</span></span><br><span class="line">    <span class="attr">volumes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;./nginx/nginx.conf:/etc/nginx/nginx.conf&quot;</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;./nginx/ssl:/etc/nginx/ssl&quot;</span></span><br><span class="line">    <span class="attr">depends_on:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">headscale</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">headscale-ui</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>这里 headsacle 使用了-debug的镜像，会自带一些基础工具，否则连 sh、ls 这些命令都没有</p>
+</blockquote>
+<p>最后直接一键启动。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose up -d</span><br></pre></td></tr></table></figure>
+
+<p>安装好之后，apikey 通过 docker 命令获取。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker <span class="built_in">exec</span> -it headscale headscale apikey create </span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="http-安装方法"><a href="#http-安装方法" class="headerlink" title="http 安装方法"></a>http 安装方法</h3><p>如果没有域名，则无法通过上述方法进行安装，此时我们可以使用 http 方式安装。</p>
+<p>需要修改这几个地方：</p>
+<ol>
+<li>headscale 的 <code>config.yaml</code> 文件里，修改 <code>server_url: http://xx.xx.xx.xx</code></li>
+<li><code>nginx.conf</code> 配置需要进行修改，参考如下，可以直接修改其中的 <code>server_name</code> 为自己的 IP 直接使用：</li>
+</ol>
+<figure class="highlight nginx"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">worker_processes</span> auto;</span><br><span class="line"><span class="attribute">worker_rlimit_nofile</span> <span class="number">40000</span>;</span><br><span class="line"></span><br><span class="line"><span class="section">events</span> &#123;</span><br><span class="line">    <span class="attribute">worker_connections</span> <span class="number">8192</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="section">http</span> &#123;</span><br><span class="line"></span><br><span class="line"><span class="attribute">map</span> $http_upgrade $connection_upgrade &#123;</span><br><span class="line">    <span class="attribute">default</span>      upgrade;</span><br><span class="line">    &#x27;&#x27;           close;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">    <span class="section">server</span> &#123;</span><br><span class="line">        <span class="attribute">listen</span> <span class="number">80</span>;</span><br><span class="line">        <span class="attribute">server_name</span> <span class="number">192.168.2.51</span>;</span><br><span class="line"></span><br><span class="line">        <span class="attribute">location</span> / &#123;</span><br><span class="line">            <span class="attribute">proxy_pass</span> http://headscale:8080;</span><br><span class="line"></span><br><span class="line">            <span class="attribute">proxy_set_header</span> Host $server_name;</span><br><span class="line">            <span class="attribute">proxy_set_header</span> X-Real-IP $remote_addr;</span><br><span class="line">            <span class="attribute">proxy_set_header</span> X-Forwarded-For $proxy_add_x_forwarded_for;</span><br><span class="line">            <span class="attribute">proxy_set_header</span> X-Forwarded-Proto $scheme;</span><br><span class="line">            <span class="attribute">proxy_set_header</span> Upgrade $http_upgrade;</span><br><span class="line">            <span class="attribute">proxy_set_header</span> Connection $connection_upgrade;</span><br><span class="line">            <span class="attribute">proxy_buffering</span> <span class="literal">off</span>;</span><br><span class="line">            <span class="attribute">add_header</span> Strict-Transport-Security <span class="string">&quot;max-age=15552000; includeSubDomains&quot;</span> always;</span><br><span class="line"></span><br><span class="line">            <span class="attribute">proxy_connect_timeout</span> <span class="number">60s</span>;</span><br><span class="line">            <span class="attribute">proxy_send_timeout</span> <span class="number">60s</span>;</span><br><span class="line">            <span class="attribute">proxy_read_timeout</span> <span class="number">60s</span>;</span><br><span class="line">            <span class="attribute">proxy_buffer_size</span> <span class="number">64k</span>;</span><br><span class="line">            <span class="attribute">proxy_buffers</span> <span class="number">16</span> <span class="number">32k</span>;</span><br><span class="line">            <span class="attribute">proxy_busy_buffers_size</span> <span class="number">64k</span>;</span><br><span class="line">            <span class="attribute">proxy_temp_file_write_size</span> <span class="number">64k</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="attribute">location</span> /web/ &#123;</span><br><span class="line">            <span class="attribute">proxy_pass</span> http://headscale-ui:8080/web;</span><br><span class="line"></span><br><span class="line">            <span class="attribute">proxy_set_header</span> Host $server_name;</span><br><span class="line">            <span class="attribute">proxy_set_header</span> X-Real-IP $remote_addr;</span><br><span class="line">            <span class="attribute">proxy_set_header</span> X-Forwarded-For $proxy_add_x_forwarded_for;</span><br><span class="line">            <span class="attribute">proxy_set_header</span> X-Forwarded-Proto $scheme;</span><br><span class="line">            <span class="attribute">proxy_set_header</span> Upgrade $http_upgrade;</span><br><span class="line">            <span class="attribute">proxy_set_header</span> Connection $connection_upgrade;</span><br><span class="line">            <span class="attribute">proxy_buffering</span> <span class="literal">off</span>;</span><br><span class="line">            <span class="attribute">add_header</span> Strict-Transport-Security <span class="string">&quot;max-age=15552000; includeSubDomains&quot;</span> always;</span><br><span class="line"></span><br><span class="line">            <span class="attribute">proxy_connect_timeout</span> <span class="number">60s</span>;</span><br><span class="line">            <span class="attribute">proxy_send_timeout</span> <span class="number">60s</span>;</span><br><span class="line">            <span class="attribute">proxy_read_timeout</span> <span class="number">60s</span>;</span><br><span class="line">            <span class="attribute">proxy_buffer_size</span> <span class="number">64k</span>;</span><br><span class="line">            <span class="attribute">proxy_buffers</span> <span class="number">16</span> <span class="number">32k</span>;</span><br><span class="line">            <span class="attribute">proxy_busy_buffers_size</span> <span class="number">64k</span>;</span><br><span class="line">            <span class="attribute">proxy_temp_file_write_size</span> <span class="number">64k</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li><code>docker-compose.yml</code> 中把 tls 相关的配置拿掉</li>
+</ol>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">services:</span></span><br><span class="line">  <span class="attr">headscale:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">docker.io/headscale/headscale:v0.26.1-debug</span></span><br><span class="line">    <span class="attr">restart:</span> <span class="string">unless-stopped</span></span><br><span class="line">    <span class="attr">container_name:</span> <span class="string">headscale</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;8080:8080&quot;</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;9090:9090&quot;</span></span><br><span class="line">    <span class="attr">volumes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./config:/etc/headscale</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./lib:/var/lib/headscale</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">./run:/var/run/headscale</span></span><br><span class="line">    <span class="attr">command:</span> <span class="string">serve</span></span><br><span class="line">  <span class="attr">headscale-ui:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">ghcr.io/gurucomputing/headscale-ui:latest</span></span><br><span class="line">    <span class="attr">restart:</span> <span class="string">unless-stopped</span></span><br><span class="line">    <span class="attr">container_name:</span> <span class="string">headscale-ui</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;3000:8080&quot;</span></span><br><span class="line">  <span class="attr">headscale-proxy:</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">nginx</span></span><br><span class="line">    <span class="attr">restart:</span> <span class="string">unless-stopped</span></span><br><span class="line">    <span class="attr">container_name:</span> <span class="string">headscale-proxy</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;80:80&quot;</span></span><br><span class="line">    <span class="attr">volumes:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">&quot;./nginx/nginx.conf:/etc/nginx/nginx.conf&quot;</span></span><br><span class="line">    <span class="attr">depends_on:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">headscale</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">headscale-ui</span></span><br></pre></td></tr></table></figure>
+
+
+
+<p>最后执行<code>docker-compose up -d</code>启动，效果如下：</p>
+<img src="/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/webui-2.png" class="" title="webui-2">
+
+
+
+<h2 id="创建用户"><a href="#创建用户" class="headerlink" title="创建用户"></a>创建用户</h2><p>在 Headscale 中，一个用户管理着多个节点（设备），用户与用户之间是隔离的。节点始终只会归属于一个用户，在一个用户下的节点网络是互通的。</p>
+<p>首先我们需要创建一个用户：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">headscale user create user01</span><br></pre></td></tr></table></figure>
+
+<p>创建 preauthkeys，在 Linux 客户端需要用到，保存备用：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">headscale preauthkeys create -u 1 --reusable -e 1d</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>这里官方文档说明中，-u 后面跟的是 user name，但是实际上需要填写 user id</p>
+</blockquote>
+<p>user 和 preauthkeys 也可以通过 UI 创建。</p>
+<img src="/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/create-user.png" class="" title="image-20250619221026517">
+
+
+
+
+
+<h2 id="客户端节点注册"><a href="#客户端节点注册" class="headerlink" title="客户端节点注册"></a>客户端节点注册</h2><p>客户端是使用原生的 tailscale 工具。</p>
+<p>目前几乎所有的系统都能支持运行，包括 主流 Linux 操作系统，Windows、Mac、IOS、Android。</p>
+<p>这里以 Ubuntu 和 Mac 为例。其他系统也是类似，具体细节可以参考 <a target="_blank" rel="noopener" href="https://headscale.net/stable/usage/connect/windows/">headscale 官方文档</a>。</p>
+<h3 id="Ubuntu"><a href="#Ubuntu" class="headerlink" title="Ubuntu"></a>Ubuntu</h3><p>配置必要的内核参数：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">echo &#39;net.ipv4.ip_forward &#x3D; 1&#39; | sudo tee -a &#x2F;etc&#x2F;sysctl.d&#x2F;99-tailscale.conf</span><br><span class="line">echo &#39;net.ipv6.conf.all.forwarding &#x3D; 1&#39; | sudo tee -a &#x2F;etc&#x2F;sysctl.d&#x2F;99-tailscale.conf</span><br><span class="line">sudo sysctl -p &#x2F;etc&#x2F;sysctl.d&#x2F;99-tailscale.conf</span><br></pre></td></tr></table></figure>
+
+<p>首先要安装 <a target="_blank" rel="noopener" href="https://tailscale.com/kb/1031/install-linux?q=Ubuntu">tailscale 工具</a>，官方提供了一键安装的脚本，我们可以直接执行：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl -fsSL https://tailscale.com/install.sh | sh</span><br></pre></td></tr></table></figure>
+
+<p>这条命令会安装 tailscale 工具，并启动 tailscaled 服务。安装好之后，执行命令确认该服务是否是 running 状态。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl status tailscaled</span><br></pre></td></tr></table></figure>
+
+<p>确认 tailscale0 网络设备已创建出来。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># ip addr show tailscale0</span></span><br><span class="line">3: tailscale0: &lt;POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP&gt; mtu 1280 qdisc fq_codel state UNKNOWN group default qlen 500</span><br><span class="line">    link/none </span><br><span class="line">    inet6 fe80::d06a:c117:207f:648f/64 scope link stable-privacy </span><br><span class="line">       valid_lft forever preferred_lft forever</span><br></pre></td></tr></table></figure>
+
+<p>接下来就可以通过 tailscale 接入到 headscale。</p>
+<p>方法1：（Ubuntu 请直接参考方法 2，其他系统可以参考此方法）</p>
+<p>直接在节点上执行注册命令：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tailscale up --login-server https://headscale.zerchin.xyz --accept-dns=<span class="literal">false</span> --accept-routes --advertise-routes 192.168.2.0/24</span><br></pre></td></tr></table></figure>
+
+<p>然后会输出一个地址得到个 key，在 Server 上执行命令注册：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">headscale nodes register --user &lt;USER&gt; --key &lt;YOUR_MACHINE_KEY&gt;</span><br></pre></td></tr></table></figure>
+
+<p>这个是官方给的第一个连接的方法，但是这里我试过有问题，所以直接看第二个方法。</p>
+<p>方法 2：使用前面我们获取到的 preauthkey 注册节点：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tailscale up --login-server https:&#x2F;&#x2F;headscale.zerchin.xyz --authkey 7c6601397c9e0c06fc28743134e24bf6f851eee0cf65af88 --accept-dns&#x3D;false --accept-routes&#x3D;true --advertise-routes&#x3D;192.168.2.0&#x2F;24</span><br></pre></td></tr></table></figure>
+
+<p>主要参数说明：</p>
+<ul>
+<li><code>authkey</code>：已授权的 key，使用该 key 直接就能注册客户端节点，不需要 Headscale 手动同意。</li>
+<li><code>accept-dns</code>：是否接受 DNS 配置，默认是 true。</li>
+<li><code>accept-routes</code>：是否接受其他节点通告的路由，默认是 false。</li>
+<li><code>advertise-routes</code>：宣告给其他节点的路由，如果有多条，则以逗号分隔，例如<code>&quot;10.0.0.0/8,192.168.0.0/24&quot;</code>。</li>
+</ul>
+<p>查看节点列表，可以看到已经注册上来并且是 online 状态。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># headscale node list</span></span><br><span class="line">ID | Hostname | Name  | MachineKey | NodeKey | User   | IP addresses                  | Ephemeral | Last seen           | Expiration | Connected | Expired</span><br><span class="line">1  | hs-31    | hs-31 | [1SQ6S]    | [cP7Bw] | user01 | 100.64.0.1, fd7a:115c:a1e0::1 | <span class="literal">false</span>     | 2025-06-08 08:08:43 | N/A        | online    | no     </span><br></pre></td></tr></table></figure>
+
+<p>查看路由列表：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># headscale node list-routes</span></span><br><span class="line">ID | Hostname | Approved | Available      | Serving (Primary)</span><br><span class="line">1  | hs-31    |          | 192.168.2.0/24 |                     </span><br></pre></td></tr></table></figure>
+
+<p>这里路由只是告知给了 headscale，还需要通过 Headscale 手动同意宣告该路由才行。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># headscale node approve-routes -i 1 -r 192.168.2.0/24</span></span><br><span class="line">Node updated</span><br></pre></td></tr></table></figure>
+
+<p>确认路由已被宣告：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># headscale node list-routes</span></span><br><span class="line">ID | Hostname | Approved       | Available      | Serving (Primary)</span><br><span class="line">1  | hs-31    | 192.168.2.0/24 | 192.168.2.0/24 | 192.168.2.0/24   </span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="Mac"><a href="#Mac" class="headerlink" title="Mac"></a>Mac</h3><p>按住 option 键点击 tailscale 图标，会出现 Debug 选项，选择 Add Account，填写 headscale Server 地址：<code>https://headscale.zerchin.xyz</code></p>
+<p>接着浏览器会弹出一个窗口，该窗口包含注册节点的命令（其实就是上一步的方法一），如下：</p>
+<img src="/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/mac-register-1.png" class="" title="mac-register-1">
+
+<p>将这个命令复制下来，到 headscale 的主机上运行：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">headscale nodes register --user user01 --key hobweC-xxgC-uzgjdZF4GkqI</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>这里 –user 要使用名字而不是 id </p>
+</blockquote>
+<p>查看节点列表状态</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># headscale node list</span></span><br><span class="line">ID | Hostname           | Name               | MachineKey | NodeKey | User   | IP addresses                  | Ephemeral | Last seen           | Expiration | Connected | Expired</span><br><span class="line">1  | hs-31              | hs-31              | [1SQ6S]    | [cP7Bw] | user01 | 100.64.0.1, fd7a:115c:a1e0::1 | <span class="literal">false</span>     | 2025-06-08 08:12:43 | N/A        | online    | no     </span><br><span class="line">2  | Zeqins-MacBook-Pro | zeqins-macbook-pro | [yvja1]    | [blV3O] | user01 | 100.64.0.3, fd7a:115c:a1e0::3 | <span class="literal">false</span>     | 2025-06-08 08:12:45 | N/A        | online    | no     </span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="DERP"><a href="#DERP" class="headerlink" title="DERP"></a>DERP</h2><p>DERP 全称是 Designated Encrypted Relay for Packets，是 Tailscale 网络中的一种加密中继服务器。DERP 中继仅充当“盲转发器”，不会解密流量，因为数据在设备端已全程加密，私钥不离设备。作用主要有两点：</p>
+<ul>
+<li><p>协助协商设备之间建立直接连接（NAT 穿透中的 “发现” 阶段）；</p>
+</li>
+<li><p>当直接连接不可行时，作为加密中继，将封装后的 WireGuard 数据包通过 HTTPS/TCP 转发。</p>
+</li>
+</ul>
+<p>Tailscale 在全球多个区域都部署了 DERP 服务器，客户端启动时会从控制端获取包含 DERP 服务器位置及延迟信息的 “DERP map”，并通过 netcheck 选择“家乡”节点，控制平面会把该信息告知其它设备。在实际连接中，设备 A 会先通过 B 正在使用的 DERP 中继尝试建立直接连接，如果成功则转为 UDP 直连，否则一直走中继流量。</p>
+<p>但是 DERP 在中国大陆没有节点，所以可能会导致一旦流量通过 DERP 服务器进行中继，延时就会非常高。不过不用担心，官方提供了<a target="_blank" rel="noopener" href="https://tailscale.com/kb/1118/custom-derp-servers">自建 DERP 服务器</a>的方法。我们可以使用这种方法自建 DERP 服务器，可以基于域名 访问，也可以自行魔改使用 IP 访问。这两种方法各有利弊。</p>
+<ul>
+<li><p>域名：默认情况下 DERP 服务器可以被其他人使用，只要别人知道了你的 DERP 服务器的地址和端口，就会被白嫖。使用域名方式可以基于<code>verify-clients</code>参数开启验证，防止他人使用（同时需要 DERP 服务器上安装 Tailscale ）。</p>
+</li>
+<li><p>IP：由于国内服务器+域名需要备案，此时就可以使用纯 IP 的方式进行访问，但是就无法开启验证了。IP 访问需要额外进行一些修改。</p>
+</li>
+</ul>
+<p>这里需要自行权衡利弊。下面会介绍如何启用这两种方法。</p>
+<h3 id="源码编译"><a href="#源码编译" class="headerlink" title="源码编译"></a>源码编译</h3><ol>
+<li>准备 golang 环境</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">apt install -y wget git openssl curl</span><br><span class="line">wget https://golang.google.cn/dl/go1.24.3.linux-amd64.tar.gz</span><br><span class="line">rm -rf /usr/<span class="built_in">local</span>/go &amp;&amp; tar -C /usr/<span class="built_in">local</span> -xzf go1.24.3.linux-amd64.tar.gz</span><br><span class="line"></span><br><span class="line"><span class="built_in">export</span> PATH=<span class="variable">$PATH</span>:/usr/<span class="built_in">local</span>/go/bin</span><br><span class="line">go version</span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;export PATH=<span class="variable">$PATH</span>:/usr/local/go/bin&quot;</span> &gt;&gt; /etc/profile</span><br><span class="line"><span class="built_in">source</span> /etc/profile</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>下载 DERP 源代码</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">go env -w GO111MODULE=on</span><br><span class="line">go env -w GOPROXY=https://goproxy.cn,direct</span><br><span class="line">go install tailscale.com/cmd/derper@main</span><br><span class="line"></span><br><span class="line">cp /root/go/bin/derper /usr/<span class="built_in">local</span>/bin/derper</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>导入证书</li>
+</ol>
+<p>创建证书目录，并将证书上传到这里，证书命名规则是<code>&lt;domian_name&gt;.key</code>、<code>&lt;domian_name&gt;.crt</code>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mkdir -p /etc/derp</span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li>配置 systemd</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">cat /etc/systemd/system/derp.service</span><br><span class="line">[Unit]</span><br><span class="line">Description=TS Derper</span><br><span class="line">After=network.target</span><br><span class="line">Wants=network.target</span><br><span class="line">[Service]</span><br><span class="line">User=root</span><br><span class="line">Restart=always</span><br><span class="line">ExecStart=/usr/<span class="built_in">local</span>/bin/derper -hostname &lt;domain_name&gt; -a :33445 -http-port 33446 -certmode manual -certdir /etc/derp</span><br><span class="line">RestartPreventExitStatus=1</span><br><span class="line">[Install]</span><br><span class="line">WantedBy=multi-user.target</span><br></pre></td></tr></table></figure>
+
+<ol start="5">
+<li>启动 derp 服务</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl <span class="built_in">enable</span> --now derp</span><br></pre></td></tr></table></figure>
+
+<ol start="6">
+<li>检查</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">journalctl -xef -u derp.service</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>防火墙需要放行  HTTPS 33445 和 STUN  3478 端口</p>
+</blockquote>
+<h3 id="纯-IP-方式"><a href="#纯-IP-方式" class="headerlink" title="纯 IP 方式"></a>纯 IP 方式</h3><p>需要重新编译源码文件<code>cert.go</code>，编辑 文件，注释这个方法的前三行。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> ~/go/pkg/mod/[tailscale]/cmd/derper</span><br><span class="line">vi cert.go</span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(m *manualCertManager)</span> <span class="title">getCertificate</span><span class="params">(hi *tls.ClientHelloInfo)</span> <span class="params">(*tls.Certificate, error)</span></span> &#123;</span><br><span class="line">        <span class="comment">//if hi.ServerName != m.hostname &amp;&amp; !m.noHostname &#123;</span></span><br><span class="line">        <span class="comment">//      return nil, fmt.Errorf(&quot;cert mismatch with hostname: %q&quot;, hi.ServerName)</span></span><br><span class="line">        <span class="comment">//&#125;</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">// Return a shallow copy of the cert so the caller can append to its</span></span><br><span class="line">        <span class="comment">// Certificate field.</span></span><br><span class="line">        certCopy := <span class="built_in">new</span>(tls.Certificate)</span><br><span class="line">        *certCopy = *m.cert</span><br><span class="line">        certCopy.Certificate = certCopy.Certificate[:<span class="built_in">len</span>(certCopy.Certificate):<span class="built_in">len</span>(certCopy.Certificate)]</span><br><span class="line">        <span class="keyword">return</span> certCopy, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>重新编译：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">go build -o /usr/<span class="built_in">local</span>/bin/derper</span><br></pre></td></tr></table></figure>
+
+<p>准备自签名证书：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes -keyout /etc/derp/derp.myself.com.key -out /etc/derp/derp.myself.com.crt -subj <span class="string">&quot;/CN=derp.myself.com&quot;</span> -addext <span class="string">&quot;subjectAltName=DNS:derp.myself.com&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>设置 systemd：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">cat /etc/systemd/system/derp.service</span><br><span class="line">[Unit]</span><br><span class="line">Description=TS Derper</span><br><span class="line">After=network.target</span><br><span class="line">Wants=network.target</span><br><span class="line">[Service]</span><br><span class="line">User=root</span><br><span class="line">Restart=always</span><br><span class="line">ExecStart=/usr/<span class="built_in">local</span>/bin/derper -hostname derp.myself.com -a :33445 -http-port 33446 -certmode manual -certdir /etc/derp --verify-clients=<span class="literal">false</span></span><br><span class="line">RestartPreventExitStatus=1</span><br><span class="line">[Install]</span><br><span class="line">WantedBy=multi-user.target</span><br></pre></td></tr></table></figure>
+
+<p>启动 derp 服务：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl <span class="built_in">enable</span> --now derp</span><br></pre></td></tr></table></figure>
+
+<h3 id="对接-Headscale"><a href="#对接-Headscale" class="headerlink" title="对接 Headscale"></a>对接 Headscale</h3><ol>
+<li>准备好 <code>derp.json</code> 文件</li>
+</ol>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  <span class="attr">&quot;Regions&quot;</span>: &#123;</span><br><span class="line">    <span class="attr">&quot;901&quot;</span>: &#123;</span><br><span class="line">      <span class="attr">&quot;RegionID&quot;</span>: <span class="number">901</span>,</span><br><span class="line">      <span class="attr">&quot;RegionCode&quot;</span>: <span class="string">&quot;custom-derp-server&quot;</span>,</span><br><span class="line">      <span class="attr">&quot;RegionName&quot;</span>: <span class="string">&quot;Custom Derp Server&quot;</span>,</span><br><span class="line">      <span class="attr">&quot;Nodes&quot;</span>: [</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="attr">&quot;Name&quot;</span>: <span class="string">&quot;901a&quot;</span>,</span><br><span class="line">          <span class="attr">&quot;RegionID&quot;</span>: <span class="number">901</span>,</span><br><span class="line">          <span class="attr">&quot;DERPPort&quot;</span>: <span class="number">33445</span>,</span><br><span class="line">          <span class="attr">&quot;HostName&quot;</span>: <span class="string">&quot;xxxx&quot;</span>,</span><br><span class="line">          <span class="attr">&quot;IPv4&quot;</span>: <span class="string">&quot;xxxx&quot;</span>,</span><br><span class="line">          <span class="attr">&quot;InsecureForTests&quot;</span>: <span class="literal">true</span></span><br><span class="line">        &#125;</span><br><span class="line">      ]</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>主要参数说明：</p>
+<ul>
+<li><code>RegionID</code> ：每个区域都有一个唯一的 ID。ID 值 900 到 999 保留用于自定义用户指定的区域，Tailscale 不会使用他们。</li>
+<li><code>HostName</code>：DERP 服务器的域名地址。</li>
+<li><code>IPv4</code>：如果是纯 IP 方式，则要填写 IP 地址。</li>
+<li><code>InsecureForTests</code>：跳过域名验证。</li>
+</ul>
+<p>我们需要让 Headscale 读到这个配置文件，但是 Headscale 只能够通过 URL 的形式读取，所以我们可以自己弄一个 nginx 容器，参考如下：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">docker run -itd --name derp-json -p 8081:80 -v <span class="variable">$&#123;PWD&#125;</span>/derp.json:/usr/share/nginx/html/derp.json nginx</span><br><span class="line"></span><br><span class="line"><span class="comment">## 验证是否能访问</span></span><br><span class="line">curl localhost:8081/derp.json</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>接着编辑 headscale 的 <code>config.yaml</code>文件，将原本的官方的 derpmap 禁用掉，使用自己的 <code>derp.json</code>，修改位置如下：</li>
+</ol>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">derp:</span></span><br><span class="line">  <span class="attr">urls:</span></span><br><span class="line">    <span class="comment">#- https://controlplane.tailscale.com/derpmap/default</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">http://&lt;derp-json_server_ip&gt;:8081/derp.json</span></span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>最后重启一下 headscale 服务（如果是 docker 运行就重启容器）</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">systemctl restart headscale</span><br><span class="line"><span class="comment">## or</span></span><br><span class="line">docker restart headscale</span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li>检查是否使用自己的 DERP 服务器。</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># tailscale netcheck</span></span><br><span class="line">...</span><br><span class="line">...</span><br><span class="line">...</span><br><span class="line">        * Nearest DERP: Custom Derp Server</span><br><span class="line">        * DERP latency:</span><br><span class="line">                - custom-derp-server: 2.8ms   (Custom Derp Server)</span><br></pre></td></tr></table></figure>
+
+<ol start="5">
+<li>查看延迟</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># tailscale ping macbook-pro</span></span><br><span class="line">pong from macbook-pro (100.64.198.12) via 27.38.171.20:35657 <span class="keyword">in</span> 13ms</span><br></pre></td></tr></table></figure>
+
+<p>测了下速度，还是很可观的。</p>
+<img src="/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/test-speed.png" class="" title="test-speed">
+
+
+
+<h3 id="对接官方-Tailscale"><a href="#对接官方-Tailscale" class="headerlink" title="对接官方 Tailscale"></a>对接官方 Tailscale</h3><p>自己准备的 DERP 服务器，也可以用于 Tailscale ，只需要在 Tailscale console - Access Control 下，添加如下配置：</p>
+<p>如果是域名方式：</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">&quot;derpMap&quot;: &#123;</span><br><span class="line">  &quot;OmitDefaultRegions&quot;: true,</span><br><span class="line">  &quot;Regions&quot;: &#123;</span><br><span class="line">    &quot;900&quot;: &#123;</span><br><span class="line">      &quot;RegionID&quot;:   900,</span><br><span class="line">      &quot;RegionCode&quot;: &quot;custom-derp-server&quot;,</span><br><span class="line">      &quot;RegionName&quot;: &quot;Custom Derp Server&quot;,</span><br><span class="line">      &quot;Nodes&quot;: [</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="attr">&quot;Name&quot;</span>:       <span class="string">&quot;900a&quot;</span>,</span><br><span class="line">          <span class="attr">&quot;RegionID&quot;</span>:     <span class="number">900</span>,</span><br><span class="line">          <span class="attr">&quot;DERPPort&quot;</span>:     <span class="number">33445</span>,</span><br><span class="line">          <span class="attr">&quot;HostName&quot;</span>:     <span class="string">&quot;&lt;your_domain_name&gt;&quot;</span>, </span><br><span class="line">        &#125;,</span><br><span class="line">      ],</span><br><span class="line">    &#125;,</span><br><span class="line">  &#125;,</span><br><span class="line">&#125;,</span><br></pre></td></tr></table></figure>
+
+<p>如果是纯 IP 方式：</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">&quot;derpMap&quot;: &#123;</span><br><span class="line">  &quot;OmitDefaultRegions&quot;: true,</span><br><span class="line">  &quot;Regions&quot;: &#123;</span><br><span class="line">    &quot;900&quot;: &#123;</span><br><span class="line">      &quot;RegionID&quot;:   900,</span><br><span class="line">      &quot;RegionCode&quot;: &quot;custom-derp-server&quot;,</span><br><span class="line">      &quot;RegionName&quot;: &quot;Custom Derp Server&quot;,</span><br><span class="line">      &quot;Nodes&quot;: [</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="attr">&quot;Name&quot;</span>:       <span class="string">&quot;900a&quot;</span>,</span><br><span class="line">          <span class="attr">&quot;RegionID&quot;</span>:     <span class="number">900</span>,</span><br><span class="line">          <span class="attr">&quot;DERPPort&quot;</span>:     <span class="number">33445</span>,</span><br><span class="line">          <span class="attr">&quot;IPv4&quot;</span>:       <span class="string">&quot;&lt;ip_addr&gt;&quot;</span>, </span><br><span class="line">          <span class="attr">&quot;InsecureForTests&quot;</span>: <span class="literal">true</span>,</span><br><span class="line">        &#125;,</span><br><span class="line">      ],</span><br><span class="line">    &#125;,</span><br><span class="line">  &#125;,</span><br><span class="line">&#125;,</span><br></pre></td></tr></table></figure>
+
+<p>主要参数说明：</p>
+<ul>
+<li><code>OmitDefaultRegions</code>：使用自己的 DERP 服务器而不使用官方的。</li>
+</ul>
+<p>保存之后，在 Machines 页面下，点击任意一个客户端，可以看到是否选择了自定义的 DERP 服务器，看上去效果很不错。</p>
+<img src="/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/relay.png" class="" title="relay">
+
+<h3 id="构建-Docker-镜像"><a href="#构建-Docker-镜像" class="headerlink" title="构建 Docker 镜像"></a>构建 Docker 镜像</h3><p>这里一步步安装还是太麻烦了点，那么我们是否可以自己构建 DERP 镜像，而不用每次都手动编译呢？答案是肯定的。</p>
+<p>可以基于上述的步骤，自行构建 Docker 镜像，以后就可以直接在每个节点直接运行该镜像，快速拉起一个 DERP 服务。</p>
+<p>这里我已经构建好镜像并测试验证通过，可放心食用。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker run -itd --name derper --net host zerchin&#x2F;derper-ip:v0.1</span><br></pre></td></tr></table></figure>
+
+<p>如果不放心的话，这里也放出来构建的过程，自行参考下面。</p>
+<p><code>Dockerfile</code> 文件参考如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line">FROM golang:latest AS builder</span><br><span class="line"></span><br><span class="line">WORKDIR &#x2F;app</span><br><span class="line"></span><br><span class="line">RUN git clone https:&#x2F;&#x2F;github.com&#x2F;tailscale&#x2F;tailscale.git</span><br><span class="line"></span><br><span class="line">RUN sed -i &#39;&#x2F;if hi\.ServerName !&#x3D; m\.hostname &amp;&amp; !m\.noHostname &#123;&#x2F;,&#x2F;&#125;&#x2F; &#123;</span><br><span class="line">    s&#x2F;^&#x2F;\&#x2F;\&#x2F;&#x2F;;</span><br><span class="line">    s&#x2F;^&#x2F;\&#x2F;\&#x2F;&#x2F;;</span><br><span class="line">    s&#x2F;^&#x2F;\&#x2F;\&#x2F;&#x2F;;</span><br><span class="line">&#125;&#39; &#x2F;app&#x2F;tailscale&#x2F;cmd&#x2F;derper&#x2F;cert.go</span><br><span class="line"></span><br><span class="line">RUN cd &#x2F;app&#x2F;tailscale&#x2F;cmd&#x2F;derper&#x2F; &amp;&amp; CGO_ENABLED&#x3D;0 GOTOOLCHAIN&#x3D;auto &#x2F;usr&#x2F;local&#x2F;go&#x2F;bin&#x2F;go build -buildvcs&#x3D;false -ldflags &quot;-s -w&quot; -o &#x2F;app&#x2F;derper</span><br><span class="line"></span><br><span class="line">FROM ubuntu:24.04</span><br><span class="line"></span><br><span class="line">WORKDIR &#x2F;app</span><br><span class="line"></span><br><span class="line">ENV DERP_ADDR :443</span><br><span class="line">ENV DERP_HTTP_PORT 80</span><br><span class="line">ENV DERP_HOST&#x3D;127.0.0.1</span><br><span class="line">ENV DERP_CERTS&#x3D;&#x2F;app&#x2F;certs&#x2F;</span><br><span class="line">ENV DERP_STUN true</span><br><span class="line">ENV DERP_VERIFY_CLIENTS false</span><br><span class="line"></span><br><span class="line">RUN apt-get update &amp;&amp; \</span><br><span class="line">    apt-get install -y openssl curl</span><br><span class="line"></span><br><span class="line">COPY --from&#x3D;builder &#x2F;app&#x2F;derper &#x2F;app&#x2F;derper</span><br><span class="line">COPY build_cert.sh &#x2F;app&#x2F;build_cert.sh</span><br><span class="line"></span><br><span class="line">CMD bash &#x2F;app&#x2F;build_cert.sh $DERP_HOST $DERP_CERTS &#x2F;app&#x2F;san.conf &amp;&amp; \</span><br><span class="line">    &#x2F;app&#x2F;derper \</span><br><span class="line">    --hostname&#x3D;$DERP_HOST \</span><br><span class="line">    --certmode&#x3D;manual \</span><br><span class="line">    --certdir&#x3D;$DERP_CERTS \</span><br><span class="line">    --stun&#x3D;$DERP_STUN  \</span><br><span class="line">    --a&#x3D;$DERP_ADDR \</span><br><span class="line">    --http-port&#x3D;$DERP_HTTP_PORT \</span><br><span class="line">    --verify-clients&#x3D;$DERP_VERIFY_CLIENTS</span><br></pre></td></tr></table></figure>
+
+<p><code>build_cert.sh</code> 脚本创建自签名证书</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line"></span><br><span class="line">CERT_HOST=<span class="variable">$1</span></span><br><span class="line">CERT_DIR=<span class="variable">$2</span></span><br><span class="line">CONF_FILE=<span class="variable">$3</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;[req]</span></span><br><span class="line"><span class="string">default_bits  = 2048</span></span><br><span class="line"><span class="string">distinguished_name = req_distinguished_name</span></span><br><span class="line"><span class="string">req_extensions = req_ext</span></span><br><span class="line"><span class="string">x509_extensions = v3_req</span></span><br><span class="line"><span class="string">prompt = no</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">[req_distinguished_name]</span></span><br><span class="line"><span class="string">countryName = XX</span></span><br><span class="line"><span class="string">stateOrProvinceName = N/A</span></span><br><span class="line"><span class="string">localityName = N/A</span></span><br><span class="line"><span class="string">organizationName = Self-signed certificate</span></span><br><span class="line"><span class="string">commonName = <span class="variable">$CERT_HOST</span>: Self-signed certificate</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">[req_ext]</span></span><br><span class="line"><span class="string">subjectAltName = @alt_names</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">[v3_req]</span></span><br><span class="line"><span class="string">subjectAltName = @alt_names</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">[alt_names]</span></span><br><span class="line"><span class="string">IP.1 = <span class="variable">$CERT_HOST</span></span></span><br><span class="line"><span class="string">&quot;</span> &gt; <span class="string">&quot;<span class="variable">$CONF_FILE</span>&quot;</span></span><br><span class="line"></span><br><span class="line">mkdir -p <span class="string">&quot;<span class="variable">$CERT_DIR</span>&quot;</span></span><br><span class="line">openssl req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout <span class="string">&quot;<span class="variable">$CERT_DIR</span>/<span class="variable">$CERT_HOST</span>.key&quot;</span> -out <span class="string">&quot;<span class="variable">$CERT_DIR</span>/<span class="variable">$CERT_HOST</span>.crt&quot;</span> -config <span class="string">&quot;<span class="variable">$CONF_FILE</span>&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>构建镜像：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker build -t zerchin/derper-ip:v0.1 .</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>通过开源 Headscale 替代 Tailscale 控制平面，打破设备规模束缚并实现策略自主。自建 DERP 节点，将中继延迟从跨国绕行的几百 ms 压缩至 10ms 级。总而言之，自建 Headscale + DERP 真香！</p>
+<p>参考链接：</p>
+<p><a target="_blank" rel="noopener" href="https://warnerchen.github.io/2025/04/26/Tailscale-%E8%87%AA%E5%BB%BA%E4%B8%AD%E7%BB%A7/">https://warnerchen.github.io/2025/04/26/Tailscale-%E8%87%AA%E5%BB%BA%E4%B8%AD%E7%BB%A7/</a><br><a target="_blank" rel="noopener" href="https://icloudnative.io/posts/custom-derp-servers/">https://icloudnative.io/posts/custom-derp-servers/</a><br><a target="_blank" rel="noopener" href="https://github.com/yangchuansheng/ip_derper/tree/main">https://github.com/yangchuansheng/ip_derper/tree/main</a></p>
+<p>腾讯云主机安装 Docker: <a target="_blank" rel="noopener" href="https://cloud.tencent.com/document/product/213/46000#1H-kXbk9zoqvzYMVPVsBO">https://cloud.tencent.com/document/product/213/46000#1H-kXbk9zoqvzYMVPVsBO</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://www.zerchin.com/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/" title="Headscale 内网穿透方案">http://www.zerchin.com/2025/04/05/headscale/Headscale 内网穿透方案/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/headscale/" rel="tag"># headscale</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2025/03/05/ai/SUSE%20AI%20%E4%BD%93%E9%AA%8C/" rel="prev" title="SUSE AI 体验">
+                  <i class="fa fa-chevron-left"></i> SUSE AI 体验
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2025/04/11/rancher/%E6%B5%B7%E5%85%89%20CPU%20%E6%8C%87%E4%BB%A4%E9%9B%86%E5%AF%BC%E8%87%B4%E7%9A%84%E5%AE%B9%E5%99%A8%E6%97%A0%E6%B3%95%E5%88%9B%E5%BB%BA%E9%97%AE%E9%A2%98/" rel="next" title="海光 CPU 指令集导致的容器无法创建问题">
+                  海光 CPU 指令集导致的容器无法创建问题 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

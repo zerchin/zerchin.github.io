@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.zerchin.com","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="前言Terraform 是基础设施即代码 (IaC) 工具，允许用户使用声明性语言定义和管理基础设施资源 它支持跨各种云提供商和本地环境实现基础设施配置和管理的自动化。Terraform 使用配置语言 (HCL) 来定义基础设施组件，从而轻松实现基础设施配置的版本控制、重用和共享。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Terraform+Elemental 快速构建 RKE2 集群">
+<meta property="og:url" content="http://www.zerchin.com/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="前言Terraform 是基础设施即代码 (IaC) 工具，允许用户使用声明性语言定义和管理基础设施资源 它支持跨各种云提供商和本地环境实现基础设施配置和管理的自动化。Terraform 使用配置语言 (HCL) 来定义基础设施组件，从而轻松实现基础设施配置的版本控制、重用和共享。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://www.zerchin.com/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/build-image.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/import-image.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/vm.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/inventory-machine.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/creating-cluster.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/cluster.png">
+<meta property="article:published_time" content="2025-06-03T12:22:37.000Z">
+<meta property="article:modified_time" content="2025-06-03T12:22:37.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="elemental">
+<meta property="article:tag" content="rancher">
+<meta property="article:tag" content="rke2">
+<meta property="article:tag" content="terraform">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://www.zerchin.com/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/build-image.png">
+
+
+<link rel="canonical" href="http://www.zerchin.com/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>Terraform+Elemental 快速构建 RKE2 集群 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">61</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">35</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">128</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%88%E5%86%B3%E6%9D%A1%E4%BB%B6"><span class="nav-number">2.</span> <span class="nav-text">先决条件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#build-OS"><span class="nav-number">3.</span> <span class="nav-text">build OS</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA-Inventory-of-Machines"><span class="nav-number">4.</span> <span class="nav-text">创建 Inventory of Machines</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Terraform-%E6%9E%84%E5%BB%BA-RKE2-%E9%9B%86%E7%BE%A4"><span class="nav-number">5.</span> <span class="nav-text">Terraform 构建 RKE2 集群</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Terrform-%E5%85%B6%E4%BB%96%E6%93%8D%E4%BD%9C"><span class="nav-number">6.</span> <span class="nav-text">Terrform 其他操作</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA%E9%9B%86%E7%BE%A4"><span class="nav-number">6.1.</span> <span class="nav-text">创建集群</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%AE%BE%E7%BD%AE%E9%95%9C%E5%83%8F%E4%BB%93%E5%BA%93"><span class="nav-number">6.2.</span> <span class="nav-text">设置镜像仓库</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%8E%B7%E5%8F%96%E8%8A%82%E7%82%B9%E6%B3%A8%E5%86%8C%E5%91%BD%E4%BB%A4"><span class="nav-number">6.3.</span> <span class="nav-text">获取节点注册命令</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%BD%AE%E6%8D%A2%E8%AF%81%E4%B9%A6"><span class="nav-number">6.4.</span> <span class="nav-text">轮换证书</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA-etcd-%E5%BF%AB%E7%85%A7"><span class="nav-number">6.5.</span> <span class="nav-text">创建 etcd 快照</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%81%A2%E5%A4%8D-etcd-%E5%BF%AB%E7%85%A7"><span class="nav-number">6.6.</span> <span class="nav-text">恢复 etcd 快照</span></a></li></ol></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">128</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">61</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.zerchin.com/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Terraform+Elemental 快速构建 RKE2 集群
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2025-06-03 20:22:37" itemprop="dateCreated datePublished" datetime="2025-06-03T20:22:37+08:00">2025-06-03</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/rancher/" itemprop="url" rel="index"><span itemprop="name">rancher</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p><strong>Terraform</strong> 是基础设施即代码 (IaC) 工具，允许用户使用声明性语言定义和管理基础设施资源 它支持跨各种云提供商和本地环境实现基础设施配置和管理的自动化。Terraform 使用配置语言 (HCL) 来定义基础设施组件，从而轻松实现基础设施配置的版本控制、重用和共享。</p>
+<p><strong>Elemental</strong> 是由 SUSE Rancher 团队推出的开源项目，旨在通过 Kubernetes 原生技术实现操作系统的云原生管理。它主要解决大规模集群环境中操作系统的构建、部署、升级和维护的自动化问题，尤其适用于边缘计算、数据中心及混合云场景。</p>
+<h2 id="先决条件"><a href="#先决条件" class="headerlink" title="先决条件"></a>先决条件</h2><table>
+<thead>
+<tr>
+<th>Env</th>
+<th>Version</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Rancher</td>
+<td>v2.9.2</td>
+</tr>
+<tr>
+<td>Elemental</td>
+<td>1.6.4</td>
+</tr>
+<tr>
+<td>Terraform</td>
+<td>v1.12.1</td>
+</tr>
+<tr>
+<td>terraform-provider-rancher2</td>
+<td>5.2.0</td>
+</tr>
+</tbody></table>
+<h2 id="build-OS"><a href="#build-OS" class="headerlink" title="build OS"></a>build OS</h2><ol>
+<li>创建 Registration Endpoints</li>
+</ol>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">config:</span></span><br><span class="line">  <span class="attr">cloud-config:</span></span><br><span class="line">    <span class="attr">users:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">root</span></span><br><span class="line">        <span class="attr">passwd:</span> <span class="string">root</span></span><br><span class="line">  <span class="attr">elemental:</span></span><br><span class="line">    <span class="attr">install:</span></span><br><span class="line">      <span class="attr">device-selector:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">Name</span></span><br><span class="line">          <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">          <span class="attr">values:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">/dev/sda</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">/dev/vda</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">/dev/nvme0</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">Size</span></span><br><span class="line">          <span class="attr">operator:</span> <span class="string">Gt</span></span><br><span class="line">          <span class="attr">values:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">25Gi</span></span><br><span class="line">      <span class="attr">reboot:</span> <span class="literal">true</span></span><br><span class="line">      <span class="attr">snapshotter:</span></span><br><span class="line">        <span class="attr">type:</span> <span class="string">btrfs</span></span><br><span class="line">    <span class="attr">reset:</span></span><br><span class="line">      <span class="attr">reboot:</span> <span class="literal">true</span></span><br><span class="line">      <span class="attr">reset-oem:</span> <span class="literal">true</span></span><br><span class="line">      <span class="attr">reset-persistent:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">machineInventoryLabels:</span></span><br><span class="line">  <span class="attr">BlockDevices:</span> <span class="string">$&#123;System</span> <span class="string">Data/Block</span> <span class="string">Devices/Number</span> <span class="string">Devices&#125;</span></span><br><span class="line">  <span class="attr">CPUCores:</span> <span class="string">$&#123;System</span> <span class="string">Data/CPU/Total</span> <span class="string">Cores&#125;</span></span><br><span class="line">  <span class="attr">CPUModel:</span> <span class="string">$&#123;System</span> <span class="string">Data/CPU/Model&#125;</span></span><br><span class="line">  <span class="attr">CPUThreads:</span> <span class="string">$&#123;System</span> <span class="string">Data/CPU/Total</span> <span class="string">Threads&#125;</span></span><br><span class="line">  <span class="attr">CPUVender:</span> <span class="string">$&#123;System</span> <span class="string">Data/CPU/Vendor&#125;</span></span><br><span class="line">  <span class="attr">GPUVender:</span> <span class="string">$&#123;System</span> <span class="string">Data/GPU/Vendor&#125;</span></span><br><span class="line">  <span class="attr">Hostname:</span> <span class="string">$&#123;System</span> <span class="string">Data/Runtime/Hostname&#125;</span></span><br><span class="line">  <span class="attr">NetworkInterfaces:</span> <span class="string">$&#123;System</span> <span class="string">Data/Network/Number</span> <span class="string">Interfaces&#125;</span></span><br><span class="line">  <span class="attr">TotalMemoryBytes:</span> <span class="string">$&#123;System</span> <span class="string">Data/Memory/Total</span> <span class="string">Physical</span> <span class="string">Bytes&#125;</span></span><br><span class="line">  <span class="attr">machineUUID:</span> <span class="string">$&#123;System</span> <span class="string">Information/UUID&#125;</span></span><br><span class="line">  <span class="attr">manufacturer:</span> <span class="string">$&#123;System</span> <span class="string">Information/Manufacturer&#125;</span></span><br><span class="line">  <span class="attr">serialNumber:</span> <span class="string">$&#123;System</span> <span class="string">Information/Serial</span> <span class="string">Number&#125;</span></span><br><span class="line">  <span class="attr">env:</span> <span class="string">dev</span></span><br></pre></td></tr></table></figure>
+
+<p>这里的 label 可以参考 <a target="_blank" rel="noopener" href="https://elemental.docs.rancher.com/hardwarelabels/#hardware-labels">Elemental 官方文档说明</a>。</p>
+<ol start="2">
+<li>构建镜像。</li>
+</ol>
+<img src="/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/build-image.png" class="" title="build-image">
+
+<p>构建完后，点击右边的 <strong>Download Media</strong> 下载镜像</p>
+<h2 id="创建-Inventory-of-Machines"><a href="#创建-Inventory-of-Machines" class="headerlink" title="创建 Inventory of Machines"></a>创建 Inventory of Machines</h2><ol>
+<li>先将镜像导入到虚拟化平台上，例如这里导入到 Harvester 。</li>
+</ol>
+<img src="/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/import-image.png" class="" title="import-image">
+
+<ol start="2">
+<li>创建虚拟机，这里创建的流程与其他虚拟机一样，但是在最后一步要勾选这两个选项：<code>Enable TPM</code> 和 <code>Booting in EFI mode</code></li>
+</ol>
+<img src="/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/vm.png" class="" title="vm">
+
+<ol start="3">
+<li>等待节点注册上来，并且为 active 状态即注册成功。</li>
+</ol>
+<p>这里如果节点一直注册不上来，是因为网络的原因，需要想办法科学上网一下。</p>
+<img src="/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/inventory-machine.png" class="" title="inventory-machine">
+
+<h2 id="Terraform-构建-RKE2-集群"><a href="#Terraform-构建-RKE2-集群" class="headerlink" title="Terraform 构建 RKE2 集群"></a>Terraform 构建 RKE2 集群</h2><ol>
+<li>下载 Terraform 到任意一台可以访问 Rancher 的主机上。</li>
+</ol>
+<p>Terraform 下载方式可以参考 <a target="_blank" rel="noopener" href="https://developer.hashicorp.com/terraform/install">Terraform 官方文档地址</a>，这里我选择直接下载二进制文件。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">wget https://releases.hashicorp.com/terraform/1.12.1/terraform_1.12.1_linux_amd64.zip</span><br><span class="line">unzip terraform_1.12.1_linux_amd64.zip</span><br><span class="line">mv terraform /usr/<span class="built_in">local</span>/bin/.</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>配置初始化 <code>main.tf</code>文件。</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">cat &gt; main.tf &lt;&lt; <span class="string">EOF </span></span><br><span class="line"><span class="string">terraform &#123;</span></span><br><span class="line"><span class="string">  required_providers &#123;</span></span><br><span class="line"><span class="string">    rancher2 = &#123;</span></span><br><span class="line"><span class="string">      source = &quot;rancher/rancher2&quot;</span></span><br><span class="line"><span class="string">      version = &quot;5.2.0&quot;</span></span><br><span class="line"><span class="string">    &#125;</span></span><br><span class="line"><span class="string">  &#125;</span></span><br><span class="line"><span class="string">&#125;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">provider &quot;rancher2&quot; &#123;</span></span><br><span class="line"><span class="string">  api_url    = &quot;https://rancher.zerchin.xyz&quot;</span></span><br><span class="line"><span class="string">  access_key = &quot;token-xxx&quot;</span></span><br><span class="line"><span class="string">  secret_key = &quot;xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&quot;</span></span><br><span class="line"><span class="string">  insecure   = true</span></span><br><span class="line"><span class="string">&#125;</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
+
+<p>参数说明：</p>
+<ul>
+<li><code>api_url</code>：Rancher URL 地址</li>
+<li><code>access_key</code> &amp; <code>secret_key</code>：这里需要到Rancher UI 上创建一个 API Key</li>
+</ul>
+<p>初始化Rancher 连接。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">terraform init</span><br></pre></td></tr></table></figure>
+
+<p>输出如下结果，说明连接成功。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">Initializing the backend...</span><br><span class="line">Initializing provider plugins...</span><br><span class="line">- Finding rancher/rancher2 versions matching <span class="string">&quot;5.2.0&quot;</span>...</span><br><span class="line">- Installing rancher/rancher2 v5.2.0...</span><br><span class="line">- Installed rancher/rancher2 v5.2.0 (signed by a HashiCorp partner, key ID 2EEB0F9AD44A135C)</span><br><span class="line">Partner and community providers are signed by their developers.</span><br><span class="line">If you<span class="string">&#x27;d like to know more about provider signing, you can read about it here:</span></span><br><span class="line"><span class="string">https://developer.hashicorp.com/terraform/cli/plugins/signing</span></span><br><span class="line"><span class="string">Terraform has created a lock file .terraform.lock.hcl to record the provider</span></span><br><span class="line"><span class="string">selections it made above. Include this file in your version control repository</span></span><br><span class="line"><span class="string">so that Terraform can guarantee to make the same selections by default when</span></span><br><span class="line"><span class="string">you run &quot;terraform init&quot; in the future.</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">Terraform has been successfully initialized!</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">You may now begin working with Terraform. Try running &quot;terraform plan&quot; to see</span></span><br><span class="line"><span class="string">any changes that are required for your infrastructure. All Terraform commands</span></span><br><span class="line"><span class="string">should now work.</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">If you ever set or change modules or backend configuration for Terraform,</span></span><br><span class="line"><span class="string">rerun this command to reinitialize your working directory. If you forget, other</span></span><br><span class="line"><span class="string">commands will detect it and remind you to do so if necessary.</span></span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>创建<code>MachineInventorySelectorTemplate</code>节点资源池选择器，这里我们通过<strong>matchExpressions</strong>匹配我们刚刚设定的标签<code>env=dev</code></li>
+</ol>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">cat</span> <span class="string">&gt;</span> <span class="string">pool.yaml</span> <span class="string">&lt;&lt;</span> <span class="string">EOF</span> </span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">elemental.cattle.io/v1beta1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">MachineInventorySelectorTemplate</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">dev-pool-1</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">fleet-default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">selector:</span></span><br><span class="line">        <span class="attr">matchExpressions:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">env</span></span><br><span class="line">          <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">          <span class="attr">values:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="string">dev</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
+
+<p>导入到 Rancher local 集群中。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f pool.yaml</span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li>配置初始化 RKE2 集群和 elemental 节点池参数，在 <code>main.tf</code> 文件中新增如下配置：</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">resource <span class="string">&quot;rancher2_cluster_v2&quot;</span> <span class="string">&quot;demo&quot;</span> &#123;</span><br><span class="line">  name                = <span class="string">&quot;demo&quot;</span></span><br><span class="line">  kubernetes_version  = <span class="string">&quot;v1.30.13+rke2r1&quot;</span></span><br><span class="line">  rke_config &#123;</span><br><span class="line">    machine_pools &#123;</span><br><span class="line">      name = <span class="string">&quot;master&quot;</span></span><br><span class="line">      etcd_role = <span class="literal">true</span></span><br><span class="line">      control_plane_role = <span class="literal">true</span></span><br><span class="line">      worker_role = <span class="literal">true</span></span><br><span class="line">      quantity = 1</span><br><span class="line">      machine_config &#123;</span><br><span class="line">        api_version = <span class="string">&quot;elemental.cattle.io/v1beta1&quot;</span></span><br><span class="line">        kind = <span class="string">&quot;MachineInventorySelectorTemplate&quot;</span></span><br><span class="line">        name = <span class="string">&quot;dev-pool-1&quot;</span></span><br><span class="line">      &#125;</span><br><span class="line">      machine_labels = &#123;</span><br><span class="line">      	team = <span class="string">&quot;devops&quot;</span></span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125; </span><br></pre></td></tr></table></figure>
+
+<p>主要参数说明：</p>
+<ul>
+<li><code>rancher2_cluster_v2</code>：使用 <a target="_blank" rel="noopener" href="https://registry.terraform.io/providers/rancher/rancher2/latest/docs/resources/cluster_v2">rancher2_cluster_v2</a> 资源创建和管理 RKE2 集群</li>
+<li><code>name</code>：集群名称</li>
+<li><code>kubernetes_version</code>：RKE2 版本，这里可以在 Rancher UI 上创建一个空集群看看当前支持什么版本</li>
+<li><code>rke_config</code>：集群相关配置都在这里进行配置<ul>
+<li><code>machine_pools</code>：节点池配置</li>
+<li><code>etcd_role</code>&amp;<code>control_plane_role</code>&amp;<code>worker_role</code>：节点角色选择</li>
+<li><code>quantity</code>：该节点池的数量</li>
+<li><code>machine_config</code>：节点池连接方式，这里按照这个格式去填写即可，其中 <code>name</code> 即为上一步构建 <code>MachineInventorySelectorTemplate</code>资源名称</li>
+</ul>
+</li>
+<li><code>machine_labels</code>：节点标签</li>
+</ul>
+<ol start="5">
+<li>使用 Terraform 创建集群</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">terraform apply</span><br></pre></td></tr></table></figure>
+
+<p>输出如下内容：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:</span><br><span class="line">  + create</span><br><span class="line"></span><br><span class="line">Terraform will perform the following actions:</span><br><span class="line"></span><br><span class="line">  # rancher2_cluster_v2.demo will be created</span><br><span class="line">  + resource &quot;rancher2_cluster_v2&quot; &quot;demo&quot; &#123;</span><br><span class="line">      + annotations                &#x3D; (known after apply)</span><br><span class="line">      + cluster_registration_token &#x3D; (sensitive value)</span><br><span class="line">      + cluster_v1_id              &#x3D; (known after apply)</span><br><span class="line">      + enable_network_policy      &#x3D; (known after apply)</span><br><span class="line">      + fleet_namespace            &#x3D; &quot;fleet-default&quot;</span><br><span class="line">      + id                         &#x3D; (known after apply)</span><br><span class="line">      + kube_config                &#x3D; (sensitive value)</span><br><span class="line">      + kubernetes_version         &#x3D; &quot;v1.30.13+rke2r1&quot;</span><br><span class="line">      + labels                     &#x3D; (known after apply)</span><br><span class="line">      + name                       &#x3D; &quot;demo&quot;</span><br><span class="line">      + resource_version           &#x3D; (known after apply)</span><br><span class="line"></span><br><span class="line">      + rke_config &#123;</span><br><span class="line">          + etcd (known after apply)</span><br><span class="line">          + machine_pools &#123;</span><br><span class="line">              + annotations         &#x3D; (known after apply)</span><br><span class="line">              + control_plane_role  &#x3D; true</span><br><span class="line">              + drain_before_delete &#x3D; false</span><br><span class="line">              + etcd_role           &#x3D; true</span><br><span class="line">              + labels              &#x3D; (known after apply)</span><br><span class="line">              + machine_labels      &#x3D; &#123;</span><br><span class="line">                  + &quot;team&quot; &#x3D; &quot;devops&quot;</span><br><span class="line">                &#125;</span><br><span class="line">              + name                &#x3D; &quot;master&quot;</span><br><span class="line">              + paused              &#x3D; false</span><br><span class="line">              + quantity            &#x3D; 1</span><br><span class="line">              + worker_role         &#x3D; true</span><br><span class="line"></span><br><span class="line">              + machine_config &#123;</span><br><span class="line">                  + api_version &#x3D; &quot;elemental.cattle.io&#x2F;v1beta1&quot;</span><br><span class="line">                  + kind        &#x3D; &quot;MachineInventorySelectorTemplate&quot;</span><br><span class="line">                  + name        &#x3D; &quot;dev-pool-1&quot;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">          + machine_selector_config (known after apply)</span><br><span class="line">          + machine_selector_files (known after apply)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">Plan: 1 to add, 0 to change, 0 to destroy.</span><br><span class="line"></span><br><span class="line">Do you want to perform these actions?</span><br><span class="line">  Terraform will perform the actions described above.</span><br><span class="line">  Only &#39;yes&#39; will be accepted to approve.</span><br><span class="line"></span><br><span class="line">  Enter a value: yes</span><br></pre></td></tr></table></figure>
+
+<p>这里输入yes，集群就开始创建，并等待集群创建出来。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">rancher2_cluster_v2.demo: Creating...</span><br><span class="line">rancher2_cluster_v2.demo: Still creating... [00m10s elapsed]</span><br><span class="line">rancher2_cluster_v2.demo: Still creating... [00m20s elapsed]</span><br><span class="line">rancher2_cluster_v2.demo: Still creating... [00m30s elapsed]</span><br><span class="line">rancher2_cluster_v2.demo: Still creating... [00m40s elapsed]</span><br><span class="line">rancher2_cluster_v2.demo: Still creating... [00m50s elapsed]</span><br><span class="line">rancher2_cluster_v2.demo: Still creating... [01m00s elapsed]</span><br><span class="line">rancher2_cluster_v2.demo: Still creating... [01m10s elapsed]</span><br></pre></td></tr></table></figure>
+
+<p>进入 Rancher UI，可以看到集群正在创建中。</p>
+<img src="/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/creating-cluster.png" class="" title="creating-cluster">
+
+<p>输出如下内容， 集群创建成功。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">rancher2_cluster_v2.demo: Still creating... [08m50s elapsed]</span><br><span class="line">rancher2_cluster_v2.demo: Still creating... [09m00s elapsed]</span><br><span class="line">rancher2_cluster_v2.demo: Still creating... [09m10s elapsed]</span><br><span class="line">rancher2_cluster_v2.demo: Creation complete after 9m17s [id=fleet-default/demo]</span><br><span class="line"></span><br><span class="line">Apply complete! Resources: 1 added, 0 changed, 0 destroyed.</span><br></pre></td></tr></table></figure>
+
+<img src="/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/cluster.png" class="" title="cluster">
+
+
+
+<h2 id="Terrform-其他操作"><a href="#Terrform-其他操作" class="headerlink" title="Terrform 其他操作"></a>Terrform 其他操作</h2><h3 id="创建集群"><a href="#创建集群" class="headerlink" title="创建集群"></a>创建集群</h3><figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">resource &quot;rancher2_cluster_v2&quot; &quot;foo&quot; &#123;</span><br><span class="line">  name                = &quot;foo&quot;</span><br><span class="line">  kubernetes_version  = &quot;v1.30.13+rke2r1&quot;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="设置镜像仓库"><a href="#设置镜像仓库" class="headerlink" title="设置镜像仓库"></a>设置镜像仓库</h3><figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">resource &quot;rancher2_cluster_v2&quot; &quot;foo&quot; &#123;</span><br><span class="line">  name                = &quot;foo&quot;</span><br><span class="line">  kubernetes_version  = &quot;v1.30.13+rke2r1&quot;</span><br><span class="line"></span><br><span class="line">  rke_config &#123;</span><br><span class="line">    machine_selector_config &#123;</span><br><span class="line">      config = &lt;&lt;EOF</span><br><span class="line">        system-default-registry: &quot;docker.io&quot;</span><br><span class="line">      EOF</span><br><span class="line">    &#125;</span><br><span class="line">    registries &#123;</span><br><span class="line">      mirrors &#123;</span><br><span class="line">        hostname = &quot;docker.io&quot;</span><br><span class="line">        endpoints = [&quot;https://harbor.zerchin.xyz&quot;]</span><br><span class="line">        rewrites = &#123;</span><br><span class="line">          &quot;^(.+)$&quot; = &quot;rrcom/$1&quot;</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="获取节点注册命令"><a href="#获取节点注册命令" class="headerlink" title="获取节点注册命令"></a>获取节点注册命令</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">terraform show -json | jq .values.root_module.resources[0].values.cluster_registration_token[0].insecure_node_command</span><br></pre></td></tr></table></figure>
+
+<p>或者</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">terraform state pull | jq .resources[0].instances[0].attributes.cluster_registration_token[0].insecure_node_command</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="轮换证书"><a href="#轮换证书" class="headerlink" title="轮换证书"></a>轮换证书</h3><figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">resource &quot;rancher2_cluster_v2&quot; &quot;foo&quot; &#123;</span><br><span class="line">  name                = &quot;foo&quot;</span><br><span class="line">  kubernetes_version  = &quot;v1.30.13+rke2r1&quot;</span><br><span class="line"></span><br><span class="line">  rke_config &#123;</span><br><span class="line">    rotate_certificates &#123;</span><br><span class="line">      generation = 1 </span><br><span class="line">      # services = [&quot;etcd&quot;, &quot;api-server&quot;]</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>参数说明：</p>
+<ul>
+<li><code>services</code>：需要轮换的服务，不填则默认全部轮换。可填写：admin, api-server, controller-manager, scheduler, supervisor, rke2-controller, rke2-server, cloud-controller, etcd, auth-proxy, kubelet, kube-proxy</li>
+</ul>
+<h3 id="创建-etcd-快照"><a href="#创建-etcd-快照" class="headerlink" title="创建 etcd 快照"></a>创建 etcd 快照</h3><figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">resource &quot;rancher2_cluster_v2&quot; &quot;foo&quot; &#123;</span><br><span class="line">  name                = &quot;foo&quot;</span><br><span class="line">  kubernetes_version  = &quot;v1.30.13+rke2r1&quot;</span><br><span class="line"></span><br><span class="line">  rke_config &#123;</span><br><span class="line">    etcd_snapshot_create &#123;</span><br><span class="line">      generation = 1</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="恢复-etcd-快照"><a href="#恢复-etcd-快照" class="headerlink" title="恢复 etcd 快照"></a>恢复 etcd 快照</h3><figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">resource &quot;rancher2_cluster_v2&quot; &quot;foo&quot; &#123;</span><br><span class="line">  name                = &quot;foo&quot;</span><br><span class="line">  kubernetes_version  = &quot;v1.30.13+rke2r1&quot;</span><br><span class="line"></span><br><span class="line">  rke_config &#123;</span><br><span class="line">    etcd_snapshot_restore &#123;</span><br><span class="line">      name                    = &quot;on-demand-u65-1751524213&quot;</span><br><span class="line">      generation              = 1</span><br><span class="line">      restore_rke_config      = &quot;none&quot;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>参数说明：</p>
+<ul>
+<li><code>name</code>：快照名称</li>
+<li><code>generation</code>：基于这个判断是否已经执行过快照。可以是任意 int 类型的值。</li>
+<li><code>restore_rke_config</code>：是否恢复 cluster 的 配置，可以填写： none、all 或者 kubernetesVersion。</li>
+</ul>
+<p>踩坑：</p>
+<p>这里如果恢复过程中，集群显示 <strong>shutting down cluster</strong>，查看 Rancher log 显示如下日志：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[ERROR] error syncing &#39;fleet-default&#x2F;xxxxxxxxxxxx&#39;: handler planner: more than one init node existed and no corresponding etcd snapshot CR found, no assumption can be made for the machine that contains the snapshot, requeuing </span><br></pre></td></tr></table></figure>
+
+<p>说明快照名字错了，需要点进去看一下具体快照的名字叫什么。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://www.zerchin.com/2025/06/03/rancher/Terraform+Elemental%20%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BA%20RKE2%20%E9%9B%86%E7%BE%A4/" title="Terraform+Elemental 快速构建 RKE2 集群">http://www.zerchin.com/2025/06/03/rancher/Terraform+Elemental 快速构建 RKE2 集群/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/elemental/" rel="tag"># elemental</a>
+              <a href="/tags/rancher/" rel="tag"># rancher</a>
+              <a href="/tags/rke2/" rel="tag"># rke2</a>
+              <a href="/tags/terraform/" rel="tag"># terraform</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2025/05/30/docker/Docker%20%E9%95%9C%E5%83%8F%E6%BA%90/" rel="prev" title="Docker 镜像源">
+                  <i class="fa fa-chevron-left"></i> Docker 镜像源
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2025/06/10/neuvector/NeuVector%E6%97%A0%E6%B3%95%E5%88%A0%E9%99%A4Federated%20Policy%E4%B8%8B%E7%9A%84Process%20Profile%20Rules%E8%A7%A3%E5%86%B3%E6%96%B9%E6%B3%95/" rel="next" title="NeuVector无法删除Federated Policy下的Process Profile Rules解决方法">
+                  NeuVector无法删除Federated Policy下的Process Profile Rules解决方法 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

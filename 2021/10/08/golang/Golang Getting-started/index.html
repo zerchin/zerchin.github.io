@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.zerchin.com","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="一、hello world和一个示例 首先创建一个目录，并构建初始化模块">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Golang Getting-started.md">
+<meta property="og:url" content="http://www.zerchin.com/2021/10/08/golang/Golang%20Getting-started/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="一、hello world和一个示例 首先创建一个目录，并构建初始化模块">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-10-08T14:48:00.000Z">
+<meta property="article:modified_time" content="2021-10-08T14:48:00.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="golang">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://www.zerchin.com/2021/10/08/golang/Golang%20Getting-started/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>Golang Getting-started.md | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">61</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">35</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">128</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E3%80%81hello-world%E5%92%8C%E4%B8%80%E4%B8%AA%E7%A4%BA%E4%BE%8B"><span class="nav-number">1.</span> <span class="nav-text">一、hello world和一个示例</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E8%87%AA%E5%AE%9A%E4%B9%89%E6%A8%A1%E5%9D%97"><span class="nav-number">2.</span> <span class="nav-text">二、自定义模块</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E5%BC%95%E5%85%A5%E8%87%AA%E5%AE%9A%E4%B9%89%E6%A8%A1%E5%9D%97"><span class="nav-number">3.</span> <span class="nav-text">三、引入自定义模块</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E8%BF%94%E5%9B%9E%E9%94%99%E8%AF%AF%E5%B9%B6%E5%A4%84%E7%90%86"><span class="nav-number">4.</span> <span class="nav-text">四、返回错误并处理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BA%94%E3%80%81%E9%9A%8F%E6%9C%BA%E8%BF%94%E5%9B%9E%E9%97%AE%E5%80%99%E8%AF%AD"><span class="nav-number">5.</span> <span class="nav-text">五、随机返回问候语</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E3%80%81%E5%9B%9E%E5%A4%8D%E5%A4%9A%E4%BA%BA%E9%97%AE%E5%80%99"><span class="nav-number">6.</span> <span class="nav-text">六、回复多人问候</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%83%E3%80%81%E4%BB%A3%E7%A0%81%E5%8D%95%E5%85%83%E6%B5%8B%E8%AF%95"><span class="nav-number">7.</span> <span class="nav-text">七、代码单元测试</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AB%E3%80%81%E7%BC%96%E8%AF%91%E5%B9%B6%E5%AE%89%E8%A3%85%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F"><span class="nav-number">8.</span> <span class="nav-text">八、编译并安装应用程序</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">128</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">61</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.zerchin.com/2021/10/08/golang/Golang%20Getting-started/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Golang Getting-started.md
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2021-10-08 22:48:00" itemprop="dateCreated datePublished" datetime="2021-10-08T22:48:00+08:00">2021-10-08</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/golang/" itemprop="url" rel="index"><span itemprop="name">golang</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="一、hello-world和一个示例"><a href="#一、hello-world和一个示例" class="headerlink" title="一、hello world和一个示例"></a>一、hello world和一个示例</h2><ol>
+<li>首先创建一个目录，并构建初始化模块</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span></span><br><span class="line">mkdir hello</span><br><span class="line"><span class="built_in">cd</span> hello</span><br><span class="line"></span><br><span class="line"><span class="comment">## 启用依赖项跟踪</span></span><br><span class="line">go mod init example/hello</span><br></pre></td></tr></table></figure>
+
+<p><code>hello.go</code>代码</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> <span class="string">&quot;fmt&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> <span class="string">&quot;rsc.io/quote&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">  fmt.Println(<span class="string">&quot;hello, World!&quot;</span>)</span><br><span class="line">  fmt.Println(quote.Go())</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>下载依赖模块</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">go mod tidy</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>执行代码</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">go run .</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="二、自定义模块"><a href="#二、自定义模块" class="headerlink" title="二、自定义模块"></a>二、自定义模块</h2><ol>
+<li>新建一个greetings目录，并初始化模块</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span></span><br><span class="line">mkdir greetings</span><br><span class="line"><span class="built_in">cd</span> greetings</span><br><span class="line"></span><br><span class="line">go mod init example.com/greetings</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>新建<code>greetings.go</code>文件，代码如下</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> greetings</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> <span class="string">&quot;fmt&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 为指定的人返回问候语</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Hello</span><span class="params">(name <span class="keyword">string</span>)</span> <span class="title">string</span></span> &#123;</span><br><span class="line">  message := fmt.Sprintf(<span class="string">&quot;Hi, %v. Welcome!&quot;</span>, name)</span><br><span class="line">  <span class="keyword">return</span> message</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="三、引入自定义模块"><a href="#三、引入自定义模块" class="headerlink" title="三、引入自定义模块"></a>三、引入自定义模块</h2><ol>
+<li>新建一个hello模块，并初始化（同第一步）</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span></span><br><span class="line">mkdir hello</span><br><span class="line"><span class="built_in">cd</span> hello</span><br><span class="line"></span><br><span class="line">go mod init example.com/hello</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>编辑<code>hello.go</code>代码，引入<code>example.com/greetings</code>模块</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">  <span class="string">&quot;fmt&quot;</span></span><br><span class="line">  <span class="string">&quot;example.com/greetings&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">  message := greetings.Hello(<span class="string">&quot;Zerchin&quot;</span>)</span><br><span class="line">  fmt.Println(message)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>正常example.com是一个可访问的地址，这里由于是我们自定义的模块，所以需要替换成本地路径，如下</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">go mod edit -replace example.com/greetings=../greetings</span><br></pre></td></tr></table></figure>
+
+<p>查看<code>go.mod</code>文件可以看到多了一行<code>replace xxxx</code></p>
+<ol start="4">
+<li>添加自定义模块</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">go mod tidy</span><br></pre></td></tr></table></figure>
+
+<p>查看<code>go.mod</code>文件可以看到多了一行<code>require xxx</code></p>
+<ol start="5">
+<li>执行代码</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">go run .</span><br></pre></td></tr></table></figure>
+
+<p>输出</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Hi, Zerchin. Welcome!</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="四、返回错误并处理"><a href="#四、返回错误并处理" class="headerlink" title="四、返回错误并处理"></a>四、返回错误并处理</h2><ol>
+<li>编辑<code>greetings/greetings.go</code>文件，加入错误处理代码</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> greetings</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> ( </span><br><span class="line">  <span class="string">&quot;fmt&quot;</span></span><br><span class="line">  <span class="string">&quot;errors&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// Hello为指定的人返回问候语</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Hello</span><span class="params">(name <span class="keyword">string</span>)</span> <span class="params">(<span class="keyword">string</span>, error)</span></span> &#123;</span><br><span class="line">  <span class="comment">// 如果没有传递name，则返回错误</span></span><br><span class="line">  <span class="keyword">if</span> name == <span class="string">&quot;&quot;</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="string">&quot;&quot;</span>, errors.New(<span class="string">&quot;empty name&quot;</span>)</span><br><span class="line">  &#125;</span><br><span class="line">  message := fmt.Sprintf(<span class="string">&quot;Hi, %v. Welcome!&quot;</span>, name)</span><br><span class="line">  <span class="keyword">return</span> message, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>编辑<code>hello/hello.go</code>文件，加入错误日志输出代码</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">  <span class="string">&quot;fmt&quot;</span></span><br><span class="line">  <span class="string">&quot;log&quot;</span></span><br><span class="line">  <span class="string">&quot;example.com/greetings&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">  <span class="comment">// 设置日志的属性</span></span><br><span class="line">  log.SetPrefix(<span class="string">&quot;greetings: &quot;</span>)</span><br><span class="line">  log.SetFlags(<span class="number">0</span>)</span><br><span class="line"></span><br><span class="line">  message, err := greetings.Hello(<span class="string">&quot;&quot;</span>)</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 错误处理</span></span><br><span class="line">  <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">    log.Fatal(err)</span><br><span class="line">  &#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>输出如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ go run .</span><br><span class="line">greetings: empty name</span><br><span class="line">exit status 1</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="五、随机返回问候语"><a href="#五、随机返回问候语" class="headerlink" title="五、随机返回问候语"></a>五、随机返回问候语</h2><ol>
+<li>编辑<code>greetings/greetings.go</code>文件，加入随机返回问候语的代码</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> greetings</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> ( </span><br><span class="line">  <span class="string">&quot;fmt&quot;</span></span><br><span class="line">  <span class="string">&quot;errors&quot;</span></span><br><span class="line">  <span class="string">&quot;math/rand&quot;</span></span><br><span class="line">  <span class="string">&quot;time&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// Hello为指定的人返回问候语</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Hello</span><span class="params">(name <span class="keyword">string</span>)</span> <span class="params">(<span class="keyword">string</span>, error)</span></span> &#123;</span><br><span class="line">  <span class="comment">// 如果没有传递name，则返回错误</span></span><br><span class="line">  <span class="keyword">if</span> name == <span class="string">&quot;&quot;</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="string">&quot;&quot;</span>, errors.New(<span class="string">&quot;empty name&quot;</span>)</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">//使用随机的一组问候语</span></span><br><span class="line">  message := fmt.Sprintf(randomFormat(), name)</span><br><span class="line">  <span class="keyword">return</span> message, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 设置初始值，没有这个就没有随机数</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">init</span><span class="params">()</span></span> &#123;</span><br><span class="line">  rand.Seed(time.Now().UnixNano())</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//随机返回一组问候语</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">randomFormat</span><span class="params">()</span> <span class="title">string</span></span> &#123;</span><br><span class="line">  formats := []<span class="keyword">string</span>&#123;</span><br><span class="line">    <span class="string">&quot;Hi, %v. Welcome!&quot;</span>,</span><br><span class="line">    <span class="string">&quot;Great to see youm %v&quot;</span>,</span><br><span class="line">    <span class="string">&quot;Hail, %v! Well met!&quot;</span>,</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">return</span> formats[rand.Intn(<span class="built_in">len</span>(formats))]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>编辑<code>hello/hello.go</code>文件，调用随机问候语</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">package main</span><br><span class="line"></span><br><span class="line">import (</span><br><span class="line">  <span class="string">&quot;fmt&quot;</span></span><br><span class="line">  <span class="string">&quot;log&quot;</span></span><br><span class="line">  <span class="string">&quot;example.com/greetings&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">func <span class="function"><span class="title">main</span></span>() &#123;</span><br><span class="line">  // 设置日志的属性</span><br><span class="line">  log.SetPrefix(<span class="string">&quot;greetings: &quot;</span>)</span><br><span class="line">  log.SetFlags(0)</span><br><span class="line"></span><br><span class="line">  message, err := greetings.Hello(<span class="string">&quot;Zerchin&quot;</span>)</span><br><span class="line"></span><br><span class="line">  // 错误处理</span><br><span class="line">  <span class="keyword">if</span> err != nil &#123;</span><br><span class="line">    log.Fatal(err)</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  fmt.Println(message)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>执行代码</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">$ go run .</span><br><span class="line">Hail, Zerchin! Well met!</span><br><span class="line">$ go run .</span><br><span class="line">Great to see youm Zerchin</span><br><span class="line">$ go run .</span><br><span class="line">Hi, Zerchin. Welcome!</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="六、回复多人问候"><a href="#六、回复多人问候" class="headerlink" title="六、回复多人问候"></a>六、回复多人问候</h2><p>这里新增一个函数去调用原有的函数</p>
+<ol>
+<li>编辑<code>greetings/greetings.go</code>文件，新增一个Hellos函数，并去调用Hello函数</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> greetings</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> ( </span><br><span class="line">  <span class="string">&quot;fmt&quot;</span></span><br><span class="line">  <span class="string">&quot;errors&quot;</span></span><br><span class="line">  <span class="string">&quot;math/rand&quot;</span></span><br><span class="line">  <span class="string">&quot;time&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// Hello为指定的人返回问候语</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Hello</span><span class="params">(name <span class="keyword">string</span>)</span> <span class="params">(<span class="keyword">string</span>, error)</span></span> &#123;</span><br><span class="line">  <span class="comment">// 如果没有传递name，则返回错误</span></span><br><span class="line">  <span class="keyword">if</span> name == <span class="string">&quot;&quot;</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="string">&quot;&quot;</span>, errors.New(<span class="string">&quot;empty name&quot;</span>)</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">//使用随机的一组问候语</span></span><br><span class="line">  message := fmt.Sprintf(randomFormat(), name)</span><br><span class="line">  <span class="keyword">return</span> message, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Hellos</span><span class="params">(names []<span class="keyword">string</span>)</span> <span class="params">(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>, error)</span></span> &#123;</span><br><span class="line">  <span class="comment">// 新建map</span></span><br><span class="line">  messages := <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>)</span><br><span class="line">  <span class="comment">// 遍历names，并调用Hello函数</span></span><br><span class="line">  <span class="keyword">for</span> _,name := <span class="keyword">range</span> names &#123;</span><br><span class="line">    message, err := Hello(name)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">    &#125;</span><br><span class="line">    messages[name] = message</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> messages, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 设置初始值</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">init</span><span class="params">()</span></span> &#123;</span><br><span class="line">  rand.Seed(time.Now().UnixNano())</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//随机返回一组问候语</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">randomFormat</span><span class="params">()</span> <span class="title">string</span></span> &#123;</span><br><span class="line">  formats := []<span class="keyword">string</span>&#123;</span><br><span class="line">    <span class="string">&quot;Hi, %v. Welcome!&quot;</span>,</span><br><span class="line">    <span class="string">&quot;Great to see youm %v&quot;</span>,</span><br><span class="line">    <span class="string">&quot;Hail, %v! Well met!&quot;</span>,</span><br><span class="line">  &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">return</span> formats[rand.Intn(<span class="built_in">len</span>(formats))]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>编辑<code>hello/hello.go</code>文件，传递一组names到Hellos函数上</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">  <span class="string">&quot;fmt&quot;</span></span><br><span class="line">  <span class="string">&quot;log&quot;</span></span><br><span class="line">  <span class="string">&quot;example.com/greetings&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">  <span class="comment">// 设置日志的属性</span></span><br><span class="line">  log.SetPrefix(<span class="string">&quot;greetings: &quot;</span>)</span><br><span class="line">  log.SetFlags(<span class="number">0</span>)</span><br><span class="line"></span><br><span class="line">  names := []<span class="keyword">string</span>&#123;<span class="string">&quot;Zerchin&quot;</span>, <span class="string">&quot;Zing&quot;</span>, <span class="string">&quot;xzq&quot;</span>&#125;</span><br><span class="line"></span><br><span class="line">  message, err := greetings.Hellos(names)</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 错误处理</span></span><br><span class="line">  <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">    log.Fatal(err)</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  fmt.Println(message)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>执行代码</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ go run .</span><br><span class="line">map[Zerchin:Hail, Zerchin! Well met! Zing:Hail, Zing! Well met! xzq:Hi, xzq. Welcome!]</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="七、代码单元测试"><a href="#七、代码单元测试" class="headerlink" title="七、代码单元测试"></a>七、代码单元测试</h2><p>Go 的<code>testing</code>包和<code>go test</code>命令，您可以快速编写和执行测试。</p>
+<ol>
+<li>以<code>_test.go</code>结尾的文件名告诉<code>go test</code>命令该文件包含测试函数，所以新建一个<code>greetings_test.go</code>文件，如下：</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> greetings</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">  <span class="string">&quot;testing&quot;</span></span><br><span class="line">  <span class="string">&quot;regexp&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 使用一个name调用greetings.Hello，检查是否返回有效值</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestHelloName</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">  name := <span class="string">&quot;Zerchin&quot;</span></span><br><span class="line">  want := regexp.MustCompile(<span class="string">`\b`</span> + name + <span class="string">`\b`</span> )</span><br><span class="line">  msg, err := Hello(<span class="string">&quot;Zerchin&quot;</span>)</span><br><span class="line">  <span class="keyword">if</span> !want.MatchString(msg) || err != <span class="literal">nil</span> &#123;</span><br><span class="line">    t.Fatalf(<span class="string">`Hello(&quot;Zerchin&quot;) = %q, %v, want match for %#q, nil`</span>, msg, err, want)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 调用greetings.Hello并传递空字符串，看是否返回错误</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestHelloEmpty</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">  msg, err := Hello(<span class="string">&quot;&quot;</span>)</span><br><span class="line">  <span class="keyword">if</span> msg != <span class="string">&quot;&quot;</span> || err == <span class="literal">nil</span> &#123;</span><br><span class="line">    t.Fatalf(<span class="string">`Hello(&quot;&quot;) = %q, %v, want &quot;&quot;, error`</span>, msg, err)</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>执行<code>go test</code>命令进行测试</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">$ go <span class="built_in">test</span></span><br><span class="line">PASS</span><br><span class="line">ok  	example.com/greetings	0.005s</span><br><span class="line"></span><br><span class="line">$ go <span class="built_in">test</span> -v</span><br><span class="line">=== RUN   TestHelloName</span><br><span class="line">--- PASS: TestHelloName (0.00s)</span><br><span class="line">=== RUN   TestHelloEmpty</span><br><span class="line">--- PASS: TestHelloEmpty (0.00s)</span><br><span class="line">PASS</span><br><span class="line">ok  	example.com/greetings	0.007</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>修改<code>greetings.go</code>代码，假设代码有误，如下：</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Hello</span><span class="params">(name <span class="keyword">string</span>)</span> <span class="params">(<span class="keyword">string</span>, error)</span></span> &#123;</span><br><span class="line">  <span class="comment">// 如果没有传递name，则返回错误</span></span><br><span class="line">  <span class="keyword">if</span> name == <span class="string">&quot;&quot;</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="string">&quot;&quot;</span>, errors.New(<span class="string">&quot;empty name&quot;</span>)</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">//使用随机的一组问候语</span></span><br><span class="line">  <span class="comment">//message := fmt.Sprintf(randomFormat(), name)</span></span><br><span class="line">  <span class="comment">// 注释上一行，并新建这一行message，这里不传递name参数</span></span><br><span class="line">  message := fmt.Sprintf(randomFormat())</span><br><span class="line">  <span class="keyword">return</span> message, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li>测试异常的结果</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">$ go <span class="built_in">test</span> </span><br><span class="line">--- FAIL: TestHelloName (0.00s)</span><br><span class="line">    greetings_test.go:14: Hello(<span class="string">&quot;Zerchin&quot;</span>) = <span class="string">&quot;Hi, %!v(MISSING). Welcome!&quot;</span>, &lt;nil&gt;, want match <span class="keyword">for</span> `\bZerchin\b`, nil</span><br><span class="line">FAIL</span><br><span class="line"><span class="built_in">exit</span> status 1</span><br><span class="line">FAIL	example.com/greetings	0.005s</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="八、编译并安装应用程序"><a href="#八、编译并安装应用程序" class="headerlink" title="八、编译并安装应用程序"></a>八、编译并安装应用程序</h2><ul>
+<li><code>go build</code>：编辑包及其依赖项，但不安装</li>
+<li><code>go install</code>：编辑并安装软件包</li>
+</ul>
+<ol>
+<li>进入到hello目录，执行<code>go build</code>命令将代码编译为可执行文件</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">go build</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>验证结果</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ ./hello </span><br><span class="line">map[Zerchin:Hail, Zerchin! Well met! Zing:Great to see youm Zing xzq:Hi, xzq. Welcome!]</span><br></pre></td></tr></table></figure>
+
+<p>此时可执行文件在当前目录下，需要手动执行路径才能执行</p>
+<p>所以，可以通过<code>go install</code>命令将文件安装到go的PATH路径下</p>
+<ol start="3">
+<li>查看Go的安装路径</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ go list -f <span class="string">&#x27;&#123;&#123;.Target&#125;&#125;&#x27;</span></span><br><span class="line">/Users/zerchin/go/bin/hello</span><br></pre></td></tr></table></figure>
+
+<ol start="4">
+<li>添加该路径到PATH路径下</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">export</span> PATH=<span class="variable">$PATH</span>:/Users/zerchin/go/bin/</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>可以通过 <code>go  env -w GOBIN=/path/to/your/bin</code>命令设置环境变量修改安装路径</p>
+</blockquote>
+<ol start="5">
+<li>执行<code>go install</code>命令对代码进行编译和安装</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">go install</span><br></pre></td></tr></table></figure>
+
+<ol start="6">
+<li>测试结果，可以直接执行hello命令</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ hello</span><br><span class="line">map[Zerchin:Great to see youm Zerchin Zing:Great to see youm Zing xzq:Hi, xzq. Welcome!]</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://www.zerchin.com/2021/10/08/golang/Golang%20Getting-started/" title="Golang Getting-started.md">http://www.zerchin.com/2021/10/08/golang/Golang Getting-started/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/golang/" rel="tag"># golang</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2021/08/12/kubernetes/CoreDNS%E4%B8%8D%E6%96%AD%E9%87%8D%E5%90%AF%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/" rel="prev" title="CoreDNS不断重启问题排查">
+                  <i class="fa fa-chevron-left"></i> CoreDNS不断重启问题排查
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2022/06/18/prometheus/Rancher2.6%20Monitoring%20Grafana%E5%AF%B9%E6%8E%A5LDAP/" rel="next" title="Rancher2.6 Monitoring Grafana对接LDAP">
+                  Rancher2.6 Monitoring Grafana对接LDAP <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

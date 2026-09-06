@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.zerchin.com","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="概述分享平时创建虚拟机时使用到的 cloud init。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Harvester VM 自定义 cloud init.md">
+<meta property="og:url" content="http://www.zerchin.com/2023/09/13/harvester/Harvester%20VM%20%E8%87%AA%E5%AE%9A%E4%B9%89%20cloud%20init/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="概述分享平时创建虚拟机时使用到的 cloud init。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-09-13T07:55:43.000Z">
+<meta property="article:modified_time" content="2023-09-13T07:55:43.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="cloud-init">
+<meta property="article:tag" content="harvester">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://www.zerchin.com/2023/09/13/harvester/Harvester%20VM%20%E8%87%AA%E5%AE%9A%E4%B9%89%20cloud%20init/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>Harvester VM 自定义 cloud init.md | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">61</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">35</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">128</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ubuntu-22-04-%E5%88%9D%E5%A7%8B%E5%8C%96%E7%BD%91%E7%BB%9C"><span class="nav-number">2.</span> <span class="nav-text">ubuntu 22.04 初始化网络</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ubuntu-18-04-6-%E5%88%9D%E5%A7%8B%E5%8C%96%E7%BD%91%E7%BB%9C"><span class="nav-number">3.</span> <span class="nav-text">ubuntu 18.04.6 初始化网络</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%AE%BE%E7%BD%AE%E7%94%A8%E6%88%B7"><span class="nav-number">4.</span> <span class="nav-text">设置用户</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89-ssh-%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6"><span class="nav-number">5.</span> <span class="nav-text">自定义 ssh 配置文件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%AE%BE%E7%BD%AE-rke2-%E5%91%BD%E4%BB%A4"><span class="nav-number">6.</span> <span class="nav-text">设置 rke2 命令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%AE%BE%E7%BD%AE%E6%97%B6%E5%8C%BA"><span class="nav-number">7.</span> <span class="nav-text">设置时区</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%89%E8%A3%85%E8%BD%AF%E4%BB%B6%E5%8C%85"><span class="nav-number">8.</span> <span class="nav-text">安装软件包</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%9D%E5%A7%8B%E5%8C%96%E5%91%BD%E4%BB%A4"><span class="nav-number">9.</span> <span class="nav-text">初始化命令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ubuntu-22-04-%E5%AE%89%E8%A3%85-Docker"><span class="nav-number">10.</span> <span class="nav-text">ubuntu 22.04 安装 Docker</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ubuntu-18-04-%E5%AE%89%E8%A3%85-Docker-%E6%9C%AA%E9%AA%8C%E8%AF%81"><span class="nav-number">11.</span> <span class="nav-text">ubuntu 18.04 安装 Docker(未验证)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#user-data-%E5%8F%AF%E9%A3%9F%E7%94%A8%E4%BE%8B%E5%AD%90"><span class="nav-number">12.</span> <span class="nav-text">user-data 可食用例子</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">128</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">61</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.zerchin.com/2023/09/13/harvester/Harvester%20VM%20%E8%87%AA%E5%AE%9A%E4%B9%89%20cloud%20init/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Harvester VM 自定义 cloud init.md
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2023-09-13 15:55:43" itemprop="dateCreated datePublished" datetime="2023-09-13T15:55:43+08:00">2023-09-13</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/harvester/" itemprop="url" rel="index"><span itemprop="name">harvester</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>分享平时创建虚拟机时使用到的 cloud init。</p>
+<p>Harvester 是一款基于 Kubernetes 构建的现代、开放、可互操作的超融合基础设施 (HCI)解决方案。底层使用 KubeVirt 进行虚拟化管理，存储使用 Longhorn 进行分布式块存储管理，并基于 Prometheus + Grafana 提供监控能力。</p>
+<p>Harvester 提供了快速编辑 cloud init 的能力，我们可以基于 cloud init 配置我们的虚拟机。</p>
+<h2 id="ubuntu-22-04-初始化网络"><a href="#ubuntu-22-04-初始化网络" class="headerlink" title="ubuntu 22.04 初始化网络"></a>ubuntu 22.04 初始化网络</h2><p> <strong>sl-micro.x86_64-6.1</strong>测试可用</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">network:</span></span><br><span class="line">  <span class="attr">version:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">config:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">type:</span> <span class="string">physical</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">enp1s0</span></span><br><span class="line">      <span class="attr">subnets:</span></span><br><span class="line">         <span class="bullet">-</span> <span class="attr">type:</span> <span class="string">static</span></span><br><span class="line">           <span class="attr">address:</span> <span class="number">192.168</span><span class="number">.2</span><span class="number">.61</span><span class="string">/24</span></span><br><span class="line">           <span class="attr">gateway:</span> <span class="number">192.168</span><span class="number">.2</span><span class="number">.11</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">type:</span> <span class="string">nameserver</span></span><br><span class="line">      <span class="attr">address:</span> <span class="number">114.114</span><span class="number">.114</span><span class="number">.114</span></span><br></pre></td></tr></table></figure>
+
+<p>或者</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">network:</span></span><br><span class="line">  <span class="attr">version:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">config:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">type:</span> <span class="string">physical</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">enp1s0</span></span><br><span class="line">      <span class="attr">subnets:</span></span><br><span class="line">         <span class="bullet">-</span> <span class="attr">type:</span> <span class="string">static</span></span><br><span class="line">           <span class="attr">address:</span> <span class="number">192.168</span><span class="number">.2</span><span class="number">.61</span><span class="string">/24</span></span><br><span class="line">           <span class="attr">gateway:</span> <span class="number">192.168</span><span class="number">.2</span><span class="number">.11</span></span><br><span class="line">           <span class="attr">dns_nameservers:</span></span><br><span class="line">             <span class="bullet">-</span> <span class="number">114.114</span><span class="number">.114</span><span class="number">.114</span></span><br></pre></td></tr></table></figure>
+
+<p>或者</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">network:</span></span><br><span class="line">  <span class="attr">version:</span> <span class="number">2</span></span><br><span class="line">  <span class="attr">ethernets:</span></span><br><span class="line">    <span class="attr">enp1s0:</span></span><br><span class="line">      <span class="attr">dhcp4:</span> <span class="literal">no</span></span><br><span class="line">      <span class="attr">addresses:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="number">192.168</span><span class="number">.2</span><span class="number">.61</span><span class="string">/24</span></span><br><span class="line">      <span class="attr">gateway4:</span> <span class="number">192.168</span><span class="number">.2</span><span class="number">.11</span></span><br><span class="line">      <span class="attr">nameservers:</span></span><br><span class="line">        <span class="attr">addresses:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="number">114.114</span><span class="number">.114</span><span class="number">.114</span></span><br><span class="line">      <span class="attr">routes:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">to:</span> <span class="number">172.16</span><span class="number">.11</span><span class="number">.0</span><span class="string">/24</span></span><br><span class="line">          <span class="attr">via:</span> <span class="number">192.168</span><span class="number">.2</span><span class="number">.65</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="ubuntu-18-04-6-初始化网络"><a href="#ubuntu-18-04-6-初始化网络" class="headerlink" title="ubuntu 18.04.6 初始化网络"></a>ubuntu 18.04.6 初始化网络</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">network:</span></span><br><span class="line">  <span class="attr">version:</span> <span class="number">2</span></span><br><span class="line">  <span class="attr">renderer:</span> <span class="string">networkd</span></span><br><span class="line">  <span class="attr">ethernets:</span></span><br><span class="line">    <span class="attr">enp1s0:</span></span><br><span class="line">      <span class="attr">dhcp4:</span> <span class="literal">no</span></span><br><span class="line">      <span class="attr">addresses:</span> [<span class="number">192.168</span><span class="number">.2</span><span class="number">.65</span><span class="string">/24</span>]</span><br><span class="line">      <span class="attr">gateway4:</span> <span class="number">192.168</span><span class="number">.2</span><span class="number">.11</span></span><br><span class="line">      <span class="attr">nameservers:</span></span><br><span class="line">         <span class="attr">addresses:</span> [<span class="number">192.168</span><span class="number">.2</span><span class="number">.11</span>]</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h2 id="设置用户"><a href="#设置用户" class="headerlink" title="设置用户"></a>设置用户</h2><p>普通用户</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">users:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ubuntu</span></span><br><span class="line">    <span class="attr">ssh-authorized-keys:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">ssh-rsa</span> <span class="string">AAAAB3NzaC1yc2EAAAABIwAAAQEA7wXSA4kqQ9wCj6Imsr7hgw/N9bhHWmy3H1nV55YAH+GsRq+uyy2mxxWUeshsVfGXe+1lW7bDECusyt8YBy/AuuyP8wPTWgWT6Sgm9yk40sAd3t9xHamTkWo/XIL9SDY3gX/H7b1AFDXaPX9zN+DH+3CLqGUJTbYPjCe/hPYhy/cciJxK9G1JNjkmXX9PHSCpMOhb85dyZWKKXVtvmO26KAZRSZJ5NI5wsDj9Cq7A9Yv1PFN0cqpYwQk7Ig9KKjb62ZkGt99902+l33t77oqGmNHlOJlGZ+zNBC27jcpdbMmIIC6V7gejf8+pN7lcxvnMj5I6O5pPRRHKo8rMppmniw==</span> <span class="string">user@host</span></span><br><span class="line">    <span class="attr">sudo:</span> [ <span class="string">&#x27;ALL=(ALL) NOPASSWD:ALL&#x27;</span> ]</span><br><span class="line">    <span class="attr">shell:</span> <span class="string">/bin/bash</span></span><br><span class="line">    <span class="attr">passwd:</span> <span class="string">$6$3d1feAL5sj./DceN$V687qgzPvWJDKECKhV0DrfCV8Rkt2.4mBmyORyXjNBlEHXdyLbRH9Oh0DPtbwdUphX6ZLVKmJ9fO6eMw0Elf40</span></span><br><span class="line">    <span class="attr">lock_passwd:</span> <span class="literal">false</span></span><br><span class="line"><span class="attr">ssh_pwauth:</span> <span class="literal">True</span></span><br></pre></td></tr></table></figure>
+
+<p>密码生成命令如下：（每次生成都不一样）</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">openssl passwd -6 &lt;密码&gt;</span><br></pre></td></tr></table></figure>
+
+<p>root 用户无法用上面这种方法设置，需要通过这种方法设置密码：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">chpasswd:</span></span><br><span class="line">  <span class="attr">list:</span> <span class="string">|</span></span><br><span class="line">    <span class="string">root:123456</span></span><br><span class="line">  <span class="attr">expire:</span> <span class="literal">False</span></span><br><span class="line"><span class="attr">ssh_pwauth:</span> <span class="literal">True</span></span><br><span class="line"><span class="attr">disable_root:</span> <span class="literal">False</span> <span class="comment">## 实测没加这个也可以</span></span><br></pre></td></tr></table></figure>
+
+<p>但是这种方式会导致 root 用户密码被明文显示，还是建议设置一个 Ubuntu 用户然后通过<code>sudo -i</code>进入到 root 用户。</p>
+<h2 id="自定义-ssh-配置文件"><a href="#自定义-ssh-配置文件" class="headerlink" title="自定义 ssh 配置文件"></a>自定义 ssh 配置文件</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">write_files:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">path:</span> <span class="string">/etc/ssh/sshd_config.d/99-cloud-init-ssh.conf</span></span><br><span class="line">    <span class="attr">content:</span> <span class="string">|</span></span><br><span class="line">      <span class="comment"># Custom SSH settings from cloud-init</span></span><br><span class="line">      <span class="string">PubkeyAcceptedAlgorithms</span> <span class="string">+ssh-rsa</span></span><br><span class="line">      <span class="string">PasswordAuthentication</span> <span class="literal">yes</span></span><br><span class="line">      <span class="string">PermitRootLogin</span> <span class="literal">yes</span></span><br><span class="line">      <span class="string">UseDNS</span> <span class="literal">no</span></span><br><span class="line">      <span class="string">GSSAPIAuthentication</span> <span class="literal">no</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>踩坑：</strong></p>
+<p>设置了 ssh-authorized-keys ，但是无法通过 RSA 密钥连接到Ubuntu22.04 ，原因是在SSH协议中，ssh-rsa签名算法是SHA-1的哈希算法和RSA公钥算法的结合使用。由于目前SHA-1的哈希算法容易受到攻击，OpenSSH从8.7以后版本开始默认不支持ssh-rsa签名方案。</p>
+<p><strong>解决方法：</strong></p>
+<p>Ubuntu 22.04 操作系统：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">echo &#x27;PubkeyAcceptedAlgorithms=+ssh-rsa&#x27; &gt;&gt; /etc/ssh/sshd_config</span><br></pre></td></tr></table></figure>
+
+<p>CentOS Stream 9 系列的操作系统：（未验证，请参考此<a target="_blank" rel="noopener" href="https://help.aliyun.com/zh/ecs/user-guide/resolve-an-rsa-key-based-connection-failure-to-an-instance#section-9rc-1tg-se5">文档</a>）</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">update-crypto-policies --<span class="built_in">set</span> LEGACY</span><br><span class="line">update-crypto-policies --show</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="设置-rke2-命令"><a href="#设置-rke2-命令" class="headerlink" title="设置 rke2 命令"></a>设置 rke2 命令</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">- path: /etc/profile</span><br><span class="line">  content: |</span><br><span class="line">    <span class="built_in">export</span> PATH=<span class="variable">$PATH</span>:/var/lib/rancher/rke2/bin</span><br><span class="line">    <span class="built_in">export</span> KUBECONFIG=/etc/rancher/rke2/rke2.yaml </span><br><span class="line">    <span class="built_in">export</span> CONTAINERD_ADDRESS=/run/k3s/containerd/containerd.sock</span><br><span class="line">    <span class="built_in">source</span> &lt;(kubectl completion bash)</span><br><span class="line">    <span class="built_in">source</span> &lt;(helm completion bash)</span><br><span class="line">  append: <span class="literal">true</span></span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h2 id="设置时区"><a href="#设置时区" class="headerlink" title="设置时区"></a>设置时区</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">timezone:</span> <span class="string">Asia/Shanghai</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="安装软件包"><a href="#安装软件包" class="headerlink" title="安装软件包"></a>安装软件包</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">packages:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">qemu-guest-agent</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="初始化命令"><a href="#初始化命令" class="headerlink" title="初始化命令"></a>初始化命令</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">runcmd:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">systemctl</span> <span class="string">enable</span> <span class="string">--now</span> <span class="string">qemu-guest-agent.service</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">systemctl</span> <span class="string">restart</span> <span class="string">sshd</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">systemctl</span> <span class="string">disable</span> <span class="string">systemd-resolved.service</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">systemctl</span> <span class="string">stop</span> <span class="string">systemd-resolved.service</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">rm</span> <span class="string">-f</span> <span class="string">/etc/resolv.conf</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">nameserver</span> <span class="number">114.114</span><span class="number">.114</span><span class="number">.114</span> <span class="string">&gt;</span> <span class="string">/etc/resolv.conf</span></span><br></pre></td></tr></table></figure>
+
+<p>还有一个叫做 <code>bootcmd</code>，这个是在初始化过程早期执行，并且在每次引导时默认运行。</p>
+<p>而 <code>runcmd</code> 则进程末尾附近执行，且仅在第一次引导和初始化时执行。</p>
+<h2 id="ubuntu-22-04-安装-Docker"><a href="#ubuntu-22-04-安装-Docker" class="headerlink" title="ubuntu 22.04 安装 Docker"></a>ubuntu 22.04 安装 Docker</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apt:</span></span><br><span class="line">  <span class="attr">sources:</span></span><br><span class="line">    <span class="attr">source1:</span></span><br><span class="line">      <span class="attr">keyid:</span> <span class="string">&quot;9DC8 5822 9FC7 DD38 854A  E2D8 8D81 803C 0EBF CD88&quot;</span></span><br><span class="line">      <span class="attr">keyserver:</span> <span class="string">https://download.docker.com/linux/ubuntu/gpg</span></span><br><span class="line">      <span class="attr">source:</span> <span class="string">deb</span> [<span class="string">arch=amd64</span>] <span class="string">https://download.docker.com/linux/ubuntu</span> <span class="string">jammy</span> <span class="string">stable</span></span><br><span class="line"><span class="attr">package_update:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">packages:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">qemu-guest-agent</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">docker-ce=5:20.10.24~3-0~ubuntu-jammy</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">docker-ce-cli=5:20.10.24~3-0~ubuntu-jammy</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">containerd.io</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">docker-compose</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">docker-buildx-plugin</span></span><br></pre></td></tr></table></figure>
+
+<p>注意这里需要有 <strong>keyid</strong>，keyid 可以在已经安装了 docker 的主机上通过 <code>apt-key list</code> 命令查询。</p>
+<p>这里指定了 Docker 版本，可以通过<code>apt-cache madison docker-ce</code> 命令查询。</p>
+<p>如果查询不到 keyid，可以将 keyserver 的值查询出来，然后写作下面这种形式：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apt:</span></span><br><span class="line">  <span class="attr">sources:</span></span><br><span class="line">    <span class="attr">source1:</span></span><br><span class="line">      <span class="attr">source:</span> <span class="string">deb</span> [<span class="string">arch=amd64</span>] <span class="string">https://download.docker.com/linux/ubuntu</span> <span class="string">jammy</span> <span class="string">stable</span></span><br><span class="line">      <span class="attr">key:</span> <span class="string">|</span></span><br><span class="line">        <span class="string">-----BEGIN</span> <span class="string">PGP</span> <span class="string">PUBLIC</span> <span class="string">KEY</span> <span class="string">BLOCK-----</span></span><br><span class="line"></span><br><span class="line">        <span class="string">mQINBFit2ioBEADhWpZ8/wvZ6hUTiXOwQHXMAlaFHcPH9hAtr4F1y2+OYdbtMuth</span></span><br><span class="line">        <span class="string">lqqwp028AqyY+PRfVMtSYMbjuQuu5byyKR01BbqYhuS3jtqQmljZ/bJvXqnmiVXh</span></span><br><span class="line">        <span class="string">38UuLa+z077PxyxQhu5BbqntTPQMfiyqEiU+BKbq2WmANUKQf+1AmZY/IruOXbnq</span></span><br><span class="line">        <span class="string">L4C1+gJ8vfmXQt99npCaxEjaNRVYfOS8QcixNzHUYnb6emjlANyEVlZzeqo7XKl7</span></span><br><span class="line">        <span class="string">UrwV5inawTSzWNvtjEjj4nJL8NsLwscpLPQUhTQ+7BbQXAwAmeHCUTQIvvWXqw0N</span></span><br><span class="line">        <span class="string">cmhh4HgeQscQHYgOJjjDVfoY5MucvglbIgCqfzAHW9jxmRL4qbMZj+b1XoePEtht</span></span><br><span class="line">        <span class="string">ku4bIQN1X5P07fNWzlgaRL5Z4POXDDZTlIQ/El58j9kp4bnWRCJW0lya+f8ocodo</span></span><br><span class="line">        <span class="string">vZZ+Doi+fy4D5ZGrL4XEcIQP/Lv5uFyf+kQtl/94VFYVJOleAv8W92KdgDkhTcTD</span></span><br><span class="line">        <span class="string">G7c0tIkVEKNUq48b3aQ64NOZQW7fVjfoKwEZdOqPE72Pa45jrZzvUFxSpdiNk2tZ</span></span><br><span class="line">        <span class="string">XYukHjlxxEgBdC/J3cMMNRE1F4NCA3ApfV1Y7/hTeOnmDuDYwr9/obA8t016Yljj</span></span><br><span class="line">        <span class="string">q5rdkywPf4JF8mXUW5eCN1vAFHxeg9ZWemhBtQmGxXnw9M+z6hWwc6ahmwARAQAB</span></span><br><span class="line">        <span class="string">tCtEb2NrZXIgUmVsZWFzZSAoQ0UgZGViKSA8ZG9ja2VyQGRvY2tlci5jb20+iQI3</span></span><br><span class="line">        <span class="string">BBMBCgAhBQJYrefAAhsvBQsJCAcDBRUKCQgLBRYCAwEAAh4BAheAAAoJEI2BgDwO</span></span><br><span class="line">        <span class="string">v82IsskP/iQZo68flDQmNvn8X5XTd6RRaUH33kXYXquT6NkHJciS7E2gTJmqvMqd</span></span><br><span class="line">        <span class="string">tI4mNYHCSEYxI5qrcYV5YqX9P6+Ko+vozo4nseUQLPH/ATQ4qL0Zok+1jkag3Lgk</span></span><br><span class="line">        <span class="string">jonyUf9bwtWxFp05HC3GMHPhhcUSexCxQLQvnFWXD2sWLKivHp2fT8QbRGeZ+d3m</span></span><br><span class="line">        <span class="string">6fqcd5Fu7pxsqm0EUDK5NL+nPIgYhN+auTrhgzhK1CShfGccM/wfRlei9Utz6p9P</span></span><br><span class="line">        <span class="string">XRKIlWnXtT4qNGZNTN0tR+NLG/6Bqd8OYBaFAUcue/w1VW6JQ2VGYZHnZu9S8LMc</span></span><br><span class="line">        <span class="string">FYBa5Ig9PxwGQOgq6RDKDbV+PqTQT5EFMeR1mrjckk4DQJjbxeMZbiNMG5kGECA8</span></span><br><span class="line">        <span class="string">g383P3elhn03WGbEEa4MNc3Z4+7c236QI3xWJfNPdUbXRaAwhy/6rTSFbzwKB0Jm</span></span><br><span class="line">        <span class="string">ebwzQfwjQY6f55MiI/RqDCyuPj3r3jyVRkK86pQKBAJwFHyqj9KaKXMZjfVnowLh</span></span><br><span class="line">        <span class="string">9svIGfNbGHpucATqREvUHuQbNnqkCx8VVhtYkhDb9fEP2xBu5VvHbR+3nfVhMut5</span></span><br><span class="line">        <span class="string">G34Ct5RS7Jt6LIfFdtcn8CaSas/l1HbiGeRgc70X/9aYx/V/CEJv0lIe8gP6uDoW</span></span><br><span class="line">        <span class="string">FPIZ7d6vH+Vro6xuWEGiuMaiznap2KhZmpkgfupyFmplh0s6knymuQINBFit2ioB</span></span><br><span class="line">        <span class="string">EADneL9S9m4vhU3blaRjVUUyJ7b/qTjcSylvCH5XUE6R2k+ckEZjfAMZPLpO+/tF</span></span><br><span class="line">        <span class="string">M2JIJMD4SifKuS3xck9KtZGCufGmcwiLQRzeHF7vJUKrLD5RTkNi23ydvWZgPjtx</span></span><br><span class="line">        <span class="string">Q+DTT1Zcn7BrQFY6FgnRoUVIxwtdw1bMY/89rsFgS5wwuMESd3Q2RYgb7EOFOpnu</span></span><br><span class="line">        <span class="string">w6da7WakWf4IhnF5nsNYGDVaIHzpiqCl+uTbf1epCjrOlIzkZ3Z3Yk5CM/TiFzPk</span></span><br><span class="line">        <span class="string">z2lLz89cpD8U+NtCsfagWWfjd2U3jDapgH+7nQnCEWpROtzaKHG6lA3pXdix5zG8</span></span><br><span class="line">        <span class="string">eRc6/0IbUSWvfjKxLLPfNeCS2pCL3IeEI5nothEEYdQH6szpLog79xB9dVnJyKJb</span></span><br><span class="line">        <span class="string">VfxXnseoYqVrRz2VVbUI5Blwm6B40E3eGVfUQWiux54DspyVMMk41Mx7QJ3iynIa</span></span><br><span class="line">        <span class="string">1N4ZAqVMAEruyXTRTxc9XW0tYhDMA/1GYvz0EmFpm8LzTHA6sFVtPm/ZlNCX6P1X</span></span><br><span class="line">        <span class="string">zJwrv7DSQKD6GGlBQUX+OeEJ8tTkkf8QTJSPUdh8P8YxDFS5EOGAvhhpMBYD42kQ</span></span><br><span class="line">        <span class="string">pqXjEC+XcycTvGI7impgv9PDY1RCC1zkBjKPa120rNhv/hkVk/YhuGoajoHyy4h7</span></span><br><span class="line">        <span class="string">ZQopdcMtpN2dgmhEegny9JCSwxfQmQ0zK0g7m6SHiKMwjwARAQABiQQ+BBgBCAAJ</span></span><br><span class="line">        <span class="string">BQJYrdoqAhsCAikJEI2BgDwOv82IwV0gBBkBCAAGBQJYrdoqAAoJEH6gqcPyc/zY</span></span><br><span class="line">        <span class="string">1WAP/2wJ+R0gE6qsce3rjaIz58PJmc8goKrir5hnElWhPgbq7cYIsW5qiFyLhkdp</span></span><br><span class="line">        <span class="string">YcMmhD9mRiPpQn6Ya2w3e3B8zfIVKipbMBnke/ytZ9M7qHmDCcjoiSmwEXN3wKYI</span></span><br><span class="line">        <span class="string">mD9VHONsl/CG1rU9Isw1jtB5g1YxuBA7M/m36XN6x2u+NtNMDB9P56yc4gfsZVES</span></span><br><span class="line">        <span class="string">KA9v+yY2/l45L8d/WUkUi0YXomn6hyBGI7JrBLq0CX37GEYP6O9rrKipfz73XfO7</span></span><br><span class="line">        <span class="string">JIGzOKZlljb/D9RX/g7nRbCn+3EtH7xnk+TK/50euEKw8SMUg147sJTcpQmv6UzZ</span></span><br><span class="line">        <span class="string">cM4JgL0HbHVCojV4C/plELwMddALOFeYQzTif6sMRPf+3DSj8frbInjChC3yOLy0</span></span><br><span class="line">        <span class="string">6br92KFom17EIj2CAcoeq7UPhi2oouYBwPxh5ytdehJkoo+sN7RIWua6P2WSmon5</span></span><br><span class="line">        <span class="string">U888cSylXC0+ADFdgLX9K2zrDVYUG1vo8CX0vzxFBaHwN6Px26fhIT1/hYUHQR1z</span></span><br><span class="line">        <span class="string">VfNDcyQmXqkOnZvvoMfz/Q0s9BhFJ/zU6AgQbIZE/hm1spsfgvtsD1frZfygXJ9f</span></span><br><span class="line">        <span class="string">irP+MSAI80xHSf91qSRZOj4Pl3ZJNbq4yYxv0b1pkMqeGdjdCYhLU+LZ4wbQmpCk</span></span><br><span class="line">        <span class="string">SVe2prlLureigXtmZfkqevRz7FrIZiu9ky8wnCAPwC7/zmS18rgP/17bOtL4/iIz</span></span><br><span class="line">        <span class="string">QhxAAoAMWVrGyJivSkjhSGx1uCojsWfsTAm11P7jsruIL61ZzMUVE2aM3Pmj5G+W</span></span><br><span class="line">        <span class="string">9AcZ58Em+1WsVnAXdUR//bMmhyr8wL/G1YO1V3JEJTRdxsSxdYa4deGBBY/Adpsw</span></span><br><span class="line">        <span class="string">24jxhOJR+lsJpqIUeb999+R8euDhRHG9eFO7DRu6weatUJ6suupoDTRWtr/4yGqe</span></span><br><span class="line">        <span class="string">dKxV3qQhNLSnaAzqW/1nA3iUB4k7kCaKZxhdhDbClf9P37qaRW467BLCVO/coL3y</span></span><br><span class="line">        <span class="string">Vm50dwdrNtKpMBh3ZpbB1uJvgi9mXtyBOMJ3v8RZeDzFiG8HdCtg9RvIt/AIFoHR</span></span><br><span class="line">        <span class="string">H3S+U79NT6i0KPzLImDfs8T7RlpyuMc4Ufs8ggyg9v3Ae6cN3eQyxcK3w0cbBwsh</span></span><br><span class="line">        <span class="string">/nQNfsA6uu+9H7NhbehBMhYnpNZyrHzCmzyXkauwRAqoCbGCNykTRwsur9gS41TQ</span></span><br><span class="line">        <span class="string">M8ssD1jFheOJf3hODnkKU+HKjvMROl1DK7zdmLdNzA1cvtZH/nCC9KPj1z8QC47S</span></span><br><span class="line">        <span class="string">xx+dTZSx4ONAhwbS/LN3PoKtn8LPjY9NP9uDWI+TWYquS2U+KHDrBDlsgozDbs/O</span></span><br><span class="line">        <span class="string">jCxcpDzNmXpWQHEtHU7649OXHP7UeNST1mCUCH5qdank0V1iejF6/CfTFU4MfcrG</span></span><br><span class="line">        <span class="string">YT90qFF93M3v01BbxP+EIY2/9tiIPbrd</span></span><br><span class="line">        <span class="string">=0YYh</span></span><br><span class="line">        <span class="string">-----END</span> <span class="string">PGP</span> <span class="string">PUBLIC</span> <span class="string">KEY</span> <span class="string">BLOCK-----</span></span><br><span class="line"><span class="attr">package_update:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">packages:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">qemu-guest-agent</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">docker-ce=5:20.10.24~3-0~ubuntu-jammy</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="ubuntu-18-04-安装-Docker-未验证"><a href="#ubuntu-18-04-安装-Docker-未验证" class="headerlink" title="ubuntu 18.04 安装 Docker(未验证)"></a>ubuntu 18.04 安装 Docker(未验证)</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apt:</span></span><br><span class="line">  <span class="attr">sources:</span></span><br><span class="line">    <span class="attr">source1:</span></span><br><span class="line">      <span class="attr">keyid:</span> <span class="string">&quot;9DC8 5822 9FC7 DD38 854A  E2D8 8D81 803C 0EBF CD88&quot;</span></span><br><span class="line">      <span class="attr">keyserver:</span> <span class="string">https://download.docker.com/linux/ubuntu/gpg</span></span><br><span class="line">      <span class="attr">source:</span> <span class="string">deb</span> [<span class="string">arch=amd64</span>] <span class="string">https://download.docker.com/linux/ubuntu</span> <span class="string">jammy</span> <span class="string">stable</span></span><br><span class="line"><span class="attr">package_update:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">packages:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">qemu-guest-agent</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">docker-ce=5:20.10.24~3-0~ubuntu-bionic</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">docker-ce-cli=5:20.10.24~3-0~ubuntu-bionic</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">containerd.io=1.4.10-1</span></span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h2 id="user-data-可食用例子"><a href="#user-data-可食用例子" class="headerlink" title="user-data 可食用例子"></a>user-data 可食用例子</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#cloud-config</span></span><br><span class="line"><span class="attr">users:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ubuntu</span></span><br><span class="line">    <span class="attr">ssh-authorized-keys:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">ssh-rsa</span></span><br><span class="line">        <span class="string">AAAAB3NzaC1yc2EAAAABIwAAAQEA7wXSA4kqQ9wCj6Imsr7hgw/N9bhHWmy3H1nV55YAH+GsRq+uyy2mxxWUeshsVfGXe+1lW7bDECusyt8YBy/AuuyP8wPTWgWT6Sgm9yk40sAd3t9xHamTkWo/XIL9SDY3gX/H7b1AFDXaPX9zN+DH+3CLqGUJTbYPjCe/hPYhy/cciJxK9G1JNjkmXX9PHSCpMOhb85dyZWKKXVtvmO26KAZRSZJ5NI5wsDj9Cq7A9Yv1PFN0cqpYwQk7Ig9KKjb62ZkGt99902+l33t77oqGmNHlOJlGZ+zNBC27jcpdbMmIIC6V7gejf8+pN7lcxvnMj5I6O5pPRRHKo8rMppmniw==</span></span><br><span class="line">        <span class="string">user@host</span></span><br><span class="line">    <span class="attr">sudo:</span> [ <span class="string">&#x27;ALL=(ALL) NOPASSWD:ALL&#x27;</span> ]</span><br><span class="line">    <span class="attr">shell:</span> <span class="string">/bin/bash</span></span><br><span class="line">    <span class="attr">passwd:</span> <span class="string">$6$3d1feAL5sj./DceN$V687qgzPvWJDKECKhV0DrfCV8Rkt2.4mBmyORyXjNBlEHXdyLbRH9Oh0DPtbwdUphX6ZLVKmJ9fO6eMw0Elf40</span></span><br><span class="line">    <span class="attr">lock_passwd:</span> <span class="literal">false</span></span><br><span class="line"><span class="attr">ssh_pwauth:</span> <span class="literal">True</span></span><br><span class="line"><span class="attr">write_files:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">path:</span> <span class="string">/etc/ssh/sshd_config.d/99-cloud-init-ssh.conf</span></span><br><span class="line">    <span class="attr">content:</span> <span class="string">|</span></span><br><span class="line">      <span class="comment"># Custom SSH settings from cloud-init</span></span><br><span class="line">      <span class="string">PubkeyAcceptedAlgorithms</span> <span class="string">+ssh-rsa</span></span><br><span class="line">      <span class="string">PasswordAuthentication</span> <span class="literal">yes</span></span><br><span class="line">      <span class="string">PermitRootLogin</span> <span class="literal">yes</span></span><br><span class="line">      <span class="string">UseDNS</span> <span class="literal">no</span></span><br><span class="line">      <span class="string">GSSAPIAuthentication</span> <span class="literal">no</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">path:</span> <span class="string">/etc/profile</span></span><br><span class="line">    <span class="attr">content:</span> <span class="string">|</span></span><br><span class="line">      <span class="string">export</span> <span class="string">PATH=$PATH:/var/lib/rancher/rke2/bin</span></span><br><span class="line">      <span class="string">export</span> <span class="string">KUBECONFIG=/etc/rancher/rke2/rke2.yaml</span> </span><br><span class="line">      <span class="string">export</span> <span class="string">CONTAINERD_ADDRESS=/run/k3s/containerd/containerd.sock</span></span><br><span class="line">      <span class="string">source</span> <span class="string">&lt;(kubectl</span> <span class="string">completion</span> <span class="string">bash)</span></span><br><span class="line">      <span class="string">source</span> <span class="string">&lt;(helm</span> <span class="string">completion</span> <span class="string">bash)</span></span><br><span class="line">    <span class="attr">append:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">timezone:</span> <span class="string">Asia/Shanghai</span></span><br><span class="line"><span class="attr">package_update:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">packages:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">qemu-guest-agent</span></span><br><span class="line"><span class="attr">runcmd:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">systemctl</span> <span class="string">disable</span> <span class="string">systemd-resolved.service</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">systemctl</span> <span class="string">stop</span> <span class="string">systemd-resolved.service</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">rm</span> <span class="string">-f</span> <span class="string">/etc/resolv.conf</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">echo</span> <span class="string">nameserver</span> <span class="number">114.114</span><span class="number">.114</span><span class="number">.114</span> <span class="string">&gt;</span> <span class="string">/etc/resolv.conf</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">systemctl</span> <span class="string">enable</span> <span class="string">--now</span> <span class="string">qemu-guest-agent.service</span></span><br><span class="line">  <span class="bullet">-</span> <span class="string">systemctl</span> <span class="string">restart</span> <span class="string">sshd</span></span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<p><strong>参考连接：</strong></p>
+<p><a target="_blank" rel="noopener" href="https://cloudinit.readthedocs.io/en/latest/reference/modules.html#ssh">https://cloudinit.readthedocs.io/en/latest/reference/modules.html#ssh</a></p>
+<p><a target="_blank" rel="noopener" href="https://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/8/html/configuring_and_managing_cloud-init_for_rhel_8/setting-up-a-static-networking-configuration-with-cloud-init_configuring-cloud-init">https://docs.redhat.com/zh_hans/documentation/red_hat_enterprise_linux/8/html/configuring_and_managing_cloud-init_for_rhel_8/setting-up-a-static-networking-configuration-with-cloud-init_configuring-cloud-init</a></p>
+<p><a target="_blank" rel="noopener" href="https://cloudinit.readthedocs.io/en/latest/reference/yaml_examples/apt.html">https://cloudinit.readthedocs.io/en/latest/reference/yaml_examples/apt.html</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://www.zerchin.com/2023/09/13/harvester/Harvester%20VM%20%E8%87%AA%E5%AE%9A%E4%B9%89%20cloud%20init/" title="Harvester VM 自定义 cloud init.md">http://www.zerchin.com/2023/09/13/harvester/Harvester VM 自定义 cloud init/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/cloud-init/" rel="tag"># cloud-init</a>
+              <a href="/tags/harvester/" rel="tag"># harvester</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2023/07/11/rke2/RKE2%20%E7%A6%BB%E7%BA%BF%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/" rel="prev" title="RKE2 离线安装教程">
+                  <i class="fa fa-chevron-left"></i> RKE2 离线安装教程
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2023/11/06/prometheus/prometheus-adapter%20%E6%B7%BB%E5%8A%A0%E8%87%AA%E5%AE%9A%E4%B9%89%E6%8C%87%E6%A0%87/" rel="next" title="prometheus-adapter 添加自定义指标">
+                  prometheus-adapter 添加自定义指标 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

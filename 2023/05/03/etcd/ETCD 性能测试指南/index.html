@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.zerchin.com","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="概述Kubernetes 使用 etcd 作为集群后端的数据存储。其中 etcd 是的分布式键值存储系统，它提供了一种强一致性的 Raft 算法来存储集群需要访问的数据。etcd 集群的性能很大程度上取决于其存储的性能，快速的磁盘是 etcd 性能和稳定性的最关键因素，磁盘速度慢会增加 etcd 请求延迟，最终会导致整个 k8s 集群受到影响。对于生产环境中，我们强烈建议 etcd 使用高性能的">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ETCD 性能测试指南">
+<meta property="og:url" content="http://www.zerchin.com/2023/05/03/etcd/ETCD%20%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95%E6%8C%87%E5%8D%97/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="概述Kubernetes 使用 etcd 作为集群后端的数据存储。其中 etcd 是的分布式键值存储系统，它提供了一种强一致性的 Raft 算法来存储集群需要访问的数据。etcd 集群的性能很大程度上取决于其存储的性能，快速的磁盘是 etcd 性能和稳定性的最关键因素，磁盘速度慢会增加 etcd 请求延迟，最终会导致整个 k8s 集群受到影响。对于生产环境中，我们强烈建议 etcd 使用高性能的">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-05-03T11:15:23.000Z">
+<meta property="article:modified_time" content="2023-05-03T11:15:23.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="kubernetes">
+<meta property="article:tag" content="etcd">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://www.zerchin.com/2023/05/03/etcd/ETCD%20%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95%E6%8C%87%E5%8D%97/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>ETCD 性能测试指南 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">61</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">35</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">128</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%88%E5%86%B3%E6%9D%A1%E4%BB%B6"><span class="nav-number">2.</span> <span class="nav-text">先决条件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95"><span class="nav-number">3.</span> <span class="nav-text">性能测试</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%B6%E4%BB%96%E5%BB%BA%E8%AE%AE"><span class="nav-number">4.</span> <span class="nav-text">其他建议</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">128</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">61</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.zerchin.com/2023/05/03/etcd/ETCD%20%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95%E6%8C%87%E5%8D%97/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          ETCD 性能测试指南
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2023-05-03 19:15:23" itemprop="dateCreated datePublished" datetime="2023-05-03T19:15:23+08:00">2023-05-03</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/etcd/" itemprop="url" rel="index"><span itemprop="name">etcd</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>Kubernetes 使用 etcd 作为集群后端的数据存储。其中 etcd 是的分布式键值存储系统，它提供了一种强一致性的 Raft 算法来存储集群需要访问的数据。etcd 集群的性能很大程度上取决于其存储的性能，快速的磁盘是 etcd 性能和稳定性的最关键因素，磁盘速度慢会增加 etcd 请求延迟，最终会导致整个 k8s 集群受到影响。对于生产环境中，我们强烈建议 etcd 使用高性能的 SSD 磁盘（ ＞500 的顺序 IOPS）为集群提供后端存储支持。</p>
+<p>要判断磁盘速度是否足以满足 etcd 的要求，我们可以使用 fio 来对磁盘进行性能测试。</p>
+<h2 id="先决条件"><a href="#先决条件" class="headerlink" title="先决条件"></a>先决条件</h2><p>安装 <a target="_blank" rel="noopener" href="https://github.com/axboe/fio?tab=readme-ov-file#binary-packages">fio</a> （≥ 3.5）工具。</p>
+<h2 id="性能测试"><a href="#性能测试" class="headerlink" title="性能测试"></a>性能测试</h2><p>使用 <code>fio</code> 命令进行测试。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">fio --rw=write --ioengine=sync --fdatasync=1 --directory=test-data --size=100m --bs=2300 --name=mytest</span><br></pre></td></tr></table></figure>
+
+<p>这是我在本地服务器测试的结果，使用的磁盘是 NVME 的 SSD。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line">mytest: (g=0): rw=write, bs=(R) 2300B-2300B, (W) 2300B-2300B, (T) 2300B-2300B, ioengine=sync, iodepth=1</span><br><span class="line">fio-3.28</span><br><span class="line">Starting 1 process</span><br><span class="line">Jobs: 1 (f=1): [W(1)][100.0%][w=2054KiB/s][w=914 IOPS][eta 00m:00s]</span><br><span class="line">mytest: (groupid=0, <span class="built_in">jobs</span>=1): err= 0: pid=120887: Mon Jun 23 23:49:44 2025</span><br><span class="line">  write: IOPS=909, BW=2043KiB/s (2092kB/s)(100.0MiB/50122msec); 0 zone resets</span><br><span class="line">    clat (usec): min=2, max=8967, avg=354.58, stdev=336.18</span><br><span class="line">     lat (usec): min=3, max=8967, avg=354.86, stdev=336.19</span><br><span class="line">    clat percentiles (usec):</span><br><span class="line">     |  1.00th=[    5],  5.00th=[    5], 10.00th=[    6], 20.00th=[    6],</span><br><span class="line">     | 30.00th=[    9], 40.00th=[   13], 50.00th=[  506], 60.00th=[  553],</span><br><span class="line">     | 70.00th=[  594], 80.00th=[  635], 90.00th=[  701], 95.00th=[  758],</span><br><span class="line">     | 99.00th=[  971], 99.50th=[ 1139], 99.90th=[ 1991], 99.95th=[ 2343],</span><br><span class="line">     | 99.99th=[ 7373]</span><br><span class="line">   bw (  KiB/s): min= 1118, max= 2609, per=100.00%, avg=2043.62, stdev=279.82, samples=100</span><br><span class="line">   iops        : min=  498, max= 1162, avg=910.08, stdev=124.56, samples=100</span><br><span class="line">  lat (usec)   : 4=0.64%, 10=36.38%, 20=5.44%, 50=1.22%, 100=0.06%</span><br><span class="line">  lat (usec)   : 250=0.07%, 500=5.55%, 750=45.01%, 1000=4.75%</span><br><span class="line">  lat (msec)   : 2=0.78%, 4=0.08%, 10=0.02%</span><br><span class="line">  fsync/fdatasync/sync_file_range:</span><br><span class="line">    sync (usec): min=285, max=74171, avg=740.77, stdev=3375.04</span><br><span class="line">    sync percentiles (usec):</span><br><span class="line">     |  1.00th=[  388],  5.00th=[  424], 10.00th=[  449], 20.00th=[  482],</span><br><span class="line">     | 30.00th=[  506], 40.00th=[  529], 50.00th=[  553], 60.00th=[  578],</span><br><span class="line">     | 70.00th=[  611], 80.00th=[  644], 90.00th=[  717], 95.00th=[  799],</span><br><span class="line">     | 99.00th=[ 1205], 99.50th=[ 1893], 99.90th=[71828], 99.95th=[71828],</span><br><span class="line">     | 99.99th=[71828]</span><br><span class="line">  cpu          : usr=0.98%, sys=5.16%, ctx=160060, majf=1, minf=16</span><br><span class="line">  IO depths    : 1=200.0%, 2=0.0%, 4=0.0%, 8=0.0%, 16=0.0%, 32=0.0%, &gt;=64=0.0%</span><br><span class="line">     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, &gt;=64=0.0%</span><br><span class="line">     complete  : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, &gt;=64=0.0%</span><br><span class="line">     issued rwts: total=0,45590,0,0 short=45590,0,0,0 dropped=0,0,0,0</span><br><span class="line">     latency   : target=0, window=0, percentile=100.00%, depth=1</span><br><span class="line"></span><br><span class="line">Run status group 0 (all <span class="built_in">jobs</span>):</span><br><span class="line">  WRITE: bw=2043KiB/s (2092kB/s), 2043KiB/s-2043KiB/s (2092kB/s-2092kB/s), io=100.0MiB (105MB), run=50122-50122msec</span><br><span class="line"></span><br><span class="line">Disk stats (<span class="built_in">read</span>/write):</span><br><span class="line">  vda: ios=25460/92028, merge=30/922, ticks=15353/35986, in_queue=54818, util=98.95%</span><br></pre></td></tr></table></figure>
+
+<p>测试的结果要关注 fsync 的 第 99 个百分位数部分。这里我的测试结果是 1205 usec，也就是 1.205 ms，etcd 官方建议，为了使存储速度足够快，写入 WAL 文件时 fdatasync 调用的第 99 个百分位数必须小于 10 毫秒。如果第 99 个百分位接近甚至大于 10 毫秒，则当前的存储无法满足 etcd 所需的读写性能要求。</p>
+<h2 id="其他建议"><a href="#其他建议" class="headerlink" title="其他建议"></a>其他建议</h2><ol>
+<li>设置 etcd 磁盘优先级</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ionice -c2 -n0 -p `pgrep -x etcd`</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>etcd 参数调优</li>
+</ol>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">## rke</span></span><br><span class="line">services:</span><br><span class="line">  etcd:</span><br><span class="line">    extra_args:</span><br><span class="line">      <span class="comment"># 修改空间配额为$((6*1024*1024*1024))，默认2G,最大8G</span></span><br><span class="line">      quota-backend-bytes: <span class="string">&#x27;6442450944&#x27;</span></span><br><span class="line">      auto-compaction-mode: periodic</span><br><span class="line">      auto-compaction-retention: 60m</span><br><span class="line">      snapshot-count: 100000 <span class="comment"># 默认 100000 条事务才进行一次存盘，存盘之前数据都保存在内存中。如果节点内存禁止，可以适当缩减。但是缩减之后会增加数据落盘的频率，会增加存盘的负载。default: &quot;100000&quot;</span></span><br><span class="line">      max-request-bytes: 104857600 <span class="comment"># 默认 1.5m，https://etcd.io/docs/v3.3/dev-guide/limit/#request-size-limit</span></span><br><span class="line">      log-level: info <span class="comment"># supports debug, info, warn, error, panic, or fatal.</span></span><br></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<p>参考链接：</p>
+<p><a target="_blank" rel="noopener" href="https://etcd.io/docs/v3.4/op-guide/hardware/#disks">https://etcd.io/docs/v3.4/op-guide/hardware/#disks</a></p>
+<p><a target="_blank" rel="noopener" href="https://github.com/etcd-io/etcd/blob/release-3.4/Documentation/faq.md">https://github.com/etcd-io/etcd/blob/release-3.4/Documentation/faq.md</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.suse.com/support/kb/doc/?id=000020100">https://www.suse.com/support/kb/doc/?id=000020100</a></p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://www.zerchin.com/2023/05/03/etcd/ETCD%20%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95%E6%8C%87%E5%8D%97/" title="ETCD 性能测试指南">http://www.zerchin.com/2023/05/03/etcd/ETCD 性能测试指南/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/kubernetes/" rel="tag"># kubernetes</a>
+              <a href="/tags/etcd/" rel="tag"># etcd</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2023/03/19/kubernetes/NetworkPolicy%E8%A7%84%E5%88%99/" rel="prev" title="NetworkPolicy规则">
+                  <i class="fa fa-chevron-left"></i> NetworkPolicy规则
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2023/05/13/docker/daemon.json%E5%8F%82%E6%95%B0%E8%A7%A3%E6%9E%90/" rel="next" title="daemon.json参数解析">
+                  daemon.json参数解析 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.zerchin.com","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="问题描述在验证海光服务器与 Rancher 兼容性时，出现一个奇怪的现象：">
+<meta property="og:type" content="article">
+<meta property="og:title" content="海光 CPU 指令集导致的容器无法创建问题">
+<meta property="og:url" content="http://www.zerchin.com/2025/04/11/rancher/%E6%B5%B7%E5%85%89%20CPU%20%E6%8C%87%E4%BB%A4%E9%9B%86%E5%AF%BC%E8%87%B4%E7%9A%84%E5%AE%B9%E5%99%A8%E6%97%A0%E6%B3%95%E5%88%9B%E5%BB%BA%E9%97%AE%E9%A2%98/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="问题描述在验证海光服务器与 Rancher 兼容性时，出现一个奇怪的现象：">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://www.zerchin.com/2025/04/11/rancher/%E6%B5%B7%E5%85%89%20CPU%20%E6%8C%87%E4%BB%A4%E9%9B%86%E5%AF%BC%E8%87%B4%E7%9A%84%E5%AE%B9%E5%99%A8%E6%97%A0%E6%B3%95%E5%88%9B%E5%BB%BA%E9%97%AE%E9%A2%98/rke-error-1.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/04/11/rancher/%E6%B5%B7%E5%85%89%20CPU%20%E6%8C%87%E4%BB%A4%E9%9B%86%E5%AF%BC%E8%87%B4%E7%9A%84%E5%AE%B9%E5%99%A8%E6%97%A0%E6%B3%95%E5%88%9B%E5%BB%BA%E9%97%AE%E9%A2%98/rke-error-2.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/04/11/rancher/%E6%B5%B7%E5%85%89%20CPU%20%E6%8C%87%E4%BB%A4%E9%9B%86%E5%AF%BC%E8%87%B4%E7%9A%84%E5%AE%B9%E5%99%A8%E6%97%A0%E6%B3%95%E5%88%9B%E5%BB%BA%E9%97%AE%E9%A2%98/rke-error-3.png">
+<meta property="og:image" content="http://www.zerchin.com/2025/04/11/rancher/%E6%B5%B7%E5%85%89%20CPU%20%E6%8C%87%E4%BB%A4%E9%9B%86%E5%AF%BC%E8%87%B4%E7%9A%84%E5%AE%B9%E5%99%A8%E6%97%A0%E6%B3%95%E5%88%9B%E5%BB%BA%E9%97%AE%E9%A2%98/sangfor-hostcpu.png">
+<meta property="article:published_time" content="2025-04-11T09:01:11.000Z">
+<meta property="article:modified_time" content="2025-04-11T09:01:11.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="rancher">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://www.zerchin.com/2025/04/11/rancher/%E6%B5%B7%E5%85%89%20CPU%20%E6%8C%87%E4%BB%A4%E9%9B%86%E5%AF%BC%E8%87%B4%E7%9A%84%E5%AE%B9%E5%99%A8%E6%97%A0%E6%B3%95%E5%88%9B%E5%BB%BA%E9%97%AE%E9%A2%98/rke-error-1.png">
+
+
+<link rel="canonical" href="http://www.zerchin.com/2025/04/11/rancher/%E6%B5%B7%E5%85%89%20CPU%20%E6%8C%87%E4%BB%A4%E9%9B%86%E5%AF%BC%E8%87%B4%E7%9A%84%E5%AE%B9%E5%99%A8%E6%97%A0%E6%B3%95%E5%88%9B%E5%BB%BA%E9%97%AE%E9%A2%98/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>海光 CPU 指令集导致的容器无法创建问题 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">61</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">35</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">128</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%97%AE%E9%A2%98%E6%8F%8F%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">问题描述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%AA%8C%E8%AF%81%E7%89%88%E6%9C%AC"><span class="nav-number">2.</span> <span class="nav-text">验证版本</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%97%AE%E9%A2%98%E7%8E%B0%E8%B1%A1"><span class="nav-number">3.</span> <span class="nav-text">问题现象</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#RKE"><span class="nav-number">3.1.</span> <span class="nav-text">RKE</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#RKE2"><span class="nav-number">3.2.</span> <span class="nav-text">RKE2</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8E%92%E6%9F%A5%E8%BF%87%E7%A8%8B"><span class="nav-number">4.</span> <span class="nav-text">排查过程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%91%E7%8E%B0%E9%97%AE%E9%A2%98"><span class="nav-number">4.1.</span> <span class="nav-text">发现问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%8E%AF%E5%A2%83%E6%A3%80%E6%9F%A5"><span class="nav-number">4.2.</span> <span class="nav-text">环境检查</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%89%88%E6%9C%AC%E5%85%BC%E5%AE%B9%E9%AA%8C%E8%AF%81"><span class="nav-number">4.3.</span> <span class="nav-text">版本兼容验证</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%E5%B1%82%E9%9D%A2%E5%86%8D%E6%AC%A1%E6%8E%92%E6%9F%A5"><span class="nav-number">4.4.</span> <span class="nav-text">操作系统层面再次排查</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%8D%E6%96%B0-build-%E9%95%9C%E5%83%8F"><span class="nav-number">4.5.</span> <span class="nav-text">重新 build 镜像</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%8D%E8%A6%81%E5%8F%91%E7%8E%B0"><span class="nav-number">4.6.</span> <span class="nav-text">重要发现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%97%AE%E9%A2%98%E6%80%BB%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">问题总结</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">128</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">61</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.zerchin.com/2025/04/11/rancher/%E6%B5%B7%E5%85%89%20CPU%20%E6%8C%87%E4%BB%A4%E9%9B%86%E5%AF%BC%E8%87%B4%E7%9A%84%E5%AE%B9%E5%99%A8%E6%97%A0%E6%B3%95%E5%88%9B%E5%BB%BA%E9%97%AE%E9%A2%98/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          海光 CPU 指令集导致的容器无法创建问题
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2025-04-11 17:01:11" itemprop="dateCreated datePublished" datetime="2025-04-11T17:01:11+08:00">2025-04-11</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/rancher/" itemprop="url" rel="index"><span itemprop="name">rancher</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="问题描述"><a href="#问题描述" class="headerlink" title="问题描述"></a>问题描述</h2><p>在验证海光服务器与 Rancher 兼容性时，出现一个奇怪的现象：</p>
+<p>在阿里云平台上，使用 kylin v10 （X86版）(V10 V10.0-20221226) 以及 ARM 版本，可以正常创建 RKE 和 RKE2 集群。</p>
+<p>在海光服务器 + VMware平台上，使用 kylin v10 sp3 操作系统，可以创建 RKE2 集群。</p>
+<p>但是在海光服务器 + 深信服平台上，使用 kylin v10 sp3 操作系统，就无法创建 RKE 和 RKE2 集群。</p>
+<h2 id="验证版本"><a href="#验证版本" class="headerlink" title="验证版本"></a>验证版本</h2><table>
+<thead>
+<tr>
+<th>Env</th>
+<th>Version</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Rancher</td>
+<td>v2.8.5-ent</td>
+</tr>
+<tr>
+<td>RKE</td>
+<td>v1.28.15</td>
+</tr>
+<tr>
+<td>RKE2</td>
+<td>v1.28.15+rke2r1</td>
+</tr>
+<tr>
+<td>Docker</td>
+<td>26.1.3</td>
+</tr>
+<tr>
+<td>kernel</td>
+<td>4.19.90-24.4.v2101.ky10.x86_64</td>
+</tr>
+</tbody></table>
+<h2 id="问题现象"><a href="#问题现象" class="headerlink" title="问题现象"></a>问题现象</h2><h3 id="RKE"><a href="#RKE" class="headerlink" title="RKE"></a>RKE</h3><p>在通过 Rancher 创建 RKE 集群时，首次注册节点运行 agent 容器直接无法运行，一直是 restarting 状态，也没有任何日志信息。使用 docker inspect xxx 查看 agent 容器状态，看到退出码是 139 。</p>
+<img src="/2025/04/11/rancher/%E6%B5%B7%E5%85%89%20CPU%20%E6%8C%87%E4%BB%A4%E9%9B%86%E5%AF%BC%E8%87%B4%E7%9A%84%E5%AE%B9%E5%99%A8%E6%97%A0%E6%B3%95%E5%88%9B%E5%BB%BA%E9%97%AE%E9%A2%98/rke-error-1.png" class="" title="rke-error-1">
+
+<h3 id="RKE2"><a href="#RKE2" class="headerlink" title="RKE2"></a>RKE2</h3><p>通过 Rancher 部署 RKE2 集群，前面都能正常运行，但是 kube-proxy pod 无法启动。</p>
+<p>其中 kube-proxy 使用的镜像一开始 iptables 命令是指向 /usr/sbin/iptables-detect.sh，这个脚本会调用另一个脚本 /usr/sbin/xtables-set-mode.sh，根据节点 iptables mode 进行一些设置，设置完才能用正常使用 iptables。但是在执行脚本的时候会报错 Segmentation fault (core dumped)，导致 kube-proxy 容器内无法正常指向可用的 iptables，同时也发现执行简单的 <code>ls /usr/sbin/*</code> 也会报同样的错误。从节点内核日志也可以捕获的相关的错误日志。</p>
+<h2 id="排查过程"><a href="#排查过程" class="headerlink" title="排查过程"></a>排查过程</h2><h3 id="发现问题"><a href="#发现问题" class="headerlink" title="发现问题"></a>发现问题</h3><p>使用 docker inspect xxx 查看 agent 容器状态，看到退出码是 139 。这里初步怀疑是操作系统兼容性的问题。</p>
+<img src="/2025/04/11/rancher/%E6%B5%B7%E5%85%89%20CPU%20%E6%8C%87%E4%BB%A4%E9%9B%86%E5%AF%BC%E8%87%B4%E7%9A%84%E5%AE%B9%E5%99%A8%E6%97%A0%E6%B3%95%E5%88%9B%E5%BB%BA%E9%97%AE%E9%A2%98/rke-error-2.png" class="" title="rke-error-2">
+
+<p>随之尝试手动去 docker run agent 镜像不带任何启动参数，也是跑不起来（连最基本的 error 日志都没有）。</p>
+<h3 id="环境检查"><a href="#环境检查" class="headerlink" title="环境检查"></a>环境检查</h3><ol>
+<li>检查 selinux 、 apparmor，确认都已关闭。</li>
+<li>怀疑 glibc 兼容性问题，通过ldd 查看系统 glibc 的版本： ldd (GNU libc) 2.28</li>
+<li>通过 dmesg 收集系统日志，全是下面这种日志：</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[926769.990280] run.sh[3902107]: segfault at 55ab42bfe000 ip 00007fcac6767d39 sp 00007ffdb440eac8 error 6 in libc-2.31.so[7fcac6609000+1e8000]</span><br></pre></td></tr></table></figure>
+
+<h3 id="版本兼容验证"><a href="#版本兼容验证" class="headerlink" title="版本兼容验证"></a>版本兼容验证</h3><ol>
+<li><p>一开始怀疑是 Docker 版本兼容问题，查看 <a target="_blank" rel="noopener" href="https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/rancher-v2-8-5/">Rancher 官方兼容列表</a> ，2.8.5 兼容的 Docker 版本是 23.0.x/24.0.x，随之降级 Docker 版本，失败。</p>
+</li>
+<li><p>尝试使用 <code>-e LD_PRELOAD=libc-2.28.so</code> 或者 <code>-v /usr/lib64/libc-2.28.so:/usr/lib64/libc-2.28.so</code>指定 glibc 版本，失败。</p>
+</li>
+<li><p>设置 entrypoint /bin/sh 尝试进入容器的 shell，失败。</p>
+</li>
+<li><p>前面提到 VMware 环境可以正常启动，但是深信服环境就启动不了，经过了解，VMware 正常运行的 kylin 的 kernel 版本是 4.19.90-89.14，深信服上面跑的 kylin 的 kernel 版本是 4.19.90-89.17，随之尝试使用相同的 kernel 版本，失败。</p>
+</li>
+</ol>
+<h3 id="操作系统层面再次排查"><a href="#操作系统层面再次排查" class="headerlink" title="操作系统层面再次排查"></a>操作系统层面再次排查</h3><p>Segfault 也有可能是 so 有问题，随之在目标系统上运行 rpm -Va 进行检查， 正常来说，输出比较少，也不应该有任何 so 文件输出。</p>
+<p>如果是 conf 文件一类，带 T,S 这些，就无所谓。 但如果是二进制 so，带 M,S 标志，就有问题了。 M 是修改的意思，so 不应该被修改。</p>
+<p>检查了下这部分，也发现都是正常的。</p>
+<img src="/2025/04/11/rancher/%E6%B5%B7%E5%85%89%20CPU%20%E6%8C%87%E4%BB%A4%E9%9B%86%E5%AF%BC%E8%87%B4%E7%9A%84%E5%AE%B9%E5%99%A8%E6%97%A0%E6%B3%95%E5%88%9B%E5%BB%BA%E9%97%AE%E9%A2%98/rke-error-3.png" class="" title="rke-error-3">
+
+<h3 id="重新-build-镜像"><a href="#重新-build-镜像" class="headerlink" title="重新 build 镜像"></a>重新 build 镜像</h3><p>前面有尝试过 设置 entrypoint /bin/sh 启动容器都无法启动，所以决定直接基于 kylin 操作系统构建了新的agent镜像。但是也失败了。</p>
+<p>到这一步，我们已经怀疑是底层 BCI 镜像的问题了，因为 agent 镜像是基于 bci-base 镜像构建的，所以直接运行 <code>registry.suse.com/bci/bci-base:15.5</code> 镜像，但也失败了，到这一步确定是底层 BCI 镜像与操作系统不兼容。</p>
+<p>（已验证过使用官方<code> busybox</code>、或者  <code>registry.suse.com/bci/golang:1.21</code>都可以正常启动。）</p>
+<h3 id="重要发现"><a href="#重要发现" class="headerlink" title="重要发现"></a>重要发现</h3><p>根据我们 Linux 工程师的经验，Kylin v10 sp3 经常为不同客户构建不同的定制镜像，但产品名字是一样的，所以光看产品名和版本，可能不是同一套东西。其中 VMware 启动是 iso或vmdk，深信服（OpenStack）启动是 qcow2，再加上之前远程的时候有看到两个环境的内核版本不一致，所以猜测应该不同的镜像。于是向客户说明这个可能性，准备导出深信服环境的虚拟机镜像，在我们自己的环境上进行验证。</p>
+<p>但是客户突然反驳到，他们都是使用同一个镜像进行安装，所以和操作系统也没关系了。但是他们提到之前安装的时候开启过 HostCPU 可以正常运行。<strong>这是一个很重要的发现！</strong></p>
+<p>于是查询了下深信服官网中对 <a target="_blank" rel="noopener" href="https://support.sangfor.com.cn/productDocument/read?product_id=36&version_id=1022&category_id=286363">HostCPU</a> 的说明，其中关键部分如下：</p>
+<p><strong>最佳实践：海光的服务器建议所有虚拟机开启HostCPU，若不开启此选项，虚拟机的CPU型号为AMD。</strong></p>
+<img src="/2025/04/11/rancher/%E6%B5%B7%E5%85%89%20CPU%20%E6%8C%87%E4%BB%A4%E9%9B%86%E5%AF%BC%E8%87%B4%E7%9A%84%E5%AE%B9%E5%99%A8%E6%97%A0%E6%B3%95%E5%88%9B%E5%BB%BA%E9%97%AE%E9%A2%98/sangfor-hostcpu.png" class="" title="rke-error-3">
+
+<h2 id="问题总结"><a href="#问题总结" class="headerlink" title="问题总结"></a>问题总结</h2><p>经最终排查与验证，确认本次容器无法正常启动的问题源于 CPU 指令集不兼容。主要是深信服平台在海光服务器上默认启用的虚拟化 CPU 类型为 AMD，该虚拟化层提供的 AMD CPU 指令集与所使用的 BCI 镜像在指令集支持方面存在兼容性问题，导致容器运行时在初始化或执行关键指令时发生异常，从而无法正常启动。</p>
+<p>最后确认了问题是跟 CPU 指令集相关，后面通过启用了 HostCPU 之后，问题得到了解决，容器可以正常启动，RKE 和 RKE2 集群都能创建成功。</p>
+<p>在使用特定国产硬件平台（如海光）与安全虚拟化环境时，还是需要特别关注 CPU 指令集兼容性对容器运行时环境的影响。</p>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://www.zerchin.com/2025/04/11/rancher/%E6%B5%B7%E5%85%89%20CPU%20%E6%8C%87%E4%BB%A4%E9%9B%86%E5%AF%BC%E8%87%B4%E7%9A%84%E5%AE%B9%E5%99%A8%E6%97%A0%E6%B3%95%E5%88%9B%E5%BB%BA%E9%97%AE%E9%A2%98/" title="海光 CPU 指令集导致的容器无法创建问题">http://www.zerchin.com/2025/04/11/rancher/海光 CPU 指令集导致的容器无法创建问题/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/rancher/" rel="tag"># rancher</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2025/04/05/headscale/Headscale%20%E5%86%85%E7%BD%91%E7%A9%BF%E9%80%8F%E6%96%B9%E6%A1%88/" rel="prev" title="Headscale 内网穿透方案">
+                  <i class="fa fa-chevron-left"></i> Headscale 内网穿透方案
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2025/04/21/elemental/elemental%E9%9B%86%E7%BE%A4%E5%88%A0%E9%99%A4%E8%8A%82%E7%82%B9/" rel="next" title="elemental集群删除节点">
+                  elemental集群删除节点 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>

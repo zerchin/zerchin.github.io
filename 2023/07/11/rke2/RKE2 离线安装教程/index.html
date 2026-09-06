@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/icon.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.css">
+  <script src="//cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.js"></script>
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"www.zerchin.com","root":"/","images":"/images","scheme":"Gemini","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":true,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"/search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+<meta name="description" content="概述RKE2 是 Rancher 的下一代 Kubernetes 发行版，其中 RKE2 内置嵌入式容器运行时 containerd，k8s 的系统组件（例如：Apiserver、etcd 等）由 kubelet 管理的静态 pod 启动。RKE2 官方提供了一键安装启动的脚本，但是这个安装过程需要全程联网拉取镜像。对于某些企业级环境可能是全程离线的状态，RKE2 提供了两种离线安装的方法。本文会">
+<meta property="og:type" content="article">
+<meta property="og:title" content="RKE2 离线安装教程">
+<meta property="og:url" content="http://www.zerchin.com/2023/07/11/rke2/RKE2%20%E7%A6%BB%E7%BA%BF%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/index.html">
+<meta property="og:site_name" content="zerchin 云技术栈">
+<meta property="og:description" content="概述RKE2 是 Rancher 的下一代 Kubernetes 发行版，其中 RKE2 内置嵌入式容器运行时 containerd，k8s 的系统组件（例如：Apiserver、etcd 等）由 kubelet 管理的静态 pod 启动。RKE2 官方提供了一键安装启动的脚本，但是这个安装过程需要全程联网拉取镜像。对于某些企业级环境可能是全程离线的状态，RKE2 提供了两种离线安装的方法。本文会">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-07-11T11:23:22.000Z">
+<meta property="article:modified_time" content="2023-07-11T11:23:22.000Z">
+<meta property="article:author" content="zerchin">
+<meta property="article:tag" content="rke2">
+<meta name="twitter:card" content="summary">
+
+
+<link rel="canonical" href="http://www.zerchin.com/2023/07/11/rke2/RKE2%20%E7%A6%BB%E7%BA%BF%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<title>RKE2 离线安装教程 | zerchin 云技术栈</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">zerchin 云技术栈</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Kubernetes && Openstack engineer</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">61</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">35</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">128</span></a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup"><div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%8E%AF%E5%A2%83"><span class="nav-number">2.</span> <span class="nav-text">环境</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%88%E5%86%B3%E6%9D%A1%E4%BB%B6"><span class="nav-number">3.</span> <span class="nav-text">先决条件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%96%87%E4%BB%B6%E8%AF%B4%E6%98%8E"><span class="nav-number">4.</span> <span class="nav-text">文件说明</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E4%BA%8E%E9%95%9C%E5%83%8F%E4%BB%93%E5%BA%93%E7%9A%84%E7%A6%BB%E7%BA%BF%E5%AE%89%E8%A3%85%E6%96%B9%E6%B3%95"><span class="nav-number">5.</span> <span class="nav-text">基于镜像仓库的离线安装方法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AF%BC%E5%85%A5%E9%95%9C%E5%83%8F"><span class="nav-number">5.1.</span> <span class="nav-text">导入镜像</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#rke2-%E4%BA%8C%E8%BF%9B%E5%88%B6%E6%96%87%E4%BB%B6%E4%B8%8B%E8%BD%BD"><span class="nav-number">5.2.</span> <span class="nav-text">rke2 二进制文件下载</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Server-%E8%8A%82%E7%82%B9%E5%AE%89%E8%A3%85"><span class="nav-number">5.3.</span> <span class="nav-text">Server 节点安装</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Agent-%E5%AE%89%E8%A3%85"><span class="nav-number">5.4.</span> <span class="nav-text">Agent 安装</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E4%BA%8ETallball%E7%9A%84%E7%A6%BB%E7%BA%BF%E5%AE%89%E8%A3%85%E6%96%B9%E6%B3%95"><span class="nav-number">6.</span> <span class="nav-text">基于Tallball的离线安装方法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%8B%E8%BD%BD%E7%A6%BB%E7%BA%BF%E4%BB%8B%E8%B4%A8%E5%8C%85"><span class="nav-number">6.1.</span> <span class="nav-text">下载离线介质包</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Server-%E8%8A%82%E7%82%B9%E5%AE%89%E8%A3%85-1"><span class="nav-number">6.2.</span> <span class="nav-text">Server 节点安装</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Agent-%E8%8A%82%E7%82%B9%E5%AE%89%E8%A3%85"><span class="nav-number">6.3.</span> <span class="nav-text">Agent 节点安装</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#tips"><span class="nav-number">6.4.</span> <span class="nav-text">tips</span></a></li></ol></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="zerchin"
+      src="/images/ghost_dead.jpg">
+  <p class="site-author-name" itemprop="name">zerchin</p>
+  <div class="site-description" itemprop="description">云原生技术</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">128</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">61</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author site-overview-item animated">
+      <span class="links-of-author-item">
+        <a href="mailto:zerchin@163.com" title="E-Mail → mailto:zerchin@163.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i></a>
+      </span>
+  </div>
+
+
+
+        </section>
+      </div>
+        <div class="back-to-top animated">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://www.zerchin.com/2023/07/11/rke2/RKE2%20%E7%A6%BB%E7%BA%BF%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/ghost_dead.jpg">
+      <meta itemprop="name" content="zerchin">
+      <meta itemprop="description" content="云原生技术">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="zerchin 云技术栈">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          RKE2 离线安装教程
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2023-07-11 19:23:22" itemprop="dateCreated datePublished" datetime="2023-07-11T19:23:22+08:00">2023-07-11</time>
+    </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/rke2/" itemprop="url" rel="index"><span itemprop="name">rke2</span></a>
+        </span>
+    </span>
+
+  
+    <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="far fa-eye"></i>
+      </span>
+      <span class="post-meta-item-text">阅读次数：</span>
+      <span id="busuanzi_value_page_pv"></span>
+    </span>
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>RKE2 是 Rancher 的下一代 Kubernetes 发行版，其中 RKE2 内置嵌入式容器运行时 containerd，k8s 的系统组件（例如：Apiserver、etcd 等）由 kubelet 管理的静态 pod 启动。RKE2 官方提供了一键安装启动的脚本，但是这个安装过程需要全程联网拉取镜像。对于某些企业级环境可能是全程离线的状态，RKE2 提供了两种离线安装的方法。本文会介绍这两种安装方法。</p>
+<h2 id="环境"><a href="#环境" class="headerlink" title="环境"></a>环境</h2><table>
+<thead>
+<tr>
+<th>Env</th>
+<th>Version</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Ubuntu</td>
+<td>22.04</td>
+</tr>
+<tr>
+<td>RKE2</td>
+<td>v1.27.3+rke2r1</td>
+</tr>
+</tbody></table>
+<h2 id="先决条件"><a href="#先决条件" class="headerlink" title="先决条件"></a>先决条件</h2><ul>
+<li>已初始化节点</li>
+<li>本地已部署好 Harbor 镜像仓库</li>
+</ul>
+<h2 id="文件说明"><a href="#文件说明" class="headerlink" title="文件说明"></a>文件说明</h2><p>首先进入到 RKE2 的 <a target="_blank" rel="noopener" href="https://github.com/rancher/rke2/releases/tag/v1.27.3%2Brke2r1">release</a> 页面获取相关离线介质文件。其中我们能看到每一个包都会有 tar.gz 和 tar.zst 是两种压缩格式，这两者内容是一样的，但是与 gzip 相比，Zstandard 支持更好的压缩比和更快的解压缩速度，所以包会小一些。</p>
+<p>这里以 amd64 架构为例，主要文件说明如下：</p>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>rke2-images.linux-amd64.tar.zst / gz</td>
+<td>k8s + canal 镜像</td>
+</tr>
+<tr>
+<td>rke2-images.linux-amd64.txt</td>
+<td>k8s + canal 镜像列表</td>
+</tr>
+<tr>
+<td>rke2-images-calico.linux-amd64.tar.zst / gz</td>
+<td>calico  镜像</td>
+</tr>
+<tr>
+<td>rke2-images-calico.linux-amd64.txt</td>
+<td>calico 镜像列表</td>
+</tr>
+<tr>
+<td>rke2-images-canal.linux-amd64.tar.zst / gz</td>
+<td>canal 镜像</td>
+</tr>
+<tr>
+<td>rke2-images-canal.linux-amd64.txt</td>
+<td>canal 镜像列表</td>
+</tr>
+<tr>
+<td>rke2-images-cilium.linux-amd64.tar.zst / gz</td>
+<td>cilium 镜像</td>
+</tr>
+<tr>
+<td>rke2-images-cilium.linux-amd64.txt</td>
+<td>cilium 镜像列表</td>
+</tr>
+<tr>
+<td>rke2-images-core.linux-amd64.tar.zst / gz</td>
+<td>k8s 镜像</td>
+</tr>
+<tr>
+<td>rke2-images-core.linux-amd64.txt</td>
+<td>k8s 镜像列表</td>
+</tr>
+<tr>
+<td>rke2.linux-amd64 / rke2.linux-amd64.tar.gz</td>
+<td>rke2 二进制文件</td>
+</tr>
+</tbody></table>
+<p>根据这个规律，我们可以有以下几种组合：</p>
+<ol>
+<li> canal CNI：rke2-images 或者 rke2-images-core + rke2-images-canal</li>
+<li>calico CNI：rke2-images-core + rke2-images-calico</li>
+<li>cilium CNI：rke2-images-core + rke2-images-cilium</li>
+</ol>
+<p>其中 rke2 二进制文件是一定要下载的。</p>
+<h2 id="基于镜像仓库的离线安装方法"><a href="#基于镜像仓库的离线安装方法" class="headerlink" title="基于镜像仓库的离线安装方法"></a>基于镜像仓库的离线安装方法</h2><p>这种方法只需要将镜像导入到本地的私有镜像仓库中，例如 Harbor 镜像仓库，后续创建节点都可以使用这个镜像仓库下载镜像。</p>
+<h3 id="导入镜像"><a href="#导入镜像" class="headerlink" title="导入镜像"></a>导入镜像</h3><p>首先根据我们需要安装的 CNI选择对应的镜像包，这里以 canal 为例，我们直接下载 <code>rke2-images.linux-amd64.tar.zst</code> 和 <code>rke2-images.linux-amd64.txt</code> 两个文件。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">wget https://github.com/rancher/rke2/releases/download/v1.27.3%2Brke2r1/rke2-images.linux-amd64.txt</span><br><span class="line">wget https://github.com/rancher/rke2/releases/download/v1.27.3%2Brke2r1/rke2-images.linux-amd64.tar.zst</span><br></pre></td></tr></table></figure>
+
+<p>选择一个带有 Docker 环境的主机，并且能够访问到 Harbor 镜像仓库，将刚刚下载的镜像通过 Docker 命令导入进来。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker load -i rke2-images.linux-amd64.tar.zst</span><br></pre></td></tr></table></figure>
+
+<p>查看镜像列表：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">cat rke2-images.linux-amd64.txt </span><br><span class="line">docker.io/rancher/rke2-runtime:v1.27.3-rke2r1</span><br><span class="line">docker.io/rancher/hardened-kubernetes:v1.27.3-rke2r1-build20230614</span><br><span class="line">docker.io/rancher/hardened-coredns:v1.10.1-build20230607</span><br><span class="line">docker.io/rancher/hardened-cluster-autoscaler:v1.8.6-build20230609</span><br><span class="line">docker.io/rancher/hardened-dns-node-cache:1.22.20-build20230607</span><br><span class="line">docker.io/rancher/hardened-etcd:v3.5.7-k3s1-build20230609</span><br><span class="line">docker.io/rancher/hardened-k8s-metrics-server:v0.6.3-build20230607</span><br><span class="line">docker.io/rancher/klipper-helm:v0.8.0-build20230510</span><br><span class="line">docker.io/rancher/klipper-lb:v0.4.4</span><br><span class="line">docker.io/rancher/mirrored-pause:3.6</span><br><span class="line">docker.io/rancher/mirrored-ingress-nginx-kube-webhook-certgen:v20230312-helm-chart-4.5.2-28-g66a760794</span><br><span class="line">docker.io/rancher/nginx-ingress-controller:nginx-1.6.4-hardened5</span><br><span class="line">docker.io/rancher/rke2-cloud-provider:v1.26.3-build20230608</span><br><span class="line">docker.io/rancher/mirrored-sig-storage-snapshot-controller:v6.2.1</span><br><span class="line">docker.io/rancher/mirrored-sig-storage-snapshot-validation-webhook:v6.2.1</span><br><span class="line">docker.io/rancher/hardened-calico:v3.25.1-build20230607</span><br><span class="line">docker.io/rancher/hardened-flannel:v0.22.0-build20230612</span><br></pre></td></tr></table></figure>
+
+<p>根据这个镜像列表中命名的格式，我们可以通过如下脚本实现一键上传到本地镜像仓库中：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">HARBOR_URL=harbor.zerchin.xyz</span><br><span class="line"></span><br><span class="line"><span class="comment">## login</span></span><br><span class="line">docker login <span class="variable">$HARBOR_URL</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> `cat rke2-images.linux-amd64.txt | awk -F <span class="string">&#x27;docker.io/&#x27;</span> <span class="string">&#x27;&#123;print $2&#125;&#x27;</span>`</span><br><span class="line"><span class="keyword">do</span></span><br><span class="line">  docker tag <span class="variable">$i</span> <span class="variable">$HARBOR_URL</span>/<span class="variable">$i</span></span><br><span class="line">  docker push <span class="variable">$HARBOR_URL</span>/<span class="variable">$i</span></span><br><span class="line"><span class="keyword">done</span></span><br></pre></td></tr></table></figure>
+
+<p>如果这个 Docker 主机可以同时访问外网和本地 Harbor 镜像仓库，可以用下面这个脚本一键上传：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line">HARBOR_URL=harbor.zerchin.xyz</span><br><span class="line">RKE2_VERSION=v1.27.3+rke2r1</span><br><span class="line">DEL_IMG=<span class="variable">$&#123;DEL_IMG:-true&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">## login</span></span><br><span class="line">docker login <span class="variable">$HARBOR_URL</span></span><br><span class="line"></span><br><span class="line">wget https://github.com/rancher/rke2/releases/download/<span class="variable">$&#123;RKE2_VERSION&#125;</span>/rke2-images.linux-amd64.txt</span><br><span class="line">wget https://github.com/rancher/rke2/releases/download/<span class="variable">$&#123;RKE2_VERSION&#125;</span>/rke2-images.linux-amd64.tar.zst</span><br><span class="line"></span><br><span class="line">docker load -i rke2-images.linux-amd64.tar.zst</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> `cat rke2-images.linux-amd64.txt | awk -F <span class="string">&#x27;docker.io/&#x27;</span> <span class="string">&#x27;&#123;print $2&#125;&#x27;</span>`</span><br><span class="line"><span class="keyword">do</span></span><br><span class="line">  docker tag <span class="variable">$i</span> <span class="variable">$HARBOR_URL</span>/<span class="variable">$i</span></span><br><span class="line">  docker push <span class="variable">$HARBOR_URL</span>/<span class="variable">$i</span></span><br><span class="line"><span class="keyword">done</span></span><br><span class="line"></span><br><span class="line"><span class="comment">## custom cluster</span></span><br><span class="line">RKE2_TAG=$(<span class="built_in">echo</span> <span class="variable">$RKE2_VERSION</span> | sed <span class="string">&#x27;s/\+/\-/&#x27;</span> )</span><br><span class="line">docker pull rancher/system-agent-installer-rke2:<span class="variable">$RKE2_TAG</span></span><br><span class="line">docker tag rancher/system-agent-installer-rke2:<span class="variable">$RKE2_TAG</span> <span class="variable">$HARBOR_URL</span>/rancher/system-agent-installer-rke2:<span class="variable">$RKE2_TAG</span></span><br><span class="line">docker push <span class="variable">$HARBOR_URL</span>/rancher/system-agent-installer-rke2:<span class="variable">$RKE2_TAG</span></span><br><span class="line">docker rmi rancher/system-agent-installer-rke2:<span class="variable">$RKE2_TAG</span> </span><br><span class="line">docker rmi <span class="variable">$HARBOR_URL</span>/rancher/system-agent-installer-rke2:<span class="variable">$RKE2_TAG</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> [[ <span class="variable">$DEL_IMG</span> == <span class="literal">true</span> ]]</span><br><span class="line"><span class="keyword">then</span></span><br><span class="line">  <span class="keyword">for</span> i <span class="keyword">in</span> `cat rke2-images.linux-amd64.txt | awk -F <span class="string">&#x27;docker.io/&#x27;</span> <span class="string">&#x27;&#123;print $2&#125;&#x27;</span>`</span><br><span class="line">  <span class="keyword">do</span> </span><br><span class="line">    docker rmi <span class="variable">$i</span> </span><br><span class="line">    docker rmi <span class="variable">$HARBOR_URL</span>/<span class="variable">$i</span></span><br><span class="line">  <span class="keyword">done</span></span><br><span class="line"></span><br><span class="line">  rm -f rke2-images.linux-amd64.txt rke2-images.linux-amd64.tar.zst </span><br><span class="line"><span class="keyword">fi</span></span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="rke2-二进制文件下载"><a href="#rke2-二进制文件下载" class="headerlink" title="rke2 二进制文件下载"></a>rke2 二进制文件下载</h3><p>下载 rke2 二进制文件和 install 脚本，并传到所有节点上：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">mkdir /root/rke2-artifacts</span><br><span class="line"><span class="built_in">cd</span> /root/rke2-artifacts</span><br><span class="line">wget https://github.com/rancher/rke2/releases/download/v1.27.3%2Brke2r1/rke2.linux-amd64.tar.gz</span><br><span class="line">wget https://github.com/rancher/rke2/releases/download/v1.27.3%2Brke2r1/sha256sum-amd64.txt</span><br><span class="line">curl -sfL https://get.rke2.io --output install.sh</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="Server-节点安装"><a href="#Server-节点安装" class="headerlink" title="Server 节点安装"></a>Server 节点安装</h3><p>安装 rke2 工具，通过 <code>INSTALL_RKE2_ARTIFACT_PATH</code>环境变量指定 rke2 二进制文件路径：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /root/rke2-artifacts</span><br><span class="line">INSTALL_RKE2_ARTIFACT_PATH=/root/rke2-artifacts sh install.sh </span><br></pre></td></tr></table></figure>
+
+<p><strong>配置私有镜像仓库地址</strong></p>
+<p>如果只需要 RKE2 系统组件的镜像使用本地镜像仓库，可以这么配置：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">mkdir -p /etc/rancher/rke2</span><br><span class="line"></span><br><span class="line">cat &lt;&lt; <span class="string">EOF &gt; /etc/rancher/rke2/config.yaml</span></span><br><span class="line"><span class="string">system-default-registry: harbor.zerchin.xyz</span></span><br><span class="line"><span class="string">token: customtoken123456</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
+
+<p>如果镜像仓库需要认证或者非权威证书，需要添加这个文件：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">configs:</span><br><span class="line">  <span class="string">&quot;harbor.zerchin.xyz&quot;</span>:</span><br><span class="line">    auth:</span><br><span class="line">      username: xxxxxx</span><br><span class="line">      password: xxxxxx</span><br><span class="line">    tls:</span><br><span class="line">      cert_file:            <span class="comment"># 证书</span></span><br><span class="line">      key_file:             <span class="comment"># 密钥</span></span><br><span class="line">      ca_file:              <span class="comment"># CA证书</span></span><br><span class="line">      insecure_skip_verify: <span class="comment"># 是否跳过证书检查</span></span><br></pre></td></tr></table></figure>
+
+<p>如果希望后续所有的 <code>docker.io</code> 镜像都是使用本地镜像仓库，可以这么配置：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">mirrors:</span><br><span class="line">  docker.io:</span><br><span class="line">    endpoint:</span><br><span class="line">      - <span class="string">&quot;harbor.zerchin.xyz&quot;</span></span><br><span class="line">EOF</span><br></pre></td></tr></table></figure>
+
+<p>启动 <code>rke2-server</code>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">systemctl <span class="built_in">enable</span> rke2-server</span><br><span class="line">systemctl start rke2-server</span><br></pre></td></tr></table></figure>
+
+<p>等待 <code>rke2-server</code>服务启动成功即可，如果服务启动失败，可以执行这个命令查看日志：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">journalctl -xef -u rke2-server</span><br></pre></td></tr></table></figure>
+
+<h3 id="Agent-安装"><a href="#Agent-安装" class="headerlink" title="Agent 安装"></a>Agent 安装</h3><p>安装 rke2 工具，通过 <code>INSTALL_RKE2_ARTIFACT_PATH</code>环境变量指定 rke2 二进制文件路径，同时通过<code>INSTALL_RKE2_TYPE</code>指定当前节点为 agent 节点：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /root/rke2-artifacts</span><br><span class="line">INSTALL_RKE2_ARTIFACT_PATH=/root/rke2-artifacts INSTALL_RKE2_TYPE=<span class="string">&quot;agent&quot;</span> sh install.sh </span><br></pre></td></tr></table></figure>
+
+<p><strong>配置私有镜像仓库地址</strong></p>
+<p>与 Server 节点配置基本一致，唯一多的配置是需要通过<code>server</code>参数指定 Server 节点：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mkdir -p /etc/rancher/rke2</span><br><span class="line"></span><br><span class="line">cat &lt;&lt; <span class="string">EOF &gt; /etc/rancher/rke2/config.yaml</span></span><br><span class="line"><span class="string">system-default-registry: harbor.zerchin.xyz</span></span><br><span class="line"><span class="string">token: customtoken123456</span></span><br><span class="line"><span class="string">server: https://&lt;server&gt;:9345</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
+
+<p>启动 <code>rke2-agent</code>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">systemctl <span class="built_in">enable</span> rke2-agent</span><br><span class="line">systemctl start rke2-agent</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="基于Tallball的离线安装方法"><a href="#基于Tallball的离线安装方法" class="headerlink" title="基于Tallball的离线安装方法"></a>基于Tallball的离线安装方法</h2><p>如果本地没有私有镜像仓库，或者只是想临时启动一个 RKE2 集群，可以使用这种方法进行安装。但是这个方法需要在每个节点上都上传离线镜像包。</p>
+<h3 id="下载离线介质包"><a href="#下载离线介质包" class="headerlink" title="下载离线介质包"></a>下载离线介质包</h3><p>在所有节点上都下载下面这些离线镜像介质包。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">RKE2_VERSION=v1.27.3+rke2r1</span><br><span class="line">mkdir /root/rke2-artifacts &amp;&amp; <span class="built_in">cd</span> /root/rke2-artifacts/</span><br><span class="line">wget https://github.com/rancher/rke2/releases/download/<span class="variable">$&#123;RKE2_VERSION&#125;</span>/rke2-images.linux-amd64.tar.zst</span><br><span class="line">wget https://github.com/rancher/rke2/releases/download/<span class="variable">$&#123;RKE2_VERSION&#125;</span>/rke2.linux-amd64.tar.gz</span><br><span class="line">wget https://github.com/rancher/rke2/releases/download/<span class="variable">$&#123;RKE2_VERSION&#125;</span>/sha256sum-amd64.txt</span><br><span class="line">curl -sfL https://get.rke2.io --output install.sh</span><br></pre></td></tr></table></figure>
+
+<h3 id="Server-节点安装-1"><a href="#Server-节点安装-1" class="headerlink" title="Server 节点安装"></a>Server 节点安装</h3><p>配置token：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">mkdir -p /etc/rancher/rke2</span><br><span class="line"></span><br><span class="line">cat &lt;&lt; <span class="string">EOF &gt; /etc/rancher/rke2/config.yaml</span></span><br><span class="line"><span class="string">token: customtoken123456</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
+
+<p>启动 <code>rke2-server</code>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">systemctl <span class="built_in">enable</span> rke2-server</span><br><span class="line">systemctl start rke2-server</span><br></pre></td></tr></table></figure>
+
+<p>等待 <code>rke2-server</code>服务启动成功即可，如果服务启动失败，可以执行这个命令查看日志：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">journalctl -xef -u rke2-server</span><br></pre></td></tr></table></figure>
+
+<h3 id="Agent-节点安装"><a href="#Agent-节点安装" class="headerlink" title="Agent 节点安装"></a>Agent 节点安装</h3><p>配置 token 和 server 参数：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">mkdir -p /etc/rancher/rke2</span><br><span class="line"></span><br><span class="line">cat &lt;&lt; <span class="string">EOF &gt; /etc/rancher/rke2/config.yaml</span></span><br><span class="line"><span class="string">token: customtoken123456</span></span><br><span class="line"><span class="string">server: https://&lt;server&gt;:9345</span></span><br><span class="line"><span class="string">EOF</span></span><br></pre></td></tr></table></figure>
+
+<p>启动 <code>rke2-server</code>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">systemctl <span class="built_in">enable</span> rke2-agent</span><br><span class="line">systemctl start rke2-agent</span><br></pre></td></tr></table></figure>
+
+<h3 id="tips"><a href="#tips" class="headerlink" title="tips"></a>tips</h3><p>使用 Tallball 方式安装的 RKE2 集群，当我们修改 rke2 的<code>config.yaml</code>文件里的参数时，在重启 rke2 服务时会看到这段日志：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">level=info msg=<span class="string">&quot;Importing images from /var/lib/rancher/rke2/agent/images/rke2-images.linux-amd64.tar.zst&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>原因是由于 RKE2 的默认扫描机制，会在每次启动 rke2 服务时，扫描 <code>/var/lib/rancher/rke2/agent/images/</code> 这个路径下的镜像文件加载镜像。当使用 Tallball 的方式进行安装时，会将 <code>rke2-images.linux-amd64.tar.zst</code>文件放置到该目录下进行加载（Tallball 加载镜像的原理）。</p>
+<p>为了防止每次重启 rke2 服务都去加载全量的镜像，可以手动把这个镜像文件删除掉即可。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rm -f /var/lib/rancher/rke2/agent/images/rke2-images.linux-amd64.tar.zst </span><br></pre></td></tr></table></figure>
+
+
+
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          
+
+<div class="post-copyright">
+<ul>
+  <li class="post-copyright-author">
+      <strong>本文作者： </strong>zerchin
+  </li>
+  <li class="post-copyright-link">
+      <strong>本文链接：</strong>
+      <a href="http://www.zerchin.com/2023/07/11/rke2/RKE2%20%E7%A6%BB%E7%BA%BF%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/" title="RKE2 离线安装教程">http://www.zerchin.com/2023/07/11/rke2/RKE2 离线安装教程/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/rke2/" rel="tag"># rke2</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2023/05/13/docker/daemon.json%E5%8F%82%E6%95%B0%E8%A7%A3%E6%9E%90/" rel="prev" title="daemon.json参数解析">
+                  <i class="fa fa-chevron-left"></i> daemon.json参数解析
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2023/09/13/harvester/Harvester%20VM%20%E8%87%AA%E5%AE%9A%E4%B9%89%20cloud%20init/" rel="next" title="Harvester VM 自定义 cloud init.md">
+                  Harvester VM 自定义 cloud init.md <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+  <div class="beian"><a href="https://beian.miit.gov.cn/" rel="noopener" target="_blank">null </a>
+  </div>
+
+<div class="copyright">
+  &copy; 2018 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">zerchin</span>
+</div>
+<div class="busuanzi-count">
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+    </div>
+  </footer>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="//cdn.jsdelivr.net/npm/ribbon.js@1.0.2/dist/ribbon.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1.0.6/dist/medium-zoom.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/next-boot.js"></script>
+
+  
+  <script>
+    (function(){
+      var bp = document.createElement('script');
+      var curProtocol = window.location.protocol.split(':')[0];
+      bp.src = (curProtocol === 'https') ? 'https://zz.bdstatic.com/linksubmit/push.js' : 'http://push.zhanzhang.baidu.com/push.js';
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(bp, s);
+    })();
+  </script>
+
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+  <script>
+    NProgress.configure({
+      showSpinner: true
+    });
+    NProgress.start();
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') {
+        NProgress.inc(0.8);
+      }
+      if (document.readyState === 'complete') {
+        NProgress.done();
+      }
+    });
+    document.addEventListener('pjax:send', () => {
+      NProgress.start();
+    });
+    document.addEventListener('pjax:success', () => {
+      NProgress.done();
+    });
+  </script>
+
+  
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+</body>
+</html>
